@@ -1,0 +1,8 @@
+{
+  "name": "XANA Seguridad para desplegar",
+  "description": "Una aplicación de auditoría de seguridad para farmacias, replicando el diseño y funcionalidad de XANA.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
