@@ -175,7 +175,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
   const generateDailyBriefing = async () => {
     setIsThinkingBriefing(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
       const highRiskNames = pharmacies.filter(p => p.risk === 'Alto').map(p => p.name).join(', ');
       
       const todayTasks = combinedSchedule.filter(s => s.date === todayISO).map(t => t.title).join(', ');
@@ -226,7 +226,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
   const generatePlanning = async () => {
     setIsThinkingPlanning(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
       const prompt = `
         Genera 3 propuestas tácticas de seguridad específicas para el usuario ${currentUser.fullName} (${currentUser.role}) en la zona ${currentUser.zone} para el día ${tomorrowISO}.
         
