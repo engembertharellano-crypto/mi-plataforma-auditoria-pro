@@ -88,7 +88,7 @@ const ManagementReport: React.FC<ManagementReportProps> = ({
     setIsGenerating(true);
     try {
       // Create new instance of GoogleGenAI using environment variable
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
       
       const statsContext = {
         usuario: coordinatorName,
