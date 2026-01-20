@@ -55,6 +55,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
   const allRecords = useMemo(() => {
     const format = (list: any[], type: string, dateKey: string) => 
       list.map(item => {
+        // Corrección de Sede Desconocida: Buscar siempre por ID
         const pId = item.pharmacyId || (item.pharmacy && item.pharmacy.id);
         const pharmacyData = pharmacies.find(p => p.id === pId);
 
@@ -116,13 +117,13 @@ const VisitLog: React.FC<VisitLogProps> = ({
   return (
     <div className="max-w-7xl mx-auto p-8 animate-in fade-in duration-500 pb-24">
       
-      {/* HEADER ORIGINAL RESTAURADO */}
+      {/* HEADER CORREGIDO: TEXTO BLANCO COMO EN LA IMAGEN DE REFERENCIA */}
       <div className="mb-10">
-        <h2 className="text-5xl font-black text-slate-800 tracking-tighter uppercase mb-2">BITÁCORA GLOBAL</h2>
-        <p className="text-slate-500 font-bold uppercase tracking-widest text-sm">Trazabilidad y Reportes de Campo</p>
+        <h2 className="text-5xl font-black text-white tracking-tighter uppercase mb-2">BITÁCORA GLOBAL</h2>
+        <p className="text-slate-300 font-bold uppercase tracking-widest text-sm">Trazabilidad y Reportes de Campo</p>
       </div>
 
-      {/* FILTERS BAR ORIGINAL RESTAURADO (Blanco Redondeado) */}
+      {/* Filters Bar */}
       <div className="bg-white p-4 rounded-[2rem] shadow-xl border border-slate-100 mb-8 flex flex-col md:flex-row items-center gap-4">
           <div className="relative group flex-1 w-full">
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-orange-500 transition-colors" />
@@ -182,7 +183,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
           </div>
       </div>
 
-      {/* TABLA RESTAURADA */}
+      {/* Table */}
       <div className="bg-white rounded-[2.5rem] shadow-xl border border-white overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
