@@ -25,8 +25,8 @@ import {
 } from 'lucide-react';
 import { AuditState } from '../types';
 import { HARDWARE_CHECKLIST, PROCESS_CHECKLIST } from '../constants';
-// IMPORTACIÓN CORRECTA (Igual que en AIAssistant)
-import { GoogleGenAI } from "@google/genai";
+// IMPORTAMOS LOS TIPOS DE SEGURIDAD
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 
 interface AuditResultsProps {
   audit: AuditState;
@@ -146,7 +146,6 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
   const generateExecutiveReport = async (auditData: AuditState, stats: any) => {
     setIsGenerating(true);
     try {
-      // --- CONEXIÓN IDÉNTICA A LA DEL ASISTENTE IA ---
       const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
       
       const managerName = `${auditData.inCharge.nombre} ${auditData.inCharge.apellido}`.toUpperCase();
@@ -174,13 +173,21 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
       
       Estilo: Técnico, profesional de seguridad corporativa, sin saludos ni despedidas.`;
 
-      // --- USAMOS EL MISMO MODELO QUE EN AIAssistant.tsx ---
+      // --- CONFIGURACIÓN DE SEGURIDAD PARA EVITAR BLOQUEOS EN REPORTES "SENSIBLES" ---
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview', 
-        contents: prompt
+        contents: prompt,
+        config: {
+          safetySettings: [
+            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          ]
+        }
       });
 
-      const text = response.text || "No se pudo generar el informe.";
+      const text = response.text || "No se pudo generar el informe. (Posible bloqueo de contenido)";
       
       setReportText(text);
       if (auditData.id) {
@@ -188,7 +195,6 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
       }
     } catch (e: any) {
       console.error("Error IA:", e);
-      // Manejo de errores más detallado
       if (e.message?.includes('quota')) {
         setReportText("LA IA ESTA EN DESCANSO TEMPORAL (CUOTA EXCEDIDA). POR FAVOR, REDACTA EL INFORME MANUALMENTE.");
       } else if (e.message?.includes('not found')) {
