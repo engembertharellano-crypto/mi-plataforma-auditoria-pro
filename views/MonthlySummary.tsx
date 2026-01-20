@@ -2,16 +2,15 @@ import React, { useState, useMemo } from 'react';
 import { 
   TrendingUp, 
   TrendingDown,
-  Minus,
   AlertTriangle,
   Target,
   BarChart3,
   Calendar, 
   Globe,
   Award,
-  XCircle,
   CheckCircle2,
-  ArrowRight
+  ArrowRight,
+  Store // Icono para las farmacias
 } from 'lucide-react';
 import { Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, PendingRecord } from '../types';
 
@@ -21,7 +20,7 @@ interface MonthlySummaryProps {
   cctvRecords: CCTVInventoryRecord[];
   physicalRecords: PhysicalInventoryRecord[];
   managementRecords: ManagementVisitRecord[];
-  pendingRecords?: PendingRecord[]; // Agregamos pendientes para medir eficiencia
+  pendingRecords?: PendingRecord[];
   currentUser: any;
 }
 
@@ -58,7 +57,17 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     };
   };
 
-  // HELPER: Filtrar por fecha y zona
+  // CÁLCULO DE FARMACIAS (SEDES) SEGÚN FILTRO
+  const pharmacyCount = useMemo(() => {
+    return pharmacies.filter(p => {
+      // Si es vista global, filtramos por la zona seleccionada en el dropdown
+      // Si no es global, el usuario ya tiene solo sus farmacias en el prop 'pharmacies' (gestionado por App.tsx), pero igual validamos
+      const matchesZone = !isGlobalView || (selectedZone === 'Todas' || p.zone === selectedZone);
+      return matchesZone;
+    }).length;
+  }, [pharmacies, selectedZone, isGlobalView]);
+
+  // HELPER: Filtrar registros por fecha y zona
   const filterData = (items: any[], month: number) => {
     return items.filter(item => {
       const d = new Date(item.date.includes('/') ? item.date.split('/').reverse().join('-') : item.date);
@@ -81,7 +90,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   // CÁLCULOS ESTADÍSTICOS AVANZADOS
   const stats = useMemo(() => {
-    // 1. Promedio General de Cumplimiento (Score)
+    // 1. Promedio General
     const currentAvg = currentAudits.length > 0 
       ? currentAudits.reduce((acc, curr) => acc + (curr.score || 0), 0) / currentAudits.length 
       : 0;
@@ -92,8 +101,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
     const trend = currentAvg - prevAvg;
 
-    // 2. Eficiencia Operativa (Pendientes resueltos vs creados en la zona)
-    // Filtramos pendientes por la zona seleccionada
+    // 2. Eficiencia Operativa (Pendientes)
     const zonePendings = pendingRecords.filter(p => {
        const ph = pharmacies.find(pharm => pharm.id === p.pharmacyId);
        const pZone = ph?.zone || '';
@@ -103,8 +111,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     const totalPendings = zonePendings.length;
     const efficiencyRate = totalPendings > 0 ? (solvedPendings / totalPendings) * 100 : 100;
 
-    // 3. Top Ofensores (Peores 3 Sedes)
-    // Agrupamos scores por farmacia
+    // 3. Top Ofensores
     const pharmacyScores: Record<string, { total: number, count: number, name: string }> = {};
     currentAudits.forEach(a => {
         const { name } = getPharmacyData(a);
@@ -115,16 +122,12 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     
     const leaderboard = Object.values(pharmacyScores)
         .map(p => ({ name: p.name, avg: p.total / p.count }))
-        .sort((a, b) => a.avg - b.avg); // Orden ascendente (menor a mayor)
+        .sort((a, b) => a.avg - b.avg); 
 
     const worstPerformers = leaderboard.slice(0, 3);
     const bestPerformers = [...leaderboard].reverse().slice(0, 3);
 
-    // 4. Análisis de Fallas (Hardware vs Procesos)
-    // Esto es una estimación basada en la data disponible. 
-    // En un caso real, iteraríamos sobre hardwareAnswers y processAnswers para contar los 'NO'.
-    // Aquí simularemos una métrica basada en los promedios globales si no tenemos el detalle granular a mano,
-    // o calculamos el % de auditorías que bajaron de 80 puntos.
+    // 4. Análisis de Fallas
     const criticalAudits = currentAudits.filter(a => (a.score || 0) < 70).length;
 
     return {
@@ -138,7 +141,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       criticalAudits,
       totalAudits: currentAudits.length
     };
-  }, [currentAudits, prevAudits, currentCCTV, currentPhysical, currentVisits, pendingRecords, selectedZone]);
+  }, [currentAudits, prevAudits, currentCCTV, currentPhysical, currentVisits, pendingRecords, selectedZone, pharmacies, isGlobalView]);
 
   const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
@@ -242,18 +245,18 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
            </div>
         </div>
 
-        {/* ACTIVITY CARD */}
+        {/* PHARMACY COUNT CARD (NUEVA TARJETA) */}
         <div className="bg-slate-900 p-6 rounded-[2.5rem] shadow-xl shadow-slate-900/20 flex flex-col justify-between h-48 relative overflow-hidden text-white">
            <div className="relative z-10">
-             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Volumen de Gestión</span>
+             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Total Sedes</span>
              <div className="flex items-baseline gap-2 mt-2">
-               <span className="text-5xl font-black tracking-tighter text-white">{stats.totalActivity}</span>
-               <span className="text-xs font-bold text-orange-500 uppercase">Registros</span>
+               <span className="text-5xl font-black tracking-tighter text-white">{pharmacyCount}</span>
+               <span className="text-xs font-bold text-orange-500 uppercase">Farmacias</span>
              </div>
            </div>
            <div className="text-[10px] font-bold text-slate-400 flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-orange-500" />
-              Datos consolidados del mes
+              <Store className="w-4 h-4 text-orange-500" />
+              {isGlobalView && selectedZone !== 'Todas' ? selectedZone : 'En la Red'}
            </div>
         </div>
       </div>
