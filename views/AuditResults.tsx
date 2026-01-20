@@ -21,11 +21,11 @@ import {
   Banknote, 
   AlertOctagon, 
   UserCheck, 
-  PenTool
+  PenTool,
+  RefreshCw // Nuevo icono para el botón
 } from 'lucide-react';
 import { AuditState } from '../types';
 import { HARDWARE_CHECKLIST, PROCESS_CHECKLIST } from '../constants';
-// IMPORTAMOS LOS TIPOS DE SEGURIDAD
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 
 interface AuditResultsProps {
@@ -123,7 +123,6 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
 
     let finalScore = (totalHwScore * 100 * WEIGHTS.hardware.globalWeight) + (totalProcScore * 100 * WEIGHTS.process.globalWeight);
     
-    // Impacto Financiero en Riesgo
     const vaultDiff = (auditData.vaultCount?.ves.difference || 0) !== 0 || (auditData.vaultCount?.usd.difference || 0) !== 0;
     
     const riskPercentage = 100 - finalScore;
@@ -143,7 +142,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
     };
   };
 
-  const generateExecutiveReport = async (auditData: AuditState, stats: any) => {
+  const generateExecutiveReport = async (auditData: AuditState, stats: any, isRetry: boolean = false) => {
     setIsGenerating(true);
     try {
       const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
@@ -164,20 +163,24 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
         ? `INCIDENCIA EN BÓVEDA: Se detectó descuadre de efectivo (USD: ${auditData.vaultCount?.usd.difference}, VES: ${auditData.vaultCount?.ves.difference}).` 
         : "Integridad financiera en bóveda: CONFORME.";
 
-      const prompt = `Genera un informe ejecutivo formal y directo. Auditor: ${auditorName}, Sede: ${pharmacyName}, Gerente: ${managerName}, Cumplimiento: ${stats.finalScore.toFixed(2)}%, Riesgo: ${stats.riskLevel.toUpperCase()}. Hallazgos negativos: ${failures.join(', ')}. ${vaultIncidentText}.
-      
-      Estructura sugerida:
-      1. RESUMEN EJECUTIVO (1 párrafo contundente).
-      2. HALLAZGOS CRÍTICOS (Lista breve).
-      3. CONCLUSIÓN Y RECOMENDACIÓN.
-      
-      Estilo: Técnico, profesional de seguridad corporativa, sin saludos ni despedidas.`;
+      // Prompt Estándar vs Prompt Simplificado (Retry)
+      let prompt = "";
+      if (!isRetry) {
+        prompt = `Genera un informe ejecutivo formal y directo. Auditor: ${auditorName}, Sede: ${pharmacyName}, Gerente: ${managerName}, Cumplimiento: ${stats.finalScore.toFixed(2)}%, Riesgo: ${stats.riskLevel.toUpperCase()}. Hallazgos negativos: ${failures.join(', ')}. ${vaultIncidentText}.
+        Estructura sugerida:
+        1. RESUMEN EJECUTIVO (1 párrafo contundente).
+        2. HALLAZGOS CRÍTICOS (Lista breve).
+        3. CONCLUSIÓN Y RECOMENDACIÓN.
+        Estilo: Técnico, profesional de seguridad corporativa, sin saludos ni despedidas.`;
+      } else {
+        prompt = `Actúa como auditor de seguridad. Resume brevemente: Sede ${pharmacyName}, Riesgo ${stats.riskLevel}. Lista los fallos encontrados: ${failures.join(', ')}. Estado de bóveda: ${vaultIncidentText}. Sé directo y profesional.`;
+      }
 
-      // --- CONFIGURACIÓN DE SEGURIDAD PARA EVITAR BLOQUEOS EN REPORTES "SENSIBLES" ---
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview', 
         contents: prompt,
         config: {
+          // Desactivar filtros de seguridad para evitar bloqueos por palabras como "robo", "armas", etc.
           safetySettings: [
             { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
             { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -187,7 +190,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
         }
       });
 
-      const text = response.text || "No se pudo generar el informe. (Posible bloqueo de contenido)";
+      const text = response.text || "La IA no devolvió texto. Intente regenerar nuevamente.";
       
       setReportText(text);
       if (auditData.id) {
@@ -197,10 +200,8 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
       console.error("Error IA:", e);
       if (e.message?.includes('quota')) {
         setReportText("LA IA ESTA EN DESCANSO TEMPORAL (CUOTA EXCEDIDA). POR FAVOR, REDACTA EL INFORME MANUALMENTE.");
-      } else if (e.message?.includes('not found')) {
-         setReportText(`Error de modelo: El modelo de IA configurado no está disponible. Detalles: ${e.message}`);
       } else {
-        setReportText(`Error al conectar con el servidor de inteligencia estratégica. Detalles: ${e.message || 'Desconocido'}`);
+        setReportText(`Error de conexión con IA: ${e.message}. Por favor presione el botón de Regenerar.`);
       }
     } finally {
       setIsGenerating(false);
@@ -218,6 +219,12 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
       generateExecutiveReport(audit, calculatedData);
     }
   }, [calculatedData, audit.reportText]);
+
+  const handleRegenerate = () => {
+    if (calculatedData) {
+      generateExecutiveReport(audit, calculatedData, true); // true activa el modo "Retry"
+    }
+  };
 
   const handleSave = () => {
     if (audit.id) {
@@ -414,6 +421,16 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                 <div><h2 className="text-xl font-black text-slate-900 tracking-tight uppercase">Informe Ejecutivo</h2><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Acta de Control y Gestión</p></div>
               </div>
               <div className="flex gap-2">
+                {/* BOTÓN REGENERAR CON IA */}
+                <button 
+                  onClick={handleRegenerate}
+                  className="px-4 py-2 bg-orange-50 text-orange-700 rounded-lg font-black uppercase tracking-widest text-[9px] flex items-center gap-2 border border-orange-100 hover:bg-orange-100 transition-all"
+                  title="Reintentar generación con IA"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} /> 
+                  {isGenerating ? 'Generando...' : 'Regenerar IA'}
+                </button>
+
                 <button onClick={() => { navigator.clipboard.writeText(reportText); alert("Copiado."); }} className="px-4 py-2 bg-slate-50 text-slate-600 rounded-lg font-black uppercase tracking-widest text-[9px] flex items-center gap-2 border border-slate-100"><Copy className="w-3.5 h-3.5" /> Copiar</button>
                 <button onClick={handleSave} className="px-4 py-2 bg-slate-900 text-white rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg"><Save className="w-3.5 h-3.5" /> Guardar</button>
               </div>
