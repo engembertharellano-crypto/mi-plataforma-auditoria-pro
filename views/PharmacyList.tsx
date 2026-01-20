@@ -272,7 +272,14 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
 
   const handleSaveEdit = () => {
     if (!editingPharmacy) return;
-    onUpdate({ ...editingPharmacy, ...formData, location: formData.location || undefined, photo: formData.photo || undefined });
+    
+    // CORRECCIÓN: Pasar los datos explícitamente sin 'undefined' para asegurar que se sobreescriben
+    onUpdate({ 
+      ...editingPharmacy, 
+      ...formData, 
+      location: formData.location || undefined, 
+      photo: formData.photo || undefined 
+    });
     setEditingPharmacy(null);
   };
 
@@ -336,7 +343,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
       canvas.width = videoRef.current.videoWidth; 
       canvas.height = videoRef.current.videoHeight; 
       canvas.getContext('2d')?.drawImage(videoRef.current, 0, 0); 
-      const photoData = canvas.toDataURL('image/jpeg', 0.9);
+      const photoData = canvas.toDataURL('image/jpeg', 0.8); // Calidad media para cámara
       stopCamera(); 
       startImageEditor(photoData, editingPharmacy ? 'edit' : 'create'); 
     } 
@@ -353,7 +360,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
 
   const confirmCrop = () => { 
     if (!imageRef.current) return; 
-    const canvas = document.createElement('canvas'); 
+    const canvas = document.createElement('canvas');
     canvas.width = 800; 
     canvas.height = 450; 
     const ctx = canvas.getContext('2d'); 
@@ -365,7 +372,10 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
       ctx.rotate((cropRotation * Math.PI) / 180); 
       ctx.scale(cropScale, cropScale); 
       ctx.drawImage(imageRef.current, -imageRef.current.naturalWidth / 2, -imageRef.current.naturalHeight / 2); 
-      const finalImage = canvas.toDataURL('image/jpeg', 0.9); 
+      
+      // Calidad reducida para asegurar subida rápida
+      const finalImage = canvas.toDataURL('image/jpeg', 0.6); 
+      
       if (editorMode === 'edit') setFormData(prev => ({ ...prev, photo: finalImage })); 
       else setNewPharmacyData(prev => ({ ...prev, photo: finalImage })); 
       setShowCropModal(false); 
@@ -604,6 +614,8 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
                   <Upload className="w-5 h-5" />
                   <span className="text-[10px] font-black uppercase">Cargar Foto</span>
                 </button>
+                {/* --- ESTA LÍNEA FALTABA AQUÍ --- */}
+                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'edit')} />
               </div>
               
               {formData.photo && (
@@ -779,42 +791,42 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
       {/* MODAL: CAMERA CAPTURE */}
       {showCameraModal && (
         <div className="fixed inset-0 bg-black z-[500] flex flex-col animate-in fade-in duration-300">
-           <div className="p-6 flex justify-between items-center text-white bg-black/50 absolute top-0 w-full z-[510] backdrop-blur-md">
-             <div>
-               <h3 className="font-black uppercase tracking-widest">Capturar Foto Sede</h3>
-               <p className="text-[10px] text-white/60 font-bold uppercase mt-0.5">Ajuste el encuadre a la fachada</p>
-             </div>
-             <button onClick={stopCamera} className="p-3 bg-white/10 hover:bg-white/20 rounded-full transition-all">
-               <X className="w-7 h-7" />
-             </button>
-           </div>
-           
-           <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-black">
-             <video 
-               ref={videoRef} 
-               autoPlay 
-               playsInline 
-               muted
-               className="w-full h-full object-cover" 
-             />
-             <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-[505]">
-                <div className="w-[85%] h-[60%] border-2 border-white/20 rounded-3xl border-dashed"></div>
-             </div>
-           </div>
-           
-           <canvas ref={canvasRef} className="hidden" />
-           
-           <div className="fixed bottom-10 left-0 right-0 flex justify-center items-center z-[600] pointer-events-none">
-             <button 
-               onClick={capturePhoto} 
-               disabled={!isCameraReady}
-               className={`w-20 h-20 rounded-full bg-white border-[6px] border-slate-300 ring-4 ring-orange-500 ring-offset-4 ring-offset-black shadow-[0_0_50px_rgba(249,115,22,0.5)] transition-all active:scale-90 hover:scale-105 flex items-center justify-center group pointer-events-auto ${!isCameraReady ? 'opacity-50 grayscale' : ''}`}
-             >
-                <div className="w-16 h-16 rounded-full border-2 border-slate-100 group-active:bg-slate-100 transition-colors"></div>
-             </button>
-           </div>
-           
-           <div className="fixed bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-black/80 to-transparent z-[515] pointer-events-none"></div>
+            <div className="p-6 flex justify-between items-center text-white bg-black/50 absolute top-0 w-full z-[510] backdrop-blur-md">
+              <div>
+                <h3 className="font-black uppercase tracking-widest">Capturar Foto Sede</h3>
+                <p className="text-[10px] text-white/60 font-bold uppercase mt-0.5">Ajuste el encuadre a la fachada</p>
+              </div>
+              <button onClick={stopCamera} className="p-3 bg-white/10 hover:bg-white/20 rounded-full transition-all">
+                <X className="w-7 h-7" />
+              </button>
+            </div>
+            
+            <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-black">
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                muted
+                className="w-full h-full object-cover" 
+              />
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-[505]">
+                 <div className="w-[85%] h-[60%] border-2 border-white/20 rounded-3xl border-dashed"></div>
+              </div>
+            </div>
+            
+            <canvas ref={canvasRef} className="hidden" />
+            
+            <div className="fixed bottom-10 left-0 right-0 flex justify-center items-center z-[600] pointer-events-none">
+              <button 
+                onClick={capturePhoto} 
+                disabled={!isCameraReady}
+                className={`w-20 h-20 rounded-full bg-white border-[6px] border-slate-300 ring-4 ring-orange-500 ring-offset-4 ring-offset-black shadow-[0_0_50px_rgba(249,115,22,0.5)] transition-all active:scale-90 hover:scale-105 flex items-center justify-center group pointer-events-auto ${!isCameraReady ? 'opacity-50 grayscale' : ''}`}
+              >
+                 <div className="w-16 h-16 rounded-full border-2 border-slate-100 group-active:bg-slate-100 transition-colors"></div>
+              </button>
+            </div>
+            
+            <div className="fixed bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-black/80 to-transparent z-[515] pointer-events-none"></div>
         </div>
       )}
 
