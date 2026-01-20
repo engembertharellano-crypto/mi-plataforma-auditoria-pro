@@ -22,7 +22,7 @@ import {
   AlertOctagon, 
   UserCheck, 
   PenTool,
-  RefreshCw // Nuevo icono para el botón
+  RefreshCw
 } from 'lucide-react';
 import { AuditState } from '../types';
 import { HARDWARE_CHECKLIST, PROCESS_CHECKLIST } from '../constants';
@@ -142,7 +142,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
     };
   };
 
-  const generateExecutiveReport = async (auditData: AuditState, stats: any, isRetry: boolean = false) => {
+  const generateExecutiveReport = async (auditData: AuditState, stats: any) => {
     setIsGenerating(true);
     try {
       const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
@@ -163,24 +163,33 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
         ? `INCIDENCIA EN BÓVEDA: Se detectó descuadre de efectivo (USD: ${auditData.vaultCount?.usd.difference}, VES: ${auditData.vaultCount?.ves.difference}).` 
         : "Integridad financiera en bóveda: CONFORME.";
 
-      // Prompt Estándar vs Prompt Simplificado (Retry)
-      let prompt = "";
-      if (!isRetry) {
-        prompt = `Genera un informe ejecutivo formal y directo. Auditor: ${auditorName}, Sede: ${pharmacyName}, Gerente: ${managerName}, Cumplimiento: ${stats.finalScore.toFixed(2)}%, Riesgo: ${stats.riskLevel.toUpperCase()}. Hallazgos negativos: ${failures.join(', ')}. ${vaultIncidentText}.
-        Estructura sugerida:
-        1. RESUMEN EJECUTIVO (1 párrafo contundente).
-        2. HALLAZGOS CRÍTICOS (Lista breve).
-        3. CONCLUSIÓN Y RECOMENDACIÓN.
-        Estilo: Técnico, profesional de seguridad corporativa, sin saludos ni despedidas.`;
-      } else {
-        prompt = `Actúa como auditor de seguridad. Resume brevemente: Sede ${pharmacyName}, Riesgo ${stats.riskLevel}. Lista los fallos encontrados: ${failures.join(', ')}. Estado de bóveda: ${vaultIncidentText}. Sé directo y profesional.`;
-      }
+      // USAMOS EL PROMPT DETALLADO SIEMPRE, INCLUSO EN LA REGENERACIÓN
+      const prompt = `Genera un INFORME DE AUDITORÍA DE SEGURIDAD CORPORATIVA formal, técnico y detallado.
+      
+      DATOS DEL REPORTE:
+      - Auditor Responsable: ${auditorName}
+      - Sede Auditada: ${pharmacyName}
+      - Gerente/Responsable: ${managerName}
+      - Nivel de Cumplimiento Global: ${stats.finalScore.toFixed(2)}%
+      - Nivel de Riesgo Actual: ${stats.riskLevel.toUpperCase()}
+      
+      HALLAZGOS ESPECÍFICOS:
+      - Fallas de Proceso Detectadas: ${failures.length > 0 ? failures.join(', ') : 'Ninguna falla crítica de proceso detectada.'}
+      - Estado de Bóveda: ${vaultIncidentText}
+      
+      ESTRUCTURA OBLIGATORIA DEL INFORME:
+      1. RESUMEN EJECUTIVO: Un párrafo sólido resumiendo el estado general de la seguridad en la sede.
+      2. ANÁLISIS DE RIESGOS CRÍTICOS: Detalla las implicaciones de seguridad de los hallazgos negativos (si existen).
+      3. EVALUACIÓN DE PROCESOS Y BÓVEDA: Comentario técnico sobre la integridad financiera y el cumplimiento de protocolos.
+      4. CONCLUSIONES Y RECOMENDACIONES: Pasos a seguir inmediatos para mitigar los riesgos detectados.
+      
+      TONO: Estrictamente profesional, corporativo, objetivo y directo. Sin saludos, sin despedidas, sin frases de relleno. Enfócate en la seguridad física y patrimonial.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview', 
         contents: prompt,
         config: {
-          // Desactivar filtros de seguridad para evitar bloqueos por palabras como "robo", "armas", etc.
+          // Filtros desactivados para permitir reportes de seguridad reales
           safetySettings: [
             { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
             { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -220,9 +229,10 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
     }
   }, [calculatedData, audit.reportText]);
 
+  // Al regenerar, simplemente volvemos a llamar a la función (que ahora usa siempre el prompt completo)
   const handleRegenerate = () => {
     if (calculatedData) {
-      generateExecutiveReport(audit, calculatedData, true); // true activa el modo "Retry"
+      generateExecutiveReport(audit, calculatedData);
     }
   };
 
