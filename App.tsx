@@ -23,7 +23,7 @@ import { Menu, CheckCircle2, XCircle, Loader2, WifiOff } from 'lucide-react';
 import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, PendingRecord, StaffRecord, SupportRecord, DeliveryReceipt, ScheduleEntry, BriefingData, Asset, AssetLoan } from './types';
 import { supabase } from './lib/supabase';
 
-const DATA_VERSION = "11.2-FINAL-SECURITY-FIX";
+const DATA_VERSION = "11.3-GHOST-MODE";
 
 interface UserData {
   version: string;
@@ -89,19 +89,15 @@ const App: React.FC = () => {
     };
   });
 
-  // 1. Detectar si es el correo de la Directiva (Solo Lectura) - AHORA CON TRIM Y LOWERCASE
   const isReadOnly = useMemo(() => {
     if (!currentUser || !currentUser.email) return false;
-    // Limpia espacios y convierte a minúsculas para comparar
     return currentUser.email.trim().toLowerCase() === 'directiva@xana.com';
   }, [currentUser]);
 
-  // 2. Definir quién ve toda la data (Jefes + Directiva)
   const isBoss = useMemo(() => {
     if (!currentUser) return false;
     const email = currentUser.email ? currentUser.email.trim().toLowerCase() : '';
     if (email === 'directiva@xana.com') return true; 
-    
     const role = (currentUser.role || '').toLowerCase();
     return ['super usuario', 'gerente corporativo de seguridad', 'gerente de seguridad', 'lider de investigaciones', 'coordinador de seguridad'].includes(role);
   }, [currentUser]);
@@ -123,7 +119,6 @@ const App: React.FC = () => {
 
   const fullSync = useCallback(async (user: any) => {
     if (!user || !supabase || syncInProgress.current) return;
-    
     syncInProgress.current = true;
     setIsSyncing(true);
 
@@ -167,9 +162,7 @@ const App: React.FC = () => {
           risk: p.risk, corporatePhone: p.corporate_phone, photo: p.photo, location: p.location
         }));
 
-        if (cloudPharms.length === 0 && prev.pharmacies.length > 0) {
-          return prev;
-        }
+        if (cloudPharms.length === 0 && prev.pharmacies.length > 0) return prev;
 
         return {
           ...prev,
@@ -205,34 +198,26 @@ const App: React.FC = () => {
     if (currentUser) fullSync(currentUser);
   }, [currentUser, fullSync]);
 
-  // --- FUNCIÓN MAESTRA DE SEGURIDAD ---
   const checkPermission = () => {
-    // Si isReadOnly es verdadero, BLOQUEA TODO
-    if (isReadOnly) {
-      addToast("Modo Lectura: Acceso Denegado", "error");
-      return false; // Retorna falso para detener la ejecución
-    }
-    return true; // Retorna verdadero para continuar
+    if (isReadOnly) { addToast("Modo Lectura: Acceso Denegado", "error"); return false; }
+    return true;
   };
 
   const saveToCloud = async (table: string, id: string, data: any) => {
-    if (!checkPermission()) return; // <--- CANDADO 1
+    if (!checkPermission()) return;
     if (!supabase || !currentUser) return;
     try {
       const payload: any = { id, data, created_by: currentUser.fullName, zone: currentUser.zone || 'Global' };
       const pharmacyId = data.pharmacyId || (data.pharmacy && data.pharmacy.id);
       if (pharmacyId) payload.pharmacy_id = pharmacyId;
-      
       const { error } = await supabase.from(table).upsert(payload);
       if (error) throw error;
       addToast("Guardado", "success");
-    } catch (e) {
-      addToast("Error al Guardar", "error");
-    }
+    } catch (e) { addToast("Error al Guardar", "error"); }
   };
 
   const deleteFromCloud = async (table: string, id: string) => {
-    if (!checkPermission()) return; // <--- CANDADO 2
+    if (!checkPermission()) return;
     if (!supabase) return;
     try {
       await supabase.from(table).delete().eq('id', id);
@@ -241,7 +226,7 @@ const App: React.FC = () => {
   };
 
   const handleUpdateUser = async (email: string, updates: any) => {
-    if (!checkPermission()) return; // <--- CANDADO 3
+    if (!checkPermission()) return;
     if (!supabase) return;
     try {
       const dbUpdates: any = {};
@@ -254,7 +239,7 @@ const App: React.FC = () => {
   };
 
   const handleFinishAudit = async (audit: AuditState) => {
-    if (!checkPermission()) return; // <--- CANDADO 4
+    if (!checkPermission()) return;
     const auditId = `audit-${Date.now()}`;
     const score = calculateAuditScore(audit);
     const completedAudit = { ...audit, id: auditId, date: new Date().toLocaleDateString('es-ES'), score, createdBy: currentUser.fullName };
@@ -269,6 +254,16 @@ const App: React.FC = () => {
     Object.values(audit.hardwareAnswers).forEach(a => { if (a.status !== 'N/A') { total++; if (a.status === 'Operativo') ok++; } });
     Object.values(audit.processAnswers).forEach(a => { if (a.status !== 'N/A') { total++; if (a.status === 'SI') ok++; } });
     return total > 0 ? Math.round((ok / total) * 100) : 0;
+  };
+
+  // --- FILTRO DE USUARIOS PARA VISTAS (Aquí escondemos al Super Usuario) ---
+  const getFilteredUsers = () => {
+    return userData.users.filter(u => {
+      const email = (u.email || '').toLowerCase();
+      const role = (u.role || '').toLowerCase();
+      // Escondemos Directiva Y escondemos Super Usuario
+      return email !== 'directiva@xana.com' && role !== 'super usuario';
+    });
   };
 
   if (!currentUser && supabase) return <Login onLogin={(u) => { setCurrentUser(u); sessionStorage.setItem('xana_active_user', JSON.stringify(u)); }} />;
@@ -292,9 +287,9 @@ const App: React.FC = () => {
           <main className={`flex-1 transition-all duration-300 lg:ml-80 p-4 md:p-6 ${isSidebarOpen ? 'blur-sm pointer-events-none lg:blur-none lg:pointer-events-auto' : ''}`}>
             {currentView === 'dashboard' && <Dashboard onNavigate={setCurrentView} pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} onSelectAudit={(a) => { setSelectedAudit(a); setCurrentView('audit-results'); }} />}
             
-            {/* --- AQUÍ ESTÁ LA MAGIA: checkPermission() ANTES DE CUALQUIER setUserData --- */}
+            {/* VISTAS CON PERMISOS Y FILTROS APLICADOS */}
             
-            {currentView === 'ai-assistant' && <AIAssistant pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} pendingRecords={userData.pendingRecords} staffRecords={userData.staffRecords} schedule={userData.schedule} dailyBriefing={userData.dailyBriefing} onSaveSchedule={async (s) => { if(!checkPermission()) return; setUserData(prev => ({...prev, schedule: s})); if (s.length > 0) await saveToCloud('schedule', s[0].id, s[0]); }} onSaveBriefing={(b) => setUserData(prev => ({...prev, dailyBriefing: b}))} onAddPending={async (p) => { if(!checkPermission()) return; setUserData(prev => ({...prev, pendingRecords: [p, ...prev.pendingRecords]})); await saveToCloud('pending_tasks', p.id, p); }} />}
+            {currentView === 'ai-assistant' && !isReadOnly && <AIAssistant pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} pendingRecords={userData.pendingRecords} staffRecords={userData.staffRecords} schedule={userData.schedule} dailyBriefing={userData.dailyBriefing} onSaveSchedule={async (s) => { if(!checkPermission()) return; setUserData(prev => ({...prev, schedule: s})); if (s.length > 0) await saveToCloud('schedule', s[0].id, s[0]); }} onSaveBriefing={(b) => setUserData(prev => ({...prev, dailyBriefing: b}))} onAddPending={async (p) => { if(!checkPermission()) return; setUserData(prev => ({...prev, pendingRecords: [p, ...prev.pendingRecords]})); await saveToCloud('pending_tasks', p.id, p); }} />}
             
             {currentView === 'audit-wizard' && <AuditWizard onCancel={() => setCurrentView('dashboard')} onFinish={handleFinishAudit} pharmacies={userData.pharmacies} onAddPharmacy={async (p) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] })); await supabase.from('pharmacies').insert({ id: p.id, name: p.name, address: p.address, zone: p.zone, status: p.status, risk: p.risk, corporate_phone: p.corporatePhone, photo: p.photo, location: p.location }); }} />}
             
@@ -312,10 +307,11 @@ const App: React.FC = () => {
             
             {currentView === 'asset-control' && <AssetControl pharmacies={userData.pharmacies} assets={userData.assets} loans={userData.loans} onAddAsset={async (a) => { if(!checkPermission()) return; setUserData(prev => ({...prev, assets: [...prev.assets, a]})); await saveToCloud('assets', a.id, a); }} onUpdateAsset={async (a) => { if(!checkPermission()) return; setUserData(prev => ({...prev, assets: prev.assets.map(x => x.id === a.id ? a : x)})); await saveToCloud('assets', a.id, a); }} onDeleteAsset={async (id) => { if(!checkPermission()) return; setUserData(prev => ({...prev, assets: prev.assets.filter(x => x.id !== id)})); await deleteFromCloud('assets', id); }} onSaveLoan={async (l) => { if(!checkPermission()) return; const ln = { ...l, createdBy: currentUser.fullName }; setUserData(prev => ({...prev, loans: [ln, ...prev.loans]})); await saveToCloud('loans', ln.id, ln); }} onReturnLoan={async (id, date, notes) => { if(!checkPermission()) return; const updated = userData.loans.map(l => l.id === id ? {...l, status: 'Devuelto' as const, actualReturnDate: date, notes: l.notes + " | RETORNO: " + notes} : l); setUserData(p => ({...p, loans: updated})); const ln = updated.find(x => x.id === id); if(ln) await saveToCloud('loans', id, ln); }} />}
             
-            {/* Filtro especial: La Directiva NO aparece en la lista de usuarios */}
-            {currentView === 'visit-log' && <VisitLog pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} users={userData.users.filter(u => (u.email || '').toLowerCase() !== 'directiva@xana.com')} onDeleteAudit={id => { if(!checkPermission()) return; setUserData(p => ({...p, audits: p.audits.filter(x => x.id !== id)})); deleteFromCloud('audits', id); }} onDeleteCCTV={id => { if(!checkPermission()) return; setUserData(p => ({...p, cctvRecords: p.cctvRecords.filter(x => x.id !== id)})); deleteFromCloud('cctv_records', id); }} onDeletePhysical={id => { if(!checkPermission()) return; setUserData(p => ({...p, physicalRecords: p.physicalRecords.filter(x => x.id !== id)})); deleteFromCloud('physical_records', id); }} onDeleteManagement={id => { if(!checkPermission()) return; setUserData(p => ({...p, managementRecords: p.managementRecords.filter(x => x.id !== id)})); deleteFromCloud('management_visits', id); }} hasAdminPrivileges={isBoss} />}
+            {/* AQUÍ APLICAMOS EL FILTRO QUE ESCONDE AL SUPER USUARIO (getFilteredUsers) */}
+            {currentView === 'visit-log' && <VisitLog pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} users={getFilteredUsers()} onDeleteAudit={id => { if(!checkPermission()) return; setUserData(p => ({...p, audits: p.audits.filter(x => x.id !== id)})); deleteFromCloud('audits', id); }} onDeleteCCTV={id => { if(!checkPermission()) return; setUserData(p => ({...p, cctvRecords: p.cctvRecords.filter(x => x.id !== id)})); deleteFromCloud('cctv_records', id); }} onDeletePhysical={id => { if(!checkPermission()) return; setUserData(p => ({...p, physicalRecords: p.physicalRecords.filter(x => x.id !== id)})); deleteFromCloud('physical_records', id); }} onDeleteManagement={id => { if(!checkPermission()) return; setUserData(p => ({...p, managementRecords: p.managementRecords.filter(x => x.id !== id)})); deleteFromCloud('management_visits', id); }} hasAdminPrivileges={isBoss} />}
             
-            {currentView === 'monthly-summary' && <MonthlySummary pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} users={userData.users.filter(u => (u.email || '').toLowerCase() !== 'directiva@xana.com')} currentUser={currentUser} />}
+            {/* TAMBIÉN AQUÍ EN ESTADÍSTICAS */}
+            {currentView === 'monthly-summary' && <MonthlySummary pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} users={getFilteredUsers()} currentUser={currentUser} />}
             
             {currentView === 'management-report' && !isReadOnly && <ManagementReport pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} />}
             
