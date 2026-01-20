@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { AuditState } from '../types';
 import { HARDWARE_CHECKLIST, PROCESS_CHECKLIST } from '../constants';
-// USAMOS LA MISMA LIBRERÍA QUE EN AI ASSISTANT
+// IMPORTACIÓN CORRECTA (Igual que en AIAssistant)
 import { GoogleGenAI } from "@google/genai";
 
 interface AuditResultsProps {
@@ -146,7 +146,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
   const generateExecutiveReport = async (auditData: AuditState, stats: any) => {
     setIsGenerating(true);
     try {
-      // --- CORRECCIÓN: USAMOS LA MISMA FORMA DE CONECTAR QUE EL ASISTENTE ---
+      // --- CONEXIÓN IDÉNTICA A LA DEL ASISTENTE IA ---
       const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
       
       const managerName = `${auditData.inCharge.nombre} ${auditData.inCharge.apellido}`.toUpperCase();
@@ -174,9 +174,9 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
       
       Estilo: Técnico, profesional de seguridad corporativa, sin saludos ni despedidas.`;
 
-      // Usamos el modelo 1.5 Flash que es más estable para reportes largos
+      // --- USAMOS EL MISMO MODELO QUE EN AIAssistant.tsx ---
       const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash', 
+        model: 'gemini-3-flash-preview', 
         contents: prompt
       });
 
@@ -188,8 +188,11 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
       }
     } catch (e: any) {
       console.error("Error IA:", e);
+      // Manejo de errores más detallado
       if (e.message?.includes('quota')) {
         setReportText("LA IA ESTA EN DESCANSO TEMPORAL (CUOTA EXCEDIDA). POR FAVOR, REDACTA EL INFORME MANUALMENTE.");
+      } else if (e.message?.includes('not found')) {
+         setReportText(`Error de modelo: El modelo de IA configurado no está disponible. Detalles: ${e.message}`);
       } else {
         setReportText(`Error al conectar con el servidor de inteligencia estratégica. Detalles: ${e.message || 'Desconocido'}`);
       }
