@@ -1,22 +1,20 @@
 import React, { useState, useMemo } from 'react';
 import { 
-  Search,
+  Search, 
+  Filter, 
+  Download, 
+  Calendar, 
+  MapPin, 
+  FileText, 
+  Video, 
+  Lock, 
+  User, 
+  Eye, 
   Trash2,
-  AlertTriangle,
-  X,
-  ShieldAlert,
-  Users,
-  ChevronDown,
-  MessageSquare,
-  User as UserIcon
+  Globe
 } from 'lucide-react';
-import { 
-  Pharmacy, 
-  AuditState, 
-  CCTVInventoryRecord, 
-  PhysicalInventoryRecord, 
-  ManagementVisitRecord 
-} from '../types';
+import { AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, Pharmacy } from '../types';
+import * as XLSX from 'xlsx';
 
 interface VisitLogProps {
   pharmacies: Pharmacy[];
@@ -25,273 +23,241 @@ interface VisitLogProps {
   physicalRecords: PhysicalInventoryRecord[];
   managementRecords: ManagementVisitRecord[];
   users: any[];
-  onDeleteAudit?: (id: string) => void;
-  onDeleteCCTV?: (id: string) => void;
-  onDeletePhysical?: (id: string) => void;
-  onDeleteManagement?: (id: string) => void;
-  hasAdminPrivileges?: boolean;
+  onDeleteAudit: (id: string) => void;
+  onDeleteCCTV: (id: string) => void;
+  onDeletePhysical: (id: string) => void;
+  onDeleteManagement: (id: string) => void;
+  hasAdminPrivileges: boolean;
 }
 
-interface LogEntry {
-  id: string;
-  date: string;
-  type: string;
-  pharmacyName: string;
-  details: string;
-  user: string;
-  originalRecordId: string;
-  recordType: 'AUDIT' | 'CCTV' | 'PHYSICAL' | 'MGMT';
-}
+const ZONES = ['Gran Caracas Llanos', 'Gran Caracas Oriente', 'Centro Occidente'];
 
 const VisitLog: React.FC<VisitLogProps> = ({ 
   pharmacies, 
   audits, 
   cctvRecords, 
   physicalRecords, 
-  managementRecords,
-  users,
+  managementRecords, 
   onDeleteAudit,
   onDeleteCCTV,
   onDeletePhysical,
   onDeleteManagement,
-  hasAdminPrivileges = false
+  hasAdminPrivileges
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUser, setSelectedUser] = useState<string>('todos');
-  const [deleteConfirmation, setDeleteConfirmation] = useState<LogEntry | null>(null);
-  
-  const currentUser = JSON.parse(sessionStorage.getItem('xana_active_user') || '{}');
-  // Se incluye a los Coordinadores como rol con privilegios de seguimiento
-  const isHighRole = ['Gerente de seguridad', 'Lider de investigaciones', 'Super Usuario', 'Gerente Corporativo de Seguridad', 'Coordinador de seguridad'].includes(currentUser.role);
+  const [filterType, setFilterType] = useState('Todos');
+  const [filterZone, setFilterZone] = useState('Todas'); // CAMBIO: Filtro por Zona
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
-  const allUsers = useMemo(() => {
-    return users.filter((u: any) => (u.isApproved || u.role === 'Gerente Corporativo de Seguridad' || u.role === 'Super Usuario'));
-  }, [users]);
+  // Unificamos toda la data
+  const allRecords = useMemo(() => {
+    const format = (list: any[], type: string, dateKey: string) => 
+      list.map(item => ({
+        id: item.id,
+        type,
+        date: item[dateKey] || item.date, // Fallback
+        pharmacy: item.pharmacy?.name || 'Sede Desconocida',
+        pharmacyZone: item.pharmacy?.zone || 'Zona No Identificada', // Usamos la zona de la farmacia
+        details: type === 'Auditoría' ? `Cumplimiento: ${item.score}%` : 
+                 type === 'Inventario CCTV' ? `${item.cameras?.length || 0} Cámaras` :
+                 type === 'Infraestructura' ? `${Object.keys(item.areas || {}).length} Áreas` :
+                 item.reason || 'Visita de Gestión',
+        original: item
+      }));
 
-  const getAllEntries = (): LogEntry[] => {
-    const entries: LogEntry[] = [];
-    
-    audits.forEach(a => { 
-      entries.push({ 
-        id: a.id || `audit-${Math.random()}`, 
-        originalRecordId: a.id || '', 
-        recordType: 'AUDIT', 
-        date: a.date || '', 
-        type: 'AUDITORÍA', 
-        pharmacyName: a.pharmacy?.name || 'UBICACIÓN EXTERNA', 
-        details: a.reportText ? a.reportText.substring(0, 150) + '...' : `Auditoría finalizada con puntaje de ${a.score}%. Encargado: ${a.inCharge.nombre} ${a.inCharge.apellido}.`, 
-        user: a.createdBy || 'AUDITOR' 
-      }); 
+    return [
+      ...format(audits, 'Auditoría', 'date'),
+      ...format(cctvRecords, 'Inventario CCTV', 'date'),
+      ...format(physicalRecords, 'Infraestructura', 'date'),
+      ...format(managementRecords, 'Visita Gerencial', 'date')
+    ].sort((a, b) => {
+       // Ordenar por fecha descendente (asumiendo formato DD/MM/YYYY o YYYY-MM-DD)
+       const dateA = new Date(a.date.includes('/') ? a.date.split('/').reverse().join('-') : a.date);
+       const dateB = new Date(b.date.includes('/') ? b.date.split('/').reverse().join('-') : b.date);
+       return dateB.getTime() - dateA.getTime();
     });
-    
-    cctvRecords.forEach(c => { 
-      const p = pharmacies.find(ph => ph.id === c.pharmacyId); 
-      entries.push({ 
-        id: c.id, 
-        originalRecordId: c.id, 
-        recordType: 'CCTV', 
-        date: c.date, 
-        type: 'INVENTARIO CCTV', 
-        pharmacyName: p?.name || 'UBICACIÓN EXTERNA', 
-        details: c.notes || `Levantamiento técnico de cámaras y equipos de grabación. Detectadas ${c.cameras.analogDamaged} cámaras con falla.`, 
-        user: c.createdBy || 'AUDITOR' 
-      }); 
-    });
-    
-    physicalRecords.forEach(p => { 
-      const pharm = pharmacies.find(ph => ph.id === p.pharmacyId); 
-      entries.push({ 
-        id: p.id, 
-        originalRecordId: p.id, 
-        recordType: 'PHYSICAL', 
-        date: p.date, 
-        type: 'INVENTARIO FÍSICO', 
-        pharmacyName: pharm?.name || 'UBICACIÓN EXTERNA', 
-        details: p.notes || `Censo perimetral de santamarías, candados e iluminación. Estado de cierres: ${p.santamarias.good}/${p.santamarias.required} operativos.`, 
-        user: p.createdBy || 'AUDITOR' 
-      }); 
-    });
-    
-    managementRecords.forEach(m => { 
-      const p = pharmacies.find(ph => ph.id === m.pharmacyId); 
-      entries.push({ 
-        id: m.id, 
-        originalRecordId: m.id, 
-        recordType: 'MGMT', 
-        date: m.date, 
-        type: m.type.toUpperCase(), 
-        pharmacyName: p?.name || 'UBICACIÓN EXTERNA', 
-        details: m.notes || `Gestión de campo realizada el ${m.date}.`, 
-        user: m.createdBy || 'AUDITOR' 
-      }); 
-    });
+  }, [audits, cctvRecords, physicalRecords, managementRecords]);
 
-    return entries
-      .filter(entry => {
-        const matchesSearch = entry.pharmacyName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            entry.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            entry.details.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesUser = selectedUser === 'todos' || entry.user === selectedUser;
-        return matchesSearch && matchesUser;
-      })
-      .sort((a, b) => { 
-        const dateA = a.date.split('/').reverse().join(''); 
-        const dateB = b.date.split('/').reverse().join(''); 
-        return dateB.localeCompare(dateA); 
-      });
-  };
+  // Filtros
+  const filteredRecords = allRecords.filter(rec => {
+    const matchesSearch = 
+      rec.pharmacy.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      rec.type.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesType = filterType === 'Todos' || rec.type === filterType;
+    const matchesZone = filterZone === 'Todas' || rec.pharmacyZone === filterZone; // Lógica de zona
 
-  const confirmDelete = () => {
-    if (deleteConfirmation) {
-      const entry = deleteConfirmation;
-      if (entry.recordType === 'AUDIT' && onDeleteAudit) onDeleteAudit(entry.originalRecordId);
-      else if (entry.recordType === 'CCTV' && onDeleteCCTV) onDeleteCCTV(entry.originalRecordId);
-      else if (entry.recordType === 'PHYSICAL' && onDeletePhysical) onDeletePhysical(entry.originalRecordId);
-      else if (entry.recordType === 'MGMT' && onDeleteManagement) onDeleteManagement(entry.originalRecordId);
-      setDeleteConfirmation(null);
+    let matchesDate = true;
+    if (dateRange.start && dateRange.end) {
+      const recDate = new Date(rec.date.includes('/') ? rec.date.split('/').reverse().join('-') : rec.date);
+      const start = new Date(dateRange.start);
+      const end = new Date(dateRange.end);
+      matchesDate = recDate >= start && recDate <= end;
     }
+
+    return matchesSearch && matchesType && matchesZone && matchesDate;
+  });
+
+  const exportToExcel = () => {
+    const data = filteredRecords.map(r => ({
+      Fecha: r.date,
+      Tipo: r.type,
+      Sede: r.pharmacy,
+      Zona: r.pharmacyZone, // Exportamos la Zona
+      Detalles: r.details
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Bitácora");
+    XLSX.writeFile(wb, "Reporte_Bitacora_XANA.xlsx");
   };
 
-  const filteredEntries = getAllEntries();
+  const handleDelete = (record: any) => {
+    if (!hasAdminPrivileges) return;
+    if (!window.confirm("¿Estás seguro de eliminar este registro permanentemente?")) return;
+
+    if (record.type === 'Auditoría') onDeleteAudit(record.id);
+    if (record.type === 'Inventario CCTV') onDeleteCCTV(record.id);
+    if (record.type === 'Infraestructura') onDeletePhysical(record.id);
+    if (record.type === 'Visita Gerencial') onDeleteManagement(record.id);
+  };
 
   return (
-    <div className="max-w-[1600px] mx-auto p-10 animate-in fade-in duration-500">
-      
-      <div className="flex flex-col md:flex-row justify-between items-start mb-16 gap-8">
+    <div className="max-w-7xl mx-auto p-8 animate-in fade-in duration-500 pb-24">
+      <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
         <div>
-          <h1 className="text-5xl font-black text-slate-900 tracking-tighter uppercase">Bitácora Global</h1>
-          <p className="text-slate-400 mt-2 font-bold uppercase tracking-[0.3em] text-[11px]">Trazabilidad y Reportes de Campo</p>
+          <h2 className="text-4xl font-black text-slate-800 tracking-tighter uppercase mb-2">Bitácora Global</h2>
+          <p className="text-slate-500 font-medium">Trazabilidad y Reportes de Campo</p>
         </div>
-        
-        {isHighRole && (
-          <div className="relative group">
-            <div className="bg-white border border-slate-200 rounded-2xl p-1.5 flex items-center gap-2 shadow-sm hover:shadow-md transition-all cursor-pointer">
-               <div className="bg-orange-50 p-2.5 rounded-xl text-orange-600">
-                  <Users className="w-5 h-5" />
-               </div>
-               <div className="px-4 pr-10 relative">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Analista</p>
-                  <select 
-                    className="bg-transparent font-black text-slate-800 uppercase text-[11px] tracking-widest outline-none appearance-none cursor-pointer w-full"
-                    value={selectedUser}
-                    onChange={(e) => setSelectedUser(e.target.value)}
-                  >
-                    <option value="todos">Mostrar Todos</option>
-                    {allUsers.map((user: any) => (
-                      <option key={user.email} value={user.fullName}>{user.fullName}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
-               </div>
-            </div>
-          </div>
-        )}
+        <button onClick={exportToExcel} className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all transform hover:-translate-y-0.5">
+          <Download className="w-5 h-5" /> Exportar Excel
+        </button>
       </div>
 
-      <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden">
+      {/* Filters Bar */}
+      <div className="bg-white p-6 rounded-3xl shadow-xl border border-slate-100 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="relative group">
+            <Search className="absolute left-4 top-3.5 w-5 h-5 text-slate-400 group-focus-within:text-orange-500 transition-colors" />
+            <input 
+              type="text" 
+              placeholder="Buscar sede o detalle..." 
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-medium"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <div className="relative">
+            <Filter className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
+            <select 
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-medium appearance-none"
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+            >
+              <option value="Todos">Todos los Tipos</option>
+              <option value="Auditoría">Auditoría</option>
+              <option value="Inventario CCTV">Inventario CCTV</option>
+              <option value="Infraestructura">Infraestructura</option>
+              <option value="Visita Gerencial">Visita Gerencial</option>
+            </select>
+          </div>
+
+          <div className="relative">
+            <Globe className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
+            {/* CAMBIO: SELECTOR DE ZONA EN LUGAR DE USUARIO */}
+            <select 
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-medium appearance-none"
+              value={filterZone}
+              onChange={(e) => setFilterZone(e.target.value)}
+            >
+              <option value="Todas">Todas las Zonas</option>
+              {ZONES.map(z => <option key={z} value={z}>{z}</option>)}
+            </select>
+          </div>
+
+          <div className="flex gap-2">
+            <input 
+              type="date" 
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-medium text-sm text-slate-600"
+              value={dateRange.start}
+              onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
+            />
+            <input 
+              type="date" 
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-medium text-sm text-slate-600"
+              value={dateRange.end}
+              onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-[2rem] shadow-xl border border-slate-100 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full">
             <thead>
-              <tr className="bg-slate-50/50 border-b border-slate-100">
-                <th className="p-10 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] w-48">Fecha</th>
-                <th className="p-10 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] w-64">Naturaleza</th>
-                <th className="p-10 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] w-72">Sede / Ubicación</th>
-                <th className="p-10 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Hallazgos y Observaciones</th>
-                <th className="p-10 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-center w-32">Acción</th>
+              <tr className="bg-slate-50 border-b border-slate-100">
+                <th className="py-5 px-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Fecha</th>
+                <th className="py-5 px-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Naturaleza</th>
+                <th className="py-5 px-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Sede / Ubicación</th>
+                <th className="py-5 px-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Hallazgos y Observaciones</th>
+                <th className="py-5 px-6 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Acción</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filteredEntries.map((entry) => (
-                <tr key={entry.id} className="hover:bg-slate-50/30 transition-all group">
-                  <td className="p-10 align-top">
-                    <span className="text-slate-600 font-bold text-sm">{entry.date}</span>
+              {filteredRecords.length > 0 ? filteredRecords.map((record) => (
+                <tr key={`${record.type}-${record.id}`} className="group hover:bg-slate-50/50 transition-colors">
+                  <td className="py-5 px-6 align-top">
+                    <span className="text-sm font-bold text-slate-700">{record.date}</span>
                   </td>
-                  <td className="p-10 align-top">
-                    <div className="space-y-3">
-                       <span className={`inline-block px-4 py-1.5 rounded-lg border text-[9px] font-black uppercase tracking-widest ${
-                         entry.type === 'AUDITORÍA' ? 'bg-purple-50 text-purple-600 border-purple-100' :
-                         entry.type === 'INVENTARIO CCTV' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                         entry.type === 'INVENTARIO FÍSICO' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                         'bg-slate-50 text-slate-500 border-slate-100'
-                       }`}>
-                         {entry.type}
-                       </span>
-                       <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest pl-1">
-                          {entry.user}
-                       </p>
+                  <td className="py-5 px-6 align-top">
+                    <span className={`inline-flex items-center px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide border ${
+                      record.type === 'Auditoría' ? 'bg-orange-50 text-orange-600 border-orange-100' :
+                      record.type === 'Inventario CCTV' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                      record.type === 'Infraestructura' ? 'bg-purple-50 text-purple-600 border-purple-100' :
+                      'bg-slate-100 text-slate-600 border-slate-200'
+                    }`}>
+                      {record.type.toUpperCase()}
+                    </span>
+                    {/* AQUI MOSTRAMOS LA ZONA EN VEZ DEL NOMBRE DEL AUDITOR */}
+                    <div className="mt-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest pl-1">
+                      {record.pharmacyZone}
                     </div>
                   </td>
-                  <td className="p-10 align-top">
-                    <h3 className="font-black text-slate-900 text-lg tracking-tighter uppercase leading-tight">
-                       {entry.pharmacyName}
-                    </h3>
+                  <td className="py-5 px-6 align-top">
+                    <div className="font-black text-slate-800 uppercase">{record.pharmacy}</div>
                   </td>
-                  <td className="p-10 align-top">
-                    <div className="flex gap-4">
-                       <MessageSquare className="w-5 h-5 text-slate-200 shrink-0 mt-1" />
-                       <p className="text-slate-500 font-medium text-sm leading-relaxed italic">
-                         {entry.details}
-                       </p>
+                  <td className="py-5 px-6 align-top">
+                    <p className="text-sm text-slate-600 font-medium leading-relaxed max-w-lg">{record.details}</p>
+                  </td>
+                  <td className="py-5 px-6 align-top text-right">
+                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {hasAdminPrivileges && (
+                        <button 
+                          onClick={() => handleDelete(record)}
+                          className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-colors" 
+                          title="Eliminar registro"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
-                  </td>
-                  <td className="p-10 align-top text-center">
-                    <button 
-                      onClick={() => setDeleteConfirmation(entry)}
-                      className="p-3 rounded-xl text-slate-200 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
-                    >
-                      <Trash2 className="w-6 h-6" />
-                    </button>
                   </td>
                 </tr>
-              ))}
-              {filteredEntries.length === 0 && (
-                 <tr>
-                   <td colSpan={5} className="p-40 text-center">
-                      <div className="flex flex-col items-center gap-6 opacity-20 grayscale">
-                         <AlertTriangle className="w-20 h-20" />
-                         <span className="font-black uppercase tracking-[0.5em] text-sm">Registro de actividad vacío</span>
-                      </div>
-                   </td>
-                 </tr>
+              )) : (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-slate-400 font-medium">
+                    No se encontraron registros que coincidan con los filtros.
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
-
-      <div className="fixed bottom-10 left-1/2 -translate-x-1/2 w-full max-w-xl px-6 z-50">
-        <div className="bg-slate-900/90 backdrop-blur-xl p-4 rounded-[2rem] shadow-3xl border border-white/10 flex gap-4 items-center">
-           <Search className="w-5 h-5 text-slate-500 ml-4" />
-           <input 
-             type="text" 
-             placeholder="Filtrar por sede o detalle..."
-             className="bg-transparent border-none outline-none text-white font-bold text-sm w-full placeholder:text-slate-600"
-             value={searchTerm}
-             onChange={(e) => setSearchTerm(e.target.value)}
-           />
-           {searchTerm && (
-             <button onClick={() => setSearchTerm('')} className="p-2 text-slate-400 hover:text-white">
-                <X className="w-4 h-4" />
-             </button>
-           )}
-        </div>
-      </div>
-
-      {deleteConfirmation && (
-        <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-xl z-[100] flex items-center justify-center p-6 animate-in zoom-in-95 duration-200">
-          <div className="bg-white rounded-[3rem] w-full max-w-md p-12 shadow-3xl text-center border border-white/20">
-             <div className="w-24 h-24 bg-red-100 rounded-[2.5rem] flex items-center justify-center mb-8 mx-auto text-red-600 shadow-inner">
-                <Trash2 className="w-12 h-12" />
-             </div>
-             <h3 className="text-3xl font-black text-slate-900 tracking-tighter mb-4">¿Eliminar Registro?</h3>
-             <p className="text-slate-500 font-medium mb-10 text-sm uppercase leading-relaxed tracking-wide">Vas a eliminar una entrada del historial oficial de {deleteConfirmation.pharmacyName}. Esta acción es permanente.</p>
-             <div className="flex gap-4">
-                <button onClick={() => setDeleteConfirmation(null)} className="flex-1 py-5 rounded-2xl border-2 border-slate-100 text-slate-400 font-black uppercase tracking-widest text-[10px]">Cancelar</button>
-                <button onClick={confirmDelete} className="flex-1 py-5 rounded-2xl bg-red-600 text-white font-black uppercase tracking-widest text-[10px] shadow-2xl">Confirmar</button>
-             </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
