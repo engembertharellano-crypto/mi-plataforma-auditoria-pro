@@ -7,25 +7,25 @@ import {
   ShieldCheck, 
   Copy, 
   Save, 
-  Camera,
-  Loader2,
-  Check,
-  List,
-  CheckCircle2,
-  XCircle,
-  Minus,
-  AlertTriangle,
-  Award,
-  ShieldAlert,
-  ClipboardCheck,
-  BrainCircuit,
-  Banknote,
-  AlertOctagon,
-  UserCheck,
+  Camera, 
+  Loader2, 
+  Check, 
+  List, 
+  CheckCircle2, 
+  XCircle, 
+  Minus, 
+  Award, 
+  ShieldAlert, 
+  ClipboardCheck, 
+  BrainCircuit, 
+  Banknote, 
+  AlertOctagon, 
+  UserCheck, 
   PenTool
 } from 'lucide-react';
 import { AuditState } from '../types';
 import { HARDWARE_CHECKLIST, PROCESS_CHECKLIST } from '../constants';
+// USAMOS LA MISMA LIBRERÍA QUE EN AI ASSISTANT
 import { GoogleGenAI } from "@google/genai";
 
 interface AuditResultsProps {
@@ -146,7 +146,9 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
   const generateExecutiveReport = async (auditData: AuditState, stats: any) => {
     setIsGenerating(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      // --- CORRECCIÓN: USAMOS LA MISMA FORMA DE CONECTAR QUE EL ASISTENTE ---
+      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
+      
       const managerName = `${auditData.inCharge.nombre} ${auditData.inCharge.apellido}`.toUpperCase();
       const pharmacyName = (auditData.pharmacy?.name || 'LA SEDE').toUpperCase();
       const auditorName = (JSON.parse(sessionStorage.getItem('xana_active_user') || '{}').fullName || 'AUDITOR XANA').toUpperCase();
@@ -163,23 +165,33 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
         ? `INCIDENCIA EN BÓVEDA: Se detectó descuadre de efectivo (USD: ${auditData.vaultCount?.usd.difference}, VES: ${auditData.vaultCount?.ves.difference}).` 
         : "Integridad financiera en bóveda: CONFORME.";
 
-      const prompt = `Genera un informe ejecutivo formal y directo. Auditor: ${auditorName}, Sede: ${pharmacyName}, Gerente: ${managerName}, Cumplimiento: ${stats.finalScore.toFixed(2)}%, Riesgo: ${stats.riskLevel.toUpperCase()}. Hallazgos: ${failures.join(', ')}. ${vaultIncidentText} Estilo técnico, profesional.`;
+      const prompt = `Genera un informe ejecutivo formal y directo. Auditor: ${auditorName}, Sede: ${pharmacyName}, Gerente: ${managerName}, Cumplimiento: ${stats.finalScore.toFixed(2)}%, Riesgo: ${stats.riskLevel.toUpperCase()}. Hallazgos negativos: ${failures.join(', ')}. ${vaultIncidentText}.
+      
+      Estructura sugerida:
+      1. RESUMEN EJECUTIVO (1 párrafo contundente).
+      2. HALLAZGOS CRÍTICOS (Lista breve).
+      3. CONCLUSIÓN Y RECOMENDACIÓN.
+      
+      Estilo: Técnico, profesional de seguridad corporativa, sin saludos ni despedidas.`;
 
+      // Usamos el modelo 1.5 Flash que es más estable para reportes largos
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-1.5-flash', 
         contents: prompt
       });
 
       const text = response.text || "No se pudo generar el informe.";
+      
       setReportText(text);
       if (auditData.id) {
         onSaveReport(auditData.id, text, false);
       }
     } catch (e: any) {
+      console.error("Error IA:", e);
       if (e.message?.includes('quota')) {
         setReportText("LA IA ESTA EN DESCANSO TEMPORAL (CUOTA EXCEDIDA). POR FAVOR, REDACTA EL INFORME MANUALMENTE.");
       } else {
-        setReportText("Error al conectar con el servidor de inteligencia estratégica.");
+        setReportText(`Error al conectar con el servidor de inteligencia estratégica. Detalles: ${e.message || 'Desconocido'}`);
       }
     } finally {
       setIsGenerating(false);
@@ -307,7 +319,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
               {audit.vaultCount && (
                 <div className="mt-8 pt-8 border-t border-slate-100">
                   <div className="bg-slate-50 rounded-[2.5rem] p-10 border border-slate-200 shadow-sm">
-                     <div className="flex items-center justify-between mb-8">
+                      <div className="flex items-center justify-between mb-8">
                         <div className="flex items-center gap-4">
                            <div className="p-3 bg-slate-900 rounded-2xl text-white shadow-lg">
                               <Banknote className="w-6 h-6" />
@@ -321,9 +333,9 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                            {calculatedData.hasVaultIncident ? <AlertOctagon className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
                            {calculatedData.hasVaultIncident ? 'Diferencia Detectada' : 'Certificación Conforme'}
                         </div>
-                     </div>
-                     
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         {/* USD Block */}
                         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-inner flex flex-col justify-between group hover:border-emerald-200 transition-colors">
                            <div className="flex justify-between items-center mb-6">
@@ -361,9 +373,9 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                               </div>
                            </div>
                         </div>
-                     </div>
+                      </div>
 
-                     <div className="mt-10 flex flex-col md:flex-row md:items-center justify-between gap-8 pt-8 border-t border-slate-200/60">
+                      <div className="mt-10 flex flex-col md:flex-row md:items-center justify-between gap-8 pt-8 border-t border-slate-200/60">
                         <div className="flex items-center gap-4">
                            <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center text-orange-600">
                               <UserCheck className="w-6 h-6" />
@@ -379,7 +391,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                               <p className="text-[11px] text-slate-500 italic font-medium leading-relaxed">"{audit.vaultCount.notes}"</p>
                            </div>
                         )}
-                     </div>
+                      </div>
                   </div>
                 </div>
               )}
@@ -417,45 +429,45 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
       ) : (
         <div className="bg-white rounded-3xl shadow-3xl border border-white overflow-hidden animate-in zoom-in-95 duration-300">
            <div className="bg-slate-900 p-8 flex justify-between items-center text-white">
-              <div><h2 className="text-2xl font-black tracking-tighter flex items-center gap-4"><List className="w-8 h-8 text-orange-500" />Evidencia Detallada</h2></div>
+             <div><h2 className="text-2xl font-black tracking-tighter flex items-center gap-4"><List className="w-8 h-8 text-orange-500" />Evidencia Detallada</h2></div>
            </div>
            <div className="p-8 space-y-12">
-              {/* Arqueo Detallado en Evidencia */}
-              {audit.vaultCount && (
-                <div>
-                   <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-6 flex items-center gap-4"><Banknote className="w-4 h-4" /> Desglose de Efectivo</h3>
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
-                         <div className="px-4 py-2 bg-blue-600 text-white font-black text-[9px] uppercase tracking-widest">Bolívares (VES)</div>
-                         <div className="p-6 space-y-3">
-                            <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Sistema:</span><span className="text-slate-700">{audit.vaultCount.ves.system.toFixed(2)} Bs.</span></div>
-                            <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Físico:</span><span className="text-slate-900">{audit.vaultCount.ves.physical.toFixed(2)} Bs.</span></div>
-                            <div className={`pt-3 border-t flex justify-between font-black ${audit.vaultCount.ves.difference === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                               <span>Diferencia:</span><span>{audit.vaultCount.ves.difference.toFixed(2)} Bs.</span>
-                            </div>
-                         </div>
-                      </div>
-                      <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
-                         <div className="px-4 py-2 bg-emerald-600 text-white font-black text-[9px] uppercase tracking-widest">Dólares (USD)</div>
-                         <div className="p-6 space-y-3">
-                            <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Sistema:</span><span className="text-slate-700">{audit.vaultCount.usd.system.toFixed(2)} $</span></div>
-                            <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Físico:</span><span className="text-slate-900">{audit.vaultCount.usd.physical.toFixed(2)} $</span></div>
-                            <div className={`pt-3 border-t flex justify-between font-black ${audit.vaultCount.usd.difference === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                               <span>Diferencia:</span><span>{audit.vaultCount.usd.difference.toFixed(2)} $</span>
-                            </div>
-                         </div>
-                      </div>
-                   </div>
-                   {audit.vaultCount.notes && (
-                      <div className="mt-6 p-6 bg-orange-50 border-l-4 border-orange-500 rounded-xl">
-                         <p className="text-[9px] font-black text-orange-600 uppercase mb-2 tracking-widest">Justificación de Bóveda:</p>
-                         <p className="text-sm font-medium italic text-slate-700">"{audit.vaultCount.notes}"</p>
-                      </div>
-                   )}
-                </div>
-              )}
+             {/* Arqueo Detallado en Evidencia */}
+             {audit.vaultCount && (
+               <div>
+                  <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-6 flex items-center gap-4"><Banknote className="w-4 h-4" /> Desglose de Efectivo</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                     <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
+                        <div className="px-4 py-2 bg-blue-600 text-white font-black text-[9px] uppercase tracking-widest">Bolívares (VES)</div>
+                        <div className="p-6 space-y-3">
+                           <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Sistema:</span><span className="text-slate-700">{audit.vaultCount.ves.system.toFixed(2)} Bs.</span></div>
+                           <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Físico:</span><span className="text-slate-900">{audit.vaultCount.ves.physical.toFixed(2)} Bs.</span></div>
+                           <div className={`pt-3 border-t flex justify-between font-black ${audit.vaultCount.ves.difference === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                              <span>Diferencia:</span><span>{audit.vaultCount.ves.difference.toFixed(2)} Bs.</span>
+                           </div>
+                        </div>
+                     </div>
+                     <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
+                        <div className="px-4 py-2 bg-emerald-600 text-white font-black text-[9px] uppercase tracking-widest">Dólares (USD)</div>
+                        <div className="p-6 space-y-3">
+                           <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Sistema:</span><span className="text-slate-700">{audit.vaultCount.usd.system.toFixed(2)} $</span></div>
+                           <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Físico:</span><span className="text-slate-900">{audit.vaultCount.usd.physical.toFixed(2)} $</span></div>
+                           <div className={`pt-3 border-t flex justify-between font-black ${audit.vaultCount.usd.difference === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                              <span>Diferencia:</span><span>{audit.vaultCount.usd.difference.toFixed(2)} $</span>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+                  {audit.vaultCount.notes && (
+                     <div className="mt-6 p-6 bg-orange-50 border-l-4 border-orange-500 rounded-xl">
+                        <p className="text-[9px] font-black text-orange-600 uppercase mb-2 tracking-widest">Justificación de Bóveda:</p>
+                        <p className="text-sm font-medium italic text-slate-700">"{audit.vaultCount.notes}"</p>
+                     </div>
+                  )}
+               </div>
+             )}
 
-              <div>
+             <div>
                  <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-6 flex items-center gap-4"><ShieldAlert className="w-4 h-4" /> Sistemas de Seguridad</h3>
                  <div className="grid grid-cols-1 gap-4">
                     {Object.keys(WEIGHTS.hardware.categories).map(cat => {
@@ -479,8 +491,8 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                        );
                     })}
                  </div>
-              </div>
-              <div>
+             </div>
+             <div>
                  <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-6 flex items-center gap-4"><ClipboardCheck className="w-4 h-4" /> Protocolos y Procesos</h3>
                  <div className="grid grid-cols-1 gap-4">
                     {Object.keys(WEIGHTS.process.categories).map(cat => {
@@ -504,7 +516,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                        );
                     })}
                  </div>
-              </div>
+             </div>
            </div>
         </div>
       )}
