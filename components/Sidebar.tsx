@@ -26,7 +26,7 @@ import { ViewName } from '../types';
 interface SidebarProps {
   currentView: ViewName;
   onNavigate: (view: ViewName) => void;
-  user?: { fullName: string; role: string };
+  user?: { fullName: string; role: string; email?: string }; // Agregado email opcional
   onLogout?: () => void;
   isSyncing?: boolean;
   isOpen?: boolean;
@@ -50,7 +50,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         : 'text-slate-500 hover:bg-slate-100/80 hover:text-slate-900 hover:translate-x-1'
     }`;
 
-  const isAuthManager = user && ['Gerente de seguridad', 'Lider de investigaciones', 'Super Usuario', 'Gerente Corporativo de Seguridad'].includes(user.role);
+  // Detectar si es la Directiva
+  const isDirective = user?.email === 'directiva@xana.com';
+
+  // Solo mostrar gestión de accesos si tiene rol Y NO ES la directiva
+  const isAuthManager = user && 
+    ['Gerente de seguridad', 'Lider de investigaciones', 'Super Usuario', 'Gerente Corporativo de Seguridad'].includes(user.role) &&
+    !isDirective;
 
   const getInitials = (name: string) => {
     return name
@@ -156,7 +162,14 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
           <div onClick={() => handleNavigation('visit-log')} className={menuItemClass(currentView === 'visit-log')}><History className="w-5 h-5" /><span>Bitácora</span></div>
           <div onClick={() => handleNavigation('monthly-summary')} className={menuItemClass(currentView === 'monthly-summary')}><BarChart className="w-5 h-5" /><span>Estadísticas</span></div>
-          <div onClick={() => handleNavigation('management-report')} className={menuItemClass(currentView === 'management-report')}><FileSearch className="w-5 h-5" /><span>Reporte Gerencial</span></div>
+          
+          {/* OCULTAR REPORTE GERENCIAL PARA LA DIRECTIVA */}
+          {!isDirective && (
+            <div onClick={() => handleNavigation('management-report')} className={menuItemClass(currentView === 'management-report')}>
+              <FileSearch className="w-5 h-5" />
+              <span>Reporte Gerencial</span>
+            </div>
+          )}
           
           <div className="mt-4">
              <div 
