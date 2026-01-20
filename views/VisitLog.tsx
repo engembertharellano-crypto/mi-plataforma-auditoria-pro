@@ -3,18 +3,10 @@ import {
   Search, 
   Filter, 
   Download, 
-  Calendar, 
-  MapPin, 
-  FileText, 
-  Video, 
-  Lock, 
-  User, 
-  Eye, 
   Trash2,
   Globe
 } from 'lucide-react';
 import { AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, Pharmacy } from '../types';
-import * as XLSX from 'xlsx';
 
 interface VisitLogProps {
   pharmacies: Pharmacy[];
@@ -46,8 +38,22 @@ const VisitLog: React.FC<VisitLogProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('Todos');
-  const [filterZone, setFilterZone] = useState('Todas'); // CAMBIO: Filtro por Zona
+  const [filterZone, setFilterZone] = useState('Todas');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+
+  // Obtenemos el usuario actual de la sesión para validar permisos de visualización del filtro
+  const currentUser = JSON.parse(sessionStorage.getItem('xana_active_user') || '{}');
+
+  // Lógica estricta: Solo Gerentes, Líderes y Directiva ven el filtro de zonas
+  const canFilterByZone = useMemo(() => {
+    const role = (currentUser.role || '').toLowerCase();
+    const email = (currentUser.email || '').toLowerCase();
+    
+    return role.includes('gerente') || 
+           role.includes('lider') || 
+           role === 'super usuario' || 
+           email === 'directiva@xana.com';
+  }, [currentUser]);
 
   // Unificamos toda la data
   const allRecords = useMemo(() => {
@@ -57,7 +63,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
         type,
         date: item[dateKey] || item.date, // Fallback
         pharmacy: item.pharmacy?.name || 'Sede Desconocida',
-        pharmacyZone: item.pharmacy?.zone || 'Zona No Identificada', // Usamos la zona de la farmacia
+        pharmacyZone: item.pharmacy?.zone || 'Zona No Identificada', 
         details: type === 'Auditoría' ? `Cumplimiento: ${item.score}%` : 
                  type === 'Inventario CCTV' ? `${item.cameras?.length || 0} Cámaras` :
                  type === 'Infraestructura' ? `${Object.keys(item.areas || {}).length} Áreas` :
@@ -71,7 +77,6 @@ const VisitLog: React.FC<VisitLogProps> = ({
       ...format(physicalRecords, 'Infraestructura', 'date'),
       ...format(managementRecords, 'Visita Gerencial', 'date')
     ].sort((a, b) => {
-       // Ordenar por fecha descendente (asumiendo formato DD/MM/YYYY o YYYY-MM-DD)
        const dateA = new Date(a.date.includes('/') ? a.date.split('/').reverse().join('-') : a.date);
        const dateB = new Date(b.date.includes('/') ? b.date.split('/').reverse().join('-') : b.date);
        return dateB.getTime() - dateA.getTime();
@@ -85,7 +90,10 @@ const VisitLog: React.FC<VisitLogProps> = ({
       rec.type.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesType = filterType === 'Todos' || rec.type === filterType;
-    const matchesZone = filterZone === 'Todas' || rec.pharmacyZone === filterZone; // Lógica de zona
+    
+    // Si tiene permiso de gerencia, obedece al filtro seleccionado.
+    // Si es usuario normal, obedece a lo que ya viene filtrado por App.tsx (su propia zona).
+    const matchesZone = !canFilterByZone || (filterZone === 'Todas' || rec.pharmacyZone === filterZone);
 
     let matchesDate = true;
     if (dateRange.start && dateRange.end) {
@@ -98,19 +106,31 @@ const VisitLog: React.FC<VisitLogProps> = ({
     return matchesSearch && matchesType && matchesZone && matchesDate;
   });
 
-  const exportToExcel = () => {
-    const data = filteredRecords.map(r => ({
-      Fecha: r.date,
-      Tipo: r.type,
-      Sede: r.pharmacy,
-      Zona: r.pharmacyZone, // Exportamos la Zona
-      Detalles: r.details
-    }));
+  const exportToCSV = () => {
+    const headers = ['Fecha', 'Tipo', 'Sede', 'Zona', 'Detalles'];
+    const rows = filteredRecords.map(r => [
+      r.date,
+      r.type,
+      `"${r.pharmacy}"`, 
+      `"${r.pharmacyZone}"`,
+      `"${r.details}"`
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(e => e.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
     
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Bitácora");
-    XLSX.writeFile(wb, "Reporte_Bitacora_XANA.xlsx");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Bitacora_XANA_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleDelete = (record: any) => {
@@ -130,8 +150,8 @@ const VisitLog: React.FC<VisitLogProps> = ({
           <h2 className="text-4xl font-black text-slate-800 tracking-tighter uppercase mb-2">Bitácora Global</h2>
           <p className="text-slate-500 font-medium">Trazabilidad y Reportes de Campo</p>
         </div>
-        <button onClick={exportToExcel} className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all transform hover:-translate-y-0.5">
-          <Download className="w-5 h-5" /> Exportar Excel
+        <button onClick={exportToCSV} className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all transform hover:-translate-y-0.5">
+          <Download className="w-5 h-5" /> Exportar Reporte
         </button>
       </div>
 
@@ -164,18 +184,22 @@ const VisitLog: React.FC<VisitLogProps> = ({
             </select>
           </div>
 
-          <div className="relative">
-            <Globe className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
-            {/* CAMBIO: SELECTOR DE ZONA EN LUGAR DE USUARIO */}
-            <select 
-              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-medium appearance-none"
-              value={filterZone}
-              onChange={(e) => setFilterZone(e.target.value)}
-            >
-              <option value="Todas">Todas las Zonas</option>
-              {ZONES.map(z => <option key={z} value={z}>{z}</option>)}
-            </select>
-          </div>
+          {/* FILTRO DE ZONA: SOLO VISIBLE PARA GERENCIA, LÍDER, DIRECTIVA */}
+          {canFilterByZone ? (
+            <div className="relative">
+              <Globe className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
+              <select 
+                className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-medium appearance-none"
+                value={filterZone}
+                onChange={(e) => setFilterZone(e.target.value)}
+              >
+                <option value="Todas">Todas las Zonas</option>
+                {ZONES.map(z => <option key={z} value={z}>{z}</option>)}
+              </select>
+            </div>
+          ) : (
+            <div className="hidden md:block"></div>
+          )}
 
           <div className="flex gap-2">
             <input 
@@ -222,7 +246,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
                     }`}>
                       {record.type.toUpperCase()}
                     </span>
-                    {/* AQUI MOSTRAMOS LA ZONA EN VEZ DEL NOMBRE DEL AUDITOR */}
+                    {/* ZONA EN LUGAR DE USUARIO */}
                     <div className="mt-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest pl-1">
                       {record.pharmacyZone}
                     </div>
