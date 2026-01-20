@@ -3,7 +3,8 @@ import {
   Search, 
   Filter, 
   Trash2,
-  Globe
+  Globe,
+  X
 } from 'lucide-react';
 import { AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, Pharmacy } from '../types';
 
@@ -39,6 +40,9 @@ const VisitLog: React.FC<VisitLogProps> = ({
   const [filterType, setFilterType] = useState('Todos');
   const [filterZone, setFilterZone] = useState('Todas');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  
+  // ESTADO PARA EL MODAL DE ELIMINACIÓN
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ id: string; type: string } | null>(null);
 
   const currentUser = JSON.parse(sessionStorage.getItem('xana_active_user') || '{}');
 
@@ -55,7 +59,6 @@ const VisitLog: React.FC<VisitLogProps> = ({
   const allRecords = useMemo(() => {
     const format = (list: any[], type: string, dateKey: string) => 
       list.map(item => {
-        // Corrección de Sede Desconocida: Buscar siempre por ID
         const pId = item.pharmacyId || (item.pharmacy && item.pharmacy.id);
         const pharmacyData = pharmacies.find(p => p.id === pId);
 
@@ -104,20 +107,28 @@ const VisitLog: React.FC<VisitLogProps> = ({
     return matchesSearch && matchesType && matchesZone && matchesDate;
   });
 
-  const handleDelete = (record: any) => {
+  // FUNCIÓN PARA ABRIR EL MODAL (Ya no borra directo)
+  const requestDelete = (record: any) => {
     if (!hasAdminPrivileges) return;
-    if (!window.confirm("¿Estás seguro de eliminar este registro permanentemente?")) return;
+    setDeleteConfirmation({ id: record.id, type: record.type });
+  };
 
-    if (record.type === 'Auditoría') onDeleteAudit(record.id);
-    if (record.type === 'Inventario CCTV') onDeleteCCTV(record.id);
-    if (record.type === 'Infraestructura') onDeletePhysical(record.id);
-    if (record.type === 'Visita Gerencial') onDeleteManagement(record.id);
+  // FUNCIÓN PARA CONFIRMAR Y BORRAR REALMENTE
+  const confirmDelete = () => {
+    if (!deleteConfirmation) return;
+
+    if (deleteConfirmation.type === 'Auditoría') onDeleteAudit(deleteConfirmation.id);
+    if (deleteConfirmation.type === 'Inventario CCTV') onDeleteCCTV(deleteConfirmation.id);
+    if (deleteConfirmation.type === 'Infraestructura') onDeletePhysical(deleteConfirmation.id);
+    if (deleteConfirmation.type === 'Visita Gerencial') onDeleteManagement(deleteConfirmation.id);
+
+    setDeleteConfirmation(null);
   };
 
   return (
     <div className="max-w-7xl mx-auto p-8 animate-in fade-in duration-500 pb-24">
       
-      {/* HEADER CORREGIDO: TEXTO BLANCO COMO EN LA IMAGEN DE REFERENCIA */}
+      {/* HEADER: TEXTO BLANCO */}
       <div className="mb-10">
         <h2 className="text-5xl font-black text-white tracking-tighter uppercase mb-2">BITÁCORA GLOBAL</h2>
         <p className="text-slate-300 font-bold uppercase tracking-widest text-sm">Trazabilidad y Reportes de Campo</p>
@@ -225,7 +236,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       {hasAdminPrivileges && (
                         <button 
-                          onClick={() => handleDelete(record)}
+                          onClick={() => requestDelete(record)}
                           className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-colors" 
                           title="Eliminar registro"
                         >
@@ -246,6 +257,35 @@ const VisitLog: React.FC<VisitLogProps> = ({
           </table>
         </div>
       </div>
+
+      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN (Estilo Profesional) */}
+      {deleteConfirmation && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[180] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-md p-8 shadow-2xl text-center transform transition-all scale-100">
+             <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-8 h-8 text-red-600" />
+             </div>
+             <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tight">¿Eliminar Registro?</h3>
+             <p className="text-slate-500 font-medium mb-8 leading-relaxed">
+               Estás a punto de eliminar un registro de tipo <span className="font-bold text-slate-800">{deleteConfirmation.type}</span>. Esta acción no se puede deshacer.
+             </p>
+             <div className="flex gap-4">
+               <button 
+                 onClick={() => setDeleteConfirmation(null)} 
+                 className="flex-1 py-3.5 rounded-xl border-2 border-slate-100 font-bold text-slate-600 hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest"
+               >
+                 Cancelar
+               </button>
+               <button 
+                 onClick={confirmDelete} 
+                 className="flex-1 py-3.5 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-200 uppercase text-xs tracking-widest"
+               >
+                 Eliminar
+               </button>
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
