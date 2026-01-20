@@ -90,8 +90,15 @@ const App: React.FC = () => {
     };
   });
 
+ // 1. Detectar si es el correo de la Directiva (Solo Lectura)
+  const isReadOnly = useMemo(() => {
+    return currentUser?.email === 'directiva@xana.com';
+  }, [currentUser]);
+
+  // 2. Definir quién ve toda la data (Jefes + Directiva)
   const isBoss = useMemo(() => {
     if (!currentUser) return false;
+    if (currentUser.email === 'directiva@xana.com') return true; // La directiva ve todo
     const role = (currentUser.role || '').toLowerCase();
     return ['super usuario', 'gerente corporativo de seguridad', 'gerente de seguridad', 'lider de investigaciones', 'coordinador de seguridad'].includes(role);
   }, [currentUser]);
@@ -202,7 +209,7 @@ const App: React.FC = () => {
     if (currentUser) fullSync(currentUser);
   }, [currentUser, fullSync]);
 
-  const saveToCloud = async (table: string, id: string, data: any) => {
+  const saveToCloud = async (table: string, id: string, data: any) => {if (isReadOnly) { addToast("Modo Lectura: No tiene permiso para editar", "error"); return; }
     if (!supabase || !currentUser) return;
     try {
       const payload: any = { id, data, created_by: currentUser.fullName, zone: currentUser.zone || 'Global' };
@@ -218,6 +225,7 @@ const App: React.FC = () => {
   };
 
   const deleteFromCloud = async (table: string, id: string) => {
+    if (isReadOnly) { addToast("Modo Lectura: No tiene permiso para eliminar", "error"); return; }
     if (!supabase) return;
     try {
       await supabase.from(table).delete().eq('id', id);
