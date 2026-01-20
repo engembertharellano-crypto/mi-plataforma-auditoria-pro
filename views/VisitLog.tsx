@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { 
   Search, 
   Filter, 
-  Download, 
   Trash2,
   Globe
 } from 'lucide-react';
@@ -41,10 +40,10 @@ const VisitLog: React.FC<VisitLogProps> = ({
   const [filterZone, setFilterZone] = useState('Todas');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
-  // Obtenemos el usuario actual de la sesión para validar permisos de visualización del filtro
+  // Obtener usuario actual para validar permisos de filtro
   const currentUser = JSON.parse(sessionStorage.getItem('xana_active_user') || '{}');
 
-  // Lógica estricta: Solo Gerentes, Líderes y Directiva ven el filtro de zonas
+  // Lógica: Solo Gerentes, Líderes y Directiva ven el filtro de zonas
   const canFilterByZone = useMemo(() => {
     const role = (currentUser.role || '').toLowerCase();
     const email = (currentUser.email || '').toLowerCase();
@@ -55,21 +54,28 @@ const VisitLog: React.FC<VisitLogProps> = ({
            email === 'directiva@xana.com';
   }, [currentUser]);
 
-  // Unificamos toda la data
+  // Unificamos toda la data y CORREGIMOS la búsqueda de nombres/zonas
   const allRecords = useMemo(() => {
     const format = (list: any[], type: string, dateKey: string) => 
-      list.map(item => ({
-        id: item.id,
-        type,
-        date: item[dateKey] || item.date, // Fallback
-        pharmacy: item.pharmacy?.name || 'Sede Desconocida',
-        pharmacyZone: item.pharmacy?.zone || 'Zona No Identificada', 
-        details: type === 'Auditoría' ? `Cumplimiento: ${item.score}%` : 
-                 type === 'Inventario CCTV' ? `${item.cameras?.length || 0} Cámaras` :
-                 type === 'Infraestructura' ? `${Object.keys(item.areas || {}).length} Áreas` :
-                 item.reason || 'Visita de Gestión',
-        original: item
-      }));
+      list.map(item => {
+        // CORRECCIÓN CLAVE: Buscar la farmacia en la lista oficial usando el ID
+        const pId = item.pharmacyId || (item.pharmacy && item.pharmacy.id);
+        const pharmacyData = pharmacies.find(p => p.id === pId);
+
+        return {
+          id: item.id,
+          type,
+          date: item[dateKey] || item.date, 
+          // Si encontramos la farmacia, usamos sus datos. Si no, fallback.
+          pharmacy: pharmacyData ? pharmacyData.name : (item.pharmacy?.name || 'Sede Desconocida'),
+          pharmacyZone: pharmacyData ? pharmacyData.zone : (item.pharmacy?.zone || 'Zona No Identificada'), 
+          details: type === 'Auditoría' ? `Cumplimiento: ${item.score}%` : 
+                   type === 'Inventario CCTV' ? `${item.cameras?.length || 0} Cámaras` :
+                   type === 'Infraestructura' ? `${Object.keys(item.areas || {}).length} Áreas` :
+                   item.reason || 'Visita de Gestión',
+          original: item
+        };
+      });
 
     return [
       ...format(audits, 'Auditoría', 'date'),
@@ -81,7 +87,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
        const dateB = new Date(b.date.includes('/') ? b.date.split('/').reverse().join('-') : b.date);
        return dateB.getTime() - dateA.getTime();
     });
-  }, [audits, cctvRecords, physicalRecords, managementRecords]);
+  }, [audits, cctvRecords, physicalRecords, managementRecords, pharmacies]); // Agregamos pharmacies a dependencias
 
   // Filtros
   const filteredRecords = allRecords.filter(rec => {
@@ -91,8 +97,6 @@ const VisitLog: React.FC<VisitLogProps> = ({
     
     const matchesType = filterType === 'Todos' || rec.type === filterType;
     
-    // Si tiene permiso de gerencia, obedece al filtro seleccionado.
-    // Si es usuario normal, obedece a lo que ya viene filtrado por App.tsx (su propia zona).
     const matchesZone = !canFilterByZone || (filterZone === 'Todas' || rec.pharmacyZone === filterZone);
 
     let matchesDate = true;
@@ -105,33 +109,6 @@ const VisitLog: React.FC<VisitLogProps> = ({
 
     return matchesSearch && matchesType && matchesZone && matchesDate;
   });
-
-  const exportToCSV = () => {
-    const headers = ['Fecha', 'Tipo', 'Sede', 'Zona', 'Detalles'];
-    const rows = filteredRecords.map(r => [
-      r.date,
-      r.type,
-      `"${r.pharmacy}"`, 
-      `"${r.pharmacyZone}"`,
-      `"${r.details}"`
-    ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(e => e.join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Bitacora_XANA_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   const handleDelete = (record: any) => {
     if (!hasAdminPrivileges) return;
@@ -150,9 +127,6 @@ const VisitLog: React.FC<VisitLogProps> = ({
           <h2 className="text-4xl font-black text-slate-800 tracking-tighter uppercase mb-2">Bitácora Global</h2>
           <p className="text-slate-500 font-medium">Trazabilidad y Reportes de Campo</p>
         </div>
-        <button onClick={exportToCSV} className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all transform hover:-translate-y-0.5">
-          <Download className="w-5 h-5" /> Exportar Reporte
-        </button>
       </div>
 
       {/* Filters Bar */}
@@ -184,7 +158,6 @@ const VisitLog: React.FC<VisitLogProps> = ({
             </select>
           </div>
 
-          {/* FILTRO DE ZONA: SOLO VISIBLE PARA GERENCIA, LÍDER, DIRECTIVA */}
           {canFilterByZone ? (
             <div className="relative">
               <Globe className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
@@ -246,7 +219,6 @@ const VisitLog: React.FC<VisitLogProps> = ({
                     }`}>
                       {record.type.toUpperCase()}
                     </span>
-                    {/* ZONA EN LUGAR DE USUARIO */}
                     <div className="mt-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest pl-1">
                       {record.pharmacyZone}
                     </div>
