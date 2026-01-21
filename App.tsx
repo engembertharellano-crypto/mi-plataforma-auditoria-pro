@@ -23,7 +23,7 @@ import { Menu, CheckCircle2, XCircle, Loader2, WifiOff } from 'lucide-react';
 import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, PendingRecord, StaffRecord, SupportRecord, DeliveryReceipt, ScheduleEntry, BriefingData, Asset, AssetLoan } from './types';
 import { supabase } from './lib/supabase';
 
-const DATA_VERSION = "11.5-COORD-RESTRICTED";
+const DATA_VERSION = "11.6-AUDIT-EDIT";
 
 interface UserData {
   version: string;
@@ -53,6 +53,7 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentView, setCurrentView] = useState<ViewName>('dashboard');
   const [selectedAudit, setSelectedAudit] = useState<AuditState | null>(null);
+  const [auditToEdit, setAuditToEdit] = useState<AuditState | null>(null); // ESTADO PARA EDICIÓN
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -94,14 +95,11 @@ const App: React.FC = () => {
     return currentUser.email.trim().toLowerCase() === 'directiva@xana.com';
   }, [currentUser]);
 
-  // --- DEFINICIÓN DE JEFATURA (Global View) ---
-  // HE QUITADO 'coordinador de seguridad' de esta lista.
   const isBoss = useMemo(() => {
     if (!currentUser) return false;
     const email = currentUser.email ? currentUser.email.trim().toLowerCase() : '';
     if (email === 'directiva@xana.com') return true; 
     const role = (currentUser.role || '').toLowerCase();
-    // Solo estos roles ven TODO. El coordinador ahora entra en la lógica de "Usuario Normal" (su zona).
     return ['super usuario', 'gerente corporativo de seguridad', 'gerente de seguridad', 'lider de investigaciones'].includes(role);
   }, [currentUser]);
 
@@ -120,37 +118,27 @@ const App: React.FC = () => {
     if (sessionUser) setCurrentUser(JSON.parse(sessionUser));
   }, []);
 
-  // --- SINCRONIZACIÓN BLINDADA Y FILTRADA ---
   const fullSync = useCallback(async (user: any) => {
     if (!user || !supabase || syncInProgress.current) return;
     syncInProgress.current = true;
     setIsSyncing(true);
 
     try {
-      // 1. Validar Rol para la Query
       const role = (user.role || '').toLowerCase();
       const email = (user.email || '').toLowerCase();
-      // Misma lista que 'isBoss': Coordinador NO está aquí, por tanto userIsBoss será false.
       const userIsBoss = ['super usuario', 'gerente corporativo de seguridad', 'gerente de seguridad', 'lider de investigaciones'].includes(role) || email === 'directiva@xana.com';
 
-      // 2. Helper para traer datos filtrados por Creador (si no es jefe)
       const getTableData = async (table: string) => {
         let q = supabase.from(table).select('*');
-        
-        // Si NO es jefe y NO es una tabla pública (users), solo ve lo que él creó.
         if (!userIsBoss && !['pharmacies', 'users'].includes(table)) {
           q = q.eq('created_by', user.fullName);
         }
-        
         const { data, error } = await q;
         if (error) throw error;
         return data || [];
       };
 
-      // 3. Consulta de Farmacias con Filtro de Zona OBLIGATORIO para no jefes
       let pharmQuery = supabase.from('pharmacies').select('*').order('name');
-      
-      // Si no es jefe (ej. Coordinador), se filtra por SU zona.
       if (!userIsBoss && user.zone) {
          pharmQuery = pharmQuery.eq('zone', user.zone);
       }
@@ -260,13 +248,43 @@ const App: React.FC = () => {
     } catch (e) { addToast("Error", "error"); }
   };
 
+  // --- LÓGICA DE EDICIÓN DE AUDITORÍA ---
+  const handleEditAuditRequest = (audit: AuditState) => {
+    setAuditToEdit(audit);
+    setCurrentView('audit-wizard');
+  };
+
   const handleFinishAudit = async (audit: AuditState) => {
     if (!checkPermission()) return;
-    const auditId = `audit-${Date.now()}`;
+    
+    // Si hay auditToEdit, usamos su ID. Si no, creamos uno nuevo.
+    const isEditing = !!auditToEdit;
+    const auditId = isEditing && auditToEdit?.id ? auditToEdit.id : `audit-${Date.now()}`;
     const score = calculateAuditScore(audit);
-    const completedAudit = { ...audit, id: auditId, date: new Date().toLocaleDateString('es-ES'), score, createdBy: currentUser.fullName };
-    setUserData(prev => ({ ...prev, audits: [completedAudit, ...prev.audits] }));
+    
+    // Mantenemos la fecha original si editamos, o la actual si es nueva
+    const date = isEditing && auditToEdit?.date ? auditToEdit.date : new Date().toLocaleDateString('es-ES');
+    
+    const completedAudit = { 
+      ...audit, 
+      id: auditId, 
+      date, 
+      score, 
+      createdBy: currentUser.fullName // El creador siempre se mantiene/actualiza al usuario actual
+    };
+
+    setUserData(prev => {
+      // Si editamos, reemplazamos. Si no, agregamos al inicio.
+      const newAudits = isEditing 
+        ? prev.audits.map(a => a.id === auditId ? completedAudit : a)
+        : [completedAudit, ...prev.audits];
+      return { ...prev, audits: newAudits };
+    });
+
     await saveToCloud('audits', auditId, completedAudit);
+    
+    // Limpieza
+    setAuditToEdit(null);
     setSelectedAudit(completedAudit);
     setCurrentView('audit-results');
   };
@@ -301,7 +319,11 @@ const App: React.FC = () => {
 
       {supabase && (
         <>
-          <Sidebar currentView={currentView} onNavigate={setCurrentView} user={currentUser} onLogout={() => { setCurrentUser(null); sessionStorage.removeItem('xana_active_user'); }} isSyncing={isSyncing} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+          <Sidebar currentView={currentView} onNavigate={(view) => { 
+            // Si navegamos fuera, limpiamos el estado de edición
+            if (view !== 'audit-wizard') setAuditToEdit(null);
+            setCurrentView(view); 
+          }} user={currentUser} onLogout={() => { setCurrentUser(null); sessionStorage.removeItem('xana_active_user'); }} isSyncing={isSyncing} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
           <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden fixed top-6 left-6 z-50 p-4 bg-slate-900/80 backdrop-blur-md text-white rounded-2xl shadow-2xl border border-white/10"><Menu className="w-6 h-6" /></button>
 
           <main className={`flex-1 transition-all duration-300 lg:ml-80 p-4 md:p-6 ${isSidebarOpen ? 'blur-sm pointer-events-none lg:blur-none lg:pointer-events-auto' : ''}`}>
@@ -310,7 +332,8 @@ const App: React.FC = () => {
             
             {currentView === 'ai-assistant' && !isReadOnly && <AIAssistant pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} pendingRecords={userData.pendingRecords} staffRecords={userData.staffRecords} schedule={userData.schedule} dailyBriefing={userData.dailyBriefing} onSaveSchedule={async (s) => { if(!checkPermission()) return; setUserData(prev => ({...prev, schedule: s})); if (s.length > 0) await saveToCloud('schedule', s[0].id, s[0]); }} onSaveBriefing={(b) => setUserData(prev => ({...prev, dailyBriefing: b}))} onAddPending={async (p) => { if(!checkPermission()) return; setUserData(prev => ({...prev, pendingRecords: [p, ...prev.pendingRecords]})); await saveToCloud('pending_tasks', p.id, p); }} />}
             
-            {currentView === 'audit-wizard' && <AuditWizard onCancel={() => setCurrentView('dashboard')} onFinish={handleFinishAudit} pharmacies={userData.pharmacies} onAddPharmacy={async (p) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] })); await supabase.from('pharmacies').insert({ id: p.id, name: p.name, address: p.address, zone: p.zone, status: p.status, risk: p.risk, corporate_phone: p.corporatePhone, photo: p.photo, location: p.location }); }} />}
+            {/* AUDIT WIZARD CON SOPORTE PARA EDICIÓN (initialAudit) */}
+            {currentView === 'audit-wizard' && <AuditWizard onCancel={() => { setAuditToEdit(null); setCurrentView('dashboard'); }} onFinish={handleFinishAudit} pharmacies={userData.pharmacies} initialAudit={auditToEdit} onAddPharmacy={async (p) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] })); await supabase.from('pharmacies').insert({ id: p.id, name: p.name, address: p.address, zone: p.zone, status: p.status, risk: p.risk, corporate_phone: p.corporatePhone, photo: p.photo, location: p.location }); }} />}
             
             {currentView === 'audit-results' && selectedAudit && <AuditResults audit={selectedAudit} onBack={() => setCurrentView('dashboard')} onSaveReport={async (id, text) => { if(!checkPermission()) return; const updated = userData.audits.map(a => a.id === id ? {...a, reportText: text} : a); setUserData(prev => ({...prev, audits: updated})); const aud = updated.find(x => x.id === id); if(aud) await saveToCloud('audits', id, aud); }} />}
             
@@ -326,7 +349,8 @@ const App: React.FC = () => {
             
             {currentView === 'asset-control' && <AssetControl pharmacies={userData.pharmacies} assets={userData.assets} loans={userData.loans} onAddAsset={async (a) => { if(!checkPermission()) return; setUserData(prev => ({...prev, assets: [...prev.assets, a]})); await saveToCloud('assets', a.id, a); }} onUpdateAsset={async (a) => { if(!checkPermission()) return; setUserData(prev => ({...prev, assets: prev.assets.map(x => x.id === a.id ? a : x)})); await saveToCloud('assets', a.id, a); }} onDeleteAsset={async (id) => { if(!checkPermission()) return; setUserData(prev => ({...prev, assets: prev.assets.filter(x => x.id !== id)})); await deleteFromCloud('assets', id); }} onSaveLoan={async (l) => { if(!checkPermission()) return; const ln = { ...l, createdBy: currentUser.fullName }; setUserData(prev => ({...prev, loans: [ln, ...prev.loans]})); await saveToCloud('loans', ln.id, ln); }} onReturnLoan={async (id, date, notes) => { if(!checkPermission()) return; const updated = userData.loans.map(l => l.id === id ? {...l, status: 'Devuelto' as const, actualReturnDate: date, notes: l.notes + " | RETORNO: " + notes} : l); setUserData(p => ({...p, loans: updated})); const ln = updated.find(x => x.id === id); if(ln) await saveToCloud('loans', id, ln); }} />}
             
-            {currentView === 'visit-log' && <VisitLog pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} users={getFilteredUsers()} onDeleteAudit={id => { if(!checkPermission()) return; setUserData(p => ({...p, audits: p.audits.filter(x => x.id !== id)})); deleteFromCloud('audits', id); }} onDeleteCCTV={id => { if(!checkPermission()) return; setUserData(p => ({...p, cctvRecords: p.cctvRecords.filter(x => x.id !== id)})); deleteFromCloud('cctv_records', id); }} onDeletePhysical={id => { if(!checkPermission()) return; setUserData(p => ({...p, physicalRecords: p.physicalRecords.filter(x => x.id !== id)})); deleteFromCloud('physical_records', id); }} onDeleteManagement={id => { if(!checkPermission()) return; setUserData(p => ({...p, managementRecords: p.managementRecords.filter(x => x.id !== id)})); deleteFromCloud('management_visits', id); }} hasAdminPrivileges={isBoss} />}
+            {/* VISIT LOG CON FUNCIÓN DE EDICIÓN (onEditAudit) */}
+            {currentView === 'visit-log' && <VisitLog pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} users={getFilteredUsers()} currentUser={currentUser} onDeleteAudit={id => { if(!checkPermission()) return; setUserData(p => ({...p, audits: p.audits.filter(x => x.id !== id)})); deleteFromCloud('audits', id); }} onDeleteCCTV={id => { if(!checkPermission()) return; setUserData(p => ({...p, cctvRecords: p.cctvRecords.filter(x => x.id !== id)})); deleteFromCloud('cctv_records', id); }} onDeletePhysical={id => { if(!checkPermission()) return; setUserData(p => ({...p, physicalRecords: p.physicalRecords.filter(x => x.id !== id)})); deleteFromCloud('physical_records', id); }} onDeleteManagement={id => { if(!checkPermission()) return; setUserData(p => ({...p, managementRecords: p.managementRecords.filter(x => x.id !== id)})); deleteFromCloud('management_visits', id); }} hasAdminPrivileges={isBoss} onEditAudit={handleEditAuditRequest} />}
             
             {currentView === 'monthly-summary' && <MonthlySummary pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} pendingRecords={userData.pendingRecords} users={getFilteredUsers()} currentUser={currentUser} />}
             
