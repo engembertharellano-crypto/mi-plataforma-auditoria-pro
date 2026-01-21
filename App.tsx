@@ -23,7 +23,7 @@ import { Menu, CheckCircle2, XCircle, Loader2, WifiOff } from 'lucide-react';
 import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, PendingRecord, StaffRecord, SupportRecord, DeliveryReceipt, ScheduleEntry, BriefingData, Asset, AssetLoan } from './types';
 import { supabase } from './lib/supabase';
 
-const DATA_VERSION = "11.3-GHOST-MODE";
+const DATA_VERSION = "11.4-SECURE-ZONES";
 
 interface UserData {
   version: string;
@@ -94,6 +94,7 @@ const App: React.FC = () => {
     return currentUser.email.trim().toLowerCase() === 'directiva@xana.com';
   }, [currentUser]);
 
+  // Definición centralizada de roles de jefatura
   const isBoss = useMemo(() => {
     if (!currentUser) return false;
     const email = currentUser.email ? currentUser.email.trim().toLowerCase() : '';
@@ -117,24 +118,42 @@ const App: React.FC = () => {
     if (sessionUser) setCurrentUser(JSON.parse(sessionUser));
   }, []);
 
+  // --- SINCRONIZACIÓN BLINDADA ---
   const fullSync = useCallback(async (user: any) => {
     if (!user || !supabase || syncInProgress.current) return;
     syncInProgress.current = true;
     setIsSyncing(true);
 
     try {
+      // 1. Determinar si el usuario actual es "Jefe" para esta sincronización
+      const role = (user.role || '').toLowerCase();
+      const email = (user.email || '').toLowerCase();
+      const userIsBoss = ['super usuario', 'gerente corporativo de seguridad', 'gerente de seguridad', 'lider de investigaciones', 'coordinador de seguridad'].includes(role) || email === 'directiva@xana.com';
+
+      // 2. Helper para traer datos filtrados
       const getTableData = async (table: string) => {
         let q = supabase.from(table).select('*');
-        if (!isBoss && !['pharmacies', 'users'].includes(table)) {
+        
+        // REGLA DE ORO: Si no es jefe y no es tabla pública, solo ve lo suyo
+        if (!userIsBoss && !['pharmacies', 'users'].includes(table)) {
           q = q.eq('created_by', user.fullName);
         }
+        
         const { data, error } = await q;
         if (error) throw error;
         return data || [];
       };
 
+      // 3. Consulta de Farmacias con Filtro de Zona
+      let pharmQuery = supabase.from('pharmacies').select('*').order('name');
+      
+      // REGLA DE ORO FARMACIAS: Si no es jefe, solo ve farmacias de SU zona
+      if (!userIsBoss && user.zone) {
+         pharmQuery = pharmQuery.eq('zone', user.zone);
+      }
+
       const [pharms, auds, cctvs, phys, mgmts, pends, stfs, supps, recs, assts, lns, dbUsers, schs] = await Promise.all([
-        supabase.from('pharmacies').select('*').order('name'),
+        pharmQuery, // Usamos la query filtrada
         getTableData('audits'),
         getTableData('cctv_records'),
         getTableData('physical_records'),
@@ -162,11 +181,12 @@ const App: React.FC = () => {
           risk: p.risk, corporatePhone: p.corporate_phone, photo: p.photo, location: p.location
         }));
 
-        if (cloudPharms.length === 0 && prev.pharmacies.length > 0) return prev;
+        // Si no trajo farmacias (ej. error de red), mantenemos las locales para no borrar todo
+        if (cloudPharms.length === 0 && prev.pharmacies.length > 0 && !pharms.data) return prev;
 
         return {
           ...prev,
-          pharmacies: cloudPharms,
+          pharmacies: cloudPharms, // Ahora esto tendrá solo las farmacias permitidas
           audits: process(auds),
           cctvRecords: process(cctvs),
           physicalRecords: process(phys),
@@ -192,7 +212,7 @@ const App: React.FC = () => {
       setIsSyncing(false);
       syncInProgress.current = false;
     }
-  }, [isBoss, addToast]);
+  }, [addToast]);
 
   useEffect(() => {
     if (currentUser) fullSync(currentUser);
@@ -256,12 +276,11 @@ const App: React.FC = () => {
     return total > 0 ? Math.round((ok / total) * 100) : 0;
   };
 
-  // --- FILTRO DE USUARIOS PARA VISTAS (Aquí escondemos al Super Usuario) ---
+  // --- FILTRO VISUAL DE USUARIOS (Ocultar Super Usuario en listas) ---
   const getFilteredUsers = () => {
     return userData.users.filter(u => {
       const email = (u.email || '').toLowerCase();
       const role = (u.role || '').toLowerCase();
-      // Escondemos Directiva Y escondemos Super Usuario
       return email !== 'directiva@xana.com' && role !== 'super usuario';
     });
   };
@@ -285,6 +304,7 @@ const App: React.FC = () => {
           <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden fixed top-6 left-6 z-50 p-4 bg-slate-900/80 backdrop-blur-md text-white rounded-2xl shadow-2xl border border-white/10"><Menu className="w-6 h-6" /></button>
 
           <main className={`flex-1 transition-all duration-300 lg:ml-80 p-4 md:p-6 ${isSidebarOpen ? 'blur-sm pointer-events-none lg:blur-none lg:pointer-events-auto' : ''}`}>
+            
             {currentView === 'dashboard' && <Dashboard onNavigate={setCurrentView} pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} onSelectAudit={(a) => { setSelectedAudit(a); setCurrentView('audit-results'); }} />}
             
             {currentView === 'ai-assistant' && !isReadOnly && <AIAssistant pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} pendingRecords={userData.pendingRecords} staffRecords={userData.staffRecords} schedule={userData.schedule} dailyBriefing={userData.dailyBriefing} onSaveSchedule={async (s) => { if(!checkPermission()) return; setUserData(prev => ({...prev, schedule: s})); if (s.length > 0) await saveToCloud('schedule', s[0].id, s[0]); }} onSaveBriefing={(b) => setUserData(prev => ({...prev, dailyBriefing: b}))} onAddPending={async (p) => { if(!checkPermission()) return; setUserData(prev => ({...prev, pendingRecords: [p, ...prev.pendingRecords]})); await saveToCloud('pending_tasks', p.id, p); }} />}
@@ -305,11 +325,12 @@ const App: React.FC = () => {
             
             {currentView === 'asset-control' && <AssetControl pharmacies={userData.pharmacies} assets={userData.assets} loans={userData.loans} onAddAsset={async (a) => { if(!checkPermission()) return; setUserData(prev => ({...prev, assets: [...prev.assets, a]})); await saveToCloud('assets', a.id, a); }} onUpdateAsset={async (a) => { if(!checkPermission()) return; setUserData(prev => ({...prev, assets: prev.assets.map(x => x.id === a.id ? a : x)})); await saveToCloud('assets', a.id, a); }} onDeleteAsset={async (id) => { if(!checkPermission()) return; setUserData(prev => ({...prev, assets: prev.assets.filter(x => x.id !== id)})); await deleteFromCloud('assets', id); }} onSaveLoan={async (l) => { if(!checkPermission()) return; const ln = { ...l, createdBy: currentUser.fullName }; setUserData(prev => ({...prev, loans: [ln, ...prev.loans]})); await saveToCloud('loans', ln.id, ln); }} onReturnLoan={async (id, date, notes) => { if(!checkPermission()) return; const updated = userData.loans.map(l => l.id === id ? {...l, status: 'Devuelto' as const, actualReturnDate: date, notes: l.notes + " | RETORNO: " + notes} : l); setUserData(p => ({...p, loans: updated})); const ln = updated.find(x => x.id === id); if(ln) await saveToCloud('loans', id, ln); }} />}
             
+            {/* BITÁCORA Y ESTADÍSTICAS (Ya corregidos y conectados) */}
             {currentView === 'visit-log' && <VisitLog pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} users={getFilteredUsers()} onDeleteAudit={id => { if(!checkPermission()) return; setUserData(p => ({...p, audits: p.audits.filter(x => x.id !== id)})); deleteFromCloud('audits', id); }} onDeleteCCTV={id => { if(!checkPermission()) return; setUserData(p => ({...p, cctvRecords: p.cctvRecords.filter(x => x.id !== id)})); deleteFromCloud('cctv_records', id); }} onDeletePhysical={id => { if(!checkPermission()) return; setUserData(p => ({...p, physicalRecords: p.physicalRecords.filter(x => x.id !== id)})); deleteFromCloud('physical_records', id); }} onDeleteManagement={id => { if(!checkPermission()) return; setUserData(p => ({...p, managementRecords: p.managementRecords.filter(x => x.id !== id)})); deleteFromCloud('management_visits', id); }} hasAdminPrivileges={isBoss} />}
             
-            {/* AQUÍ ESTABA EL ERROR: AGREGADO pendingRecords={userData.pendingRecords} */}
             {currentView === 'monthly-summary' && <MonthlySummary pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} pendingRecords={userData.pendingRecords} users={getFilteredUsers()} currentUser={currentUser} />}
             
+            {/* OTRAS VISTAS */}
             {currentView === 'management-report' && !isReadOnly && <ManagementReport pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} />}
             
             {currentView === 'pharmacy-list' && <PharmacyList pharmacies={userData.pharmacies} staffRecords={userData.staffRecords} onUpdate={async (p) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: prev.pharmacies.map(x => x.id === p.id ? p : x) })); await supabase.from('pharmacies').upsert({ id: p.id, name: p.name, address: p.address, zone: p.zone, status: p.status, risk: p.risk, corporate_phone: p.corporatePhone, photo: p.photo, location: p.location }); }} onDelete={async (id) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: prev.pharmacies.filter(x => x.id !== id) })); await supabase.from('pharmacies').delete().eq('id', id); }} onAdd={async (p) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] })); await supabase.from('pharmacies').insert({ id: p.id, name: p.name, address: p.address, zone: p.zone, status: p.status, risk: p.risk, corporate_phone: p.corporate_phone, photo: p.photo, location: p.location }); }} currentUser={currentUser} />}
