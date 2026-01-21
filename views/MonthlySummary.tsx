@@ -21,7 +21,7 @@ interface MonthlySummaryProps {
   cctvRecords: CCTVInventoryRecord[];
   physicalRecords: PhysicalInventoryRecord[];
   managementRecords: ManagementVisitRecord[];
-  pendingRecords?: PendingRecord[]; // Opcional para evitar crash
+  pendingRecords?: PendingRecord[];
   currentUser: any;
 }
 
@@ -33,25 +33,28 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   cctvRecords = [],
   physicalRecords = [],
   managementRecords = [],
-  pendingRecords = [], // Valor por defecto para evitar pantalla blanca
+  pendingRecords = [],
   currentUser
 }) => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedZone, setSelectedZone] = useState('Todas');
 
-  // Asegurar que pendingRecords sea un array (protección contra undefined del padre)
-  const safePendings = Array.isArray(pendingRecords) ? pendingRecords : [];
-
   const isGlobalView = useMemo(() => {
-    const role = (currentUser?.role || '').toLowerCase();
-    const email = (currentUser?.email || '').toLowerCase();
+    if (!currentUser) return false;
+    const role = (currentUser.role || '').toLowerCase();
+    const email = (currentUser.email || '').toLowerCase();
     return role.includes('gerente') || role.includes('lider') || role === 'super usuario' || email === 'directiva@xana.com';
   }, [currentUser]);
 
-  // HELPER: Obtener datos seguros de farmacia
+  // HELPER SEGURO: Obtener datos de farmacia sin romper el ciclo
   const getPharmacyData = (record: any) => {
-    if (!record) return { id: 'unknown', name: 'Desconocido', zone: 'General', risk: 'Bajo' };
-    const pId = record.pharmacyId || (record.pharmacy && record.pharmacy.id);
+    if (!record) return { id: 'unknown', name: 'Sede Desconocida', zone: 'Sin Zona', risk: 'Bajo' };
+    
+    // Intenta obtener ID de varias formas posibles
+    const pId = record.pharmacyId || (record.pharmacy && typeof record.pharmacy === 'object' ? record.pharmacy.id : null);
+    
+    if (!pId) return { id: 'unknown', name: 'Sede Desconocida', zone: 'Sin Zona', risk: 'Bajo' };
+
     const pharmacy = pharmacies.find(p => p.id === pId);
     return {
       id: pId,
@@ -61,36 +64,41 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     };
   };
 
-  // HELPER: Validación segura de fechas
-  const isDateInMonth = (dateStr: string | undefined, monthIndex: number) => {
-    if (!dateStr) return false;
+  // HELPER SEGURO DE FECHAS
+  const checkDateInMonth = (dateStr: string | undefined, targetMonth: number) => {
+    if (!dateStr || typeof dateStr !== 'string') return false;
     try {
-      // Soporte para YYYY-MM-DD y DD/MM/YYYY
-      const dateObj = dateStr.includes('/') 
-        ? new Date(dateStr.split('/').reverse().join('-'))
-        : new Date(dateStr);
+      let d: Date;
+      if (dateStr.includes('/')) {
+        const [day, month, year] = dateStr.split('/');
+        d = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      } else {
+        d = new Date(dateStr);
+      }
       
-      if (isNaN(dateObj.getTime())) return false;
-      return dateObj.getMonth() === monthIndex;
+      if (isNaN(d.getTime())) return false;
+      return d.getMonth() === targetMonth;
     } catch (e) {
       return false;
     }
   };
 
-  // 1. TOTAL FARMACIAS EN LA ZONA (Para KPI de cobertura)
+  // 1. TOTAL FARMACIAS EN LA ZONA
   const pharmacyCount = useMemo(() => {
     return pharmacies.filter(p => {
+      if (!p) return false;
       const matchesZone = !isGlobalView || (selectedZone === 'Todas' || p.zone === selectedZone);
       return matchesZone;
     }).length;
   }, [pharmacies, selectedZone, isGlobalView]);
 
-  // 2. HELPER DE FILTRADO GENERAL POR FECHA Y ZONA
+  // 2. FILTRADO GENERAL SEGURO
   const filterData = (items: any[], month: number) => {
     if (!Array.isArray(items)) return [];
     return items.filter(item => {
       if (!item) return false;
-      const matchesMonth = isDateInMonth(item.date, month);
+      // Validación de fecha segura
+      const matchesMonth = checkDateInMonth(item.date, month);
       const { zone } = getPharmacyData(item);
       const matchesZone = !isGlobalView || (selectedZone === 'Todas' || zone === selectedZone);
       return matchesMonth && matchesZone;
@@ -99,25 +107,31 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   // 3. FILTRO SEGURO PARA PENDIENTES
   const currentPendings = useMemo(() => {
-    return safePendings.filter(p => {
-      if (!p || !p.date) return false;
-      const matchesMonth = isDateInMonth(p.date, selectedMonth);
+    if (!Array.isArray(pendingRecords)) return [];
+    
+    return pendingRecords.filter(p => {
+      if (!p) return false;
+      // Usamos el helper de fecha seguro
+      const matchesMonth = checkDateInMonth(p.date, selectedMonth);
       
-      // Buscar zona del pendiente
-      const ph = pharmacies.find(pharm => pharm.id === p.pharmacyId);
-      const pZone = ph?.zone || '';
+      // Búsqueda de zona segura
+      let pZone = '';
+      if (p.pharmacyId) {
+        const ph = pharmacies.find(pharm => pharm.id === p.pharmacyId);
+        if (ph) pZone = ph.zone;
+      }
+      
       const matchesZone = !isGlobalView || (selectedZone === 'Todas' || pZone === selectedZone);
-      
       return matchesMonth && matchesZone;
     });
-  }, [safePendings, selectedMonth, selectedZone, isGlobalView, pharmacies]);
+  }, [pendingRecords, selectedMonth, selectedZone, isGlobalView, pharmacies]);
 
-  // DATOS DEL MES ACTUAL
+  // CARGA DE DATOS
   const currentAudits = filterData(audits, selectedMonth);
   const currentCCTV = filterData(cctvRecords, selectedMonth);
   const currentPhysical = filterData(physicalRecords, selectedMonth);
   
-  // DATOS DEL MES ANTERIOR
+  // Mes anterior para tendencias
   const prevMonthIndex = selectedMonth === 0 ? 11 : selectedMonth - 1;
   const prevAudits = filterData(audits, prevMonthIndex);
 
@@ -125,21 +139,21 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   const stats = useMemo(() => {
     // A. Promedio General
     const currentAvg = currentAudits.length > 0 
-      ? currentAudits.reduce((acc, curr) => acc + (curr.score || 0), 0) / currentAudits.length 
+      ? currentAudits.reduce((acc, curr) => acc + (typeof curr.score === 'number' ? curr.score : 0), 0) / currentAudits.length 
       : 0;
     
     const prevAvg = prevAudits.length > 0 
-      ? prevAudits.reduce((acc, curr) => acc + (curr.score || 0), 0) / prevAudits.length 
+      ? prevAudits.reduce((acc, curr) => acc + (typeof curr.score === 'number' ? curr.score : 0), 0) / prevAudits.length 
       : 0;
 
     const trend = currentAvg - prevAvg;
     const hasPreviousData = prevAudits.length > 0;
 
-    // B. Eficiencia de Resolución (REAL)
+    // B. Eficiencia de Resolución
     const solvedCount = currentPendings.filter(p => p.status === 'Solventado').length;
     const totalPendingsCount = currentPendings.length;
     
-    // Si no hay pendientes, es N/A (null), si hay pendientes y 0 resueltos, es 0%.
+    // Null si no hay pendientes (para mostrar N/A), o % real si existen
     const efficiencyRate = totalPendingsCount > 0 
       ? (solvedCount / totalPendingsCount) * 100 
       : null;
@@ -150,12 +164,12 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       ? (uniqueVisitedIds.size / pharmacyCount) * 100 
       : 0;
 
-    // D. Top Ofensores
+    // D. Ranking
     const pharmacyScores: Record<string, { total: number, count: number, name: string }> = {};
     currentAudits.forEach(a => {
         const { name } = getPharmacyData(a);
         if (!pharmacyScores[name]) pharmacyScores[name] = { total: 0, count: 0, name };
-        pharmacyScores[name].total += (a.score || 0);
+        pharmacyScores[name].total += (typeof a.score === 'number' ? a.score : 0);
         pharmacyScores[name].count += 1;
     });
     
@@ -166,8 +180,8 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     const worstPerformers = leaderboard.slice(0, 3);
     const bestPerformers = [...leaderboard].reverse().slice(0, 3);
 
-    // E. Auditorías Críticas
-    const criticalAudits = currentAudits.filter(a => (a.score || 0) < 70).length;
+    // E. Críticos
+    const criticalAudits = currentAudits.filter(a => (typeof a.score === 'number' ? a.score : 0) < 70).length;
 
     return {
       currentAvg,
@@ -203,11 +217,11 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   return (
     <div className="max-w-[1600px] mx-auto p-8 animate-in fade-in duration-500 pb-20">
       
-      {/* HEADER */}
+      {/* HEADER: BLANCO SOBRE FONDO OSCURO */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-12 gap-6">
         <div>
-          <h2 className="text-5xl font-black text-white tracking-tighter uppercase mb-2">RESULTADOS DE GESTIÓN</h2>
-          <p className="text-slate-300 font-bold text-sm uppercase tracking-widest mt-1">INTELIGENCIA DE DATOS Y CUMPLIMIENTO</p>
+          <h2 className="text-5xl font-black text-white tracking-tighter uppercase mb-2">INTELIGENCIA DE ZONA</h2>
+          <p className="text-slate-300 font-bold text-sm uppercase tracking-widest">Análisis de Desempeño y Cumplimiento</p>
         </div>
         
         <div className="flex gap-4">
@@ -291,7 +305,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Eficiencia Resolución</span>
              <div className="flex items-baseline gap-2 mt-2">
                <span className="text-5xl font-black text-slate-800 tracking-tighter">
-                 {stats.efficiencyRate !== null ? `${stats.efficiencyRate.toFixed(0)}%` : 'N/A'}
+                 {stats.efficiencyRate !== null ? `${stats.efficiencyRate.toFixed(0)}%` : 'S/D'}
                </span>
              </div>
              <p className="text-[10px] font-bold text-slate-400 mt-1">
@@ -384,9 +398,8 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                  {[
                     { label: 'Auditorías de Seguridad', val: currentAudits.length, color: 'bg-orange-500', icon: <Target className="w-4 h-4 text-white" /> },
                     { label: 'Inventarios CCTV', val: currentCCTV.length, color: 'bg-blue-500', icon: <Target className="w-4 h-4 text-white" /> },
-                    // CAMBIOS SOLICITADOS: Incidentes y Cobertura
                     { label: 'Incidentes Reportados (Pendientes)', val: stats.totalPendingsCount, color: 'bg-red-500', icon: <ListTodo className="w-4 h-4 text-white" /> },
-                    { label: 'Cobertura de Zona (Sedes Visitadas)', val: stats.uniqueVisitedCount, color: 'bg-emerald-500', icon: <MapPin className="w-4 h-4 text-white" /> },
+                    { label: 'Cobertura de Zona (Sedes Visitadas)', val: stats.uniqueVisitedCount, color: 'bg-emerald-500', icon: <Store className="w-4 h-4 text-white" /> },
                  ].map((item, i) => (
                     <div key={i} className="group">
                        <div className="flex justify-between items-end mb-2">
