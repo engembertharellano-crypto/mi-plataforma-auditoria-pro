@@ -28,11 +28,11 @@ interface MonthlySummaryProps {
 const ZONES = ['Gran Caracas Llanos', 'Gran Caracas Oriente', 'Centro Occidente'];
 
 const MonthlySummary: React.FC<MonthlySummaryProps> = ({
-  pharmacies,
-  audits,
-  cctvRecords,
-  physicalRecords,
-  managementRecords,
+  pharmacies = [], // Protección por si viene undefined
+  audits = [],
+  cctvRecords = [],
+  physicalRecords = [],
+  managementRecords = [],
   pendingRecords = [],
   currentUser
 }) => {
@@ -45,18 +45,20 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     return role.includes('gerente') || role.includes('lider') || role === 'super usuario' || email === 'directiva@xana.com';
   }, [currentUser]);
 
-  // HELPER: Obtener datos seguros
+  // HELPER SEGURO: Obtener datos de farmacia sin romper el ciclo
   const getPharmacyData = (record: any) => {
+    if (!record) return { id: '', name: 'Desconocido', zone: 'Sin Zona', risk: 'Bajo' };
+    
     const pId = record.pharmacyId || (record.pharmacy && record.pharmacy.id);
     const pharmacy = pharmacies.find(p => p.id === pId);
     return {
       id: pId,
       name: pharmacy ? pharmacy.name : (record.pharmacy?.name || 'Sede Desconocida'),
-      zone: pharmacy ? pharmacy.zone : (record.pharmacy?.zone || 'Zona General')
+      zone: pharmacy ? pharmacy.zone : (record.pharmacy?.zone || 'Zona General'),
+      risk: pharmacy ? pharmacy.risk : 'Bajo'
     };
   };
 
-  // 1. TOTAL FARMACIAS EN LA ZONA (Para KPI de cobertura)
   const pharmacyCount = useMemo(() => {
     return pharmacies.filter(p => {
       const matchesZone = !isGlobalView || (selectedZone === 'Todas' || p.zone === selectedZone);
@@ -64,32 +66,45 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     }).length;
   }, [pharmacies, selectedZone, isGlobalView]);
 
-  // 2. HELPER DE FILTRADO GENERAL POR FECHA Y ZONA
+  // HELPER SEGURO DE FECHAS
+  const safeDateCheck = (dateStr: string | undefined, targetMonth: number) => {
+    if (!dateStr) return false;
+    try {
+      // Manejo robusto de formatos DD/MM/YYYY vs YYYY-MM-DD
+      const d = dateStr.includes('/') 
+        ? new Date(dateStr.split('/').reverse().join('-')) 
+        : new Date(dateStr);
+      
+      // Validar si es una fecha válida
+      if (isNaN(d.getTime())) return false;
+      return d.getMonth() === targetMonth;
+    } catch (e) {
+      return false;
+    }
+  };
+
   const filterData = (items: any[], month: number) => {
     return items.filter(item => {
-      const d = new Date(item.date.includes('/') ? item.date.split('/').reverse().join('-') : item.date);
-      const matchesMonth = d.getMonth() === month;
-      
+      if (!item) return false;
+      const matchesMonth = safeDateCheck(item.date, month);
       const { zone } = getPharmacyData(item);
       const matchesZone = !isGlobalView || (selectedZone === 'Todas' || zone === selectedZone);
-
       return matchesMonth && matchesZone;
     });
   };
 
-  // 3. FILTRAR PENDIENTES (Lógica específica para eficiencia)
+  const currentAudits = filterData(audits, selectedMonth);
+  const currentCCTV = filterData(cctvRecords, selectedMonth);
+  const currentPhysical = filterData(physicalRecords, selectedMonth);
+  
+  // FILTRO SEGURO PARA PENDIENTES
   const currentPendings = useMemo(() => {
+    if (!pendingRecords) return [];
     return pendingRecords.filter(p => {
-      // Normalizar fecha (algunos vienen DD/MM/YYYY y otros YYYY-MM-DD)
-      const dateParts = p.date.includes('/') ? p.date.split('/') : p.date.split('-');
-      // Crear fecha segura: si es DD/MM/YYYY -> [2]=año, [1]=mes-1
-      const d = p.date.includes('/') 
-        ? new Date(parseInt(dateParts[2]), parseInt(dateParts[1]) - 1, parseInt(dateParts[0]))
-        : new Date(p.date);
-
-      const matchesMonth = d.getMonth() === selectedMonth;
+      if (!p || !p.date) return false;
       
-      // Zona del pendiente
+      const matchesMonth = safeDateCheck(p.date, selectedMonth);
+      
       const ph = pharmacies.find(pharm => pharm.id === p.pharmacyId);
       const pZone = ph?.zone || '';
       const matchesZone = !isGlobalView || (selectedZone === 'Todas' || pZone === selectedZone);
@@ -98,19 +113,10 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     });
   }, [pendingRecords, selectedMonth, selectedZone, isGlobalView, pharmacies]);
 
-  // DATOS DEL MES ACTUAL
-  const currentAudits = filterData(audits, selectedMonth);
-  const currentCCTV = filterData(cctvRecords, selectedMonth);
-  const currentPhysical = filterData(physicalRecords, selectedMonth);
-  const currentVisits = filterData(managementRecords, selectedMonth);
-
-  // DATOS DEL MES ANTERIOR
   const prevMonthIndex = selectedMonth === 0 ? 11 : selectedMonth - 1;
   const prevAudits = filterData(audits, prevMonthIndex);
 
-  // --- CÁLCULOS ESTADÍSTICOS ---
   const stats = useMemo(() => {
-    // A. Promedio General
     const currentAvg = currentAudits.length > 0 
       ? currentAudits.reduce((acc, curr) => acc + (curr.score || 0), 0) / currentAudits.length 
       : 0;
@@ -120,25 +126,24 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       : 0;
 
     const trend = currentAvg - prevAvg;
-    const hasPreviousData = prevAudits.length > 0; // Validar si existen datos previos para comparar
+    const hasPreviousData = prevAudits.length > 0;
 
-    // B. Eficiencia de Resolución (REAL)
-    // Fórmula: (Solventados / Total) * 100.
-    const solvedCount = currentPendings.filter(p => p.status === 'Solventado').length;
-    const totalPendingsCount = currentPendings.length;
-    
-    // Si no hay pendientes, la eficiencia es "N/A" (null), no 100%.
-    const efficiencyRate = totalPendingsCount > 0 
-      ? (solvedCount / totalPendingsCount) * 100 
-      : null; 
-
-    // C. Cobertura de Zona (Farmacias únicas visitadas vs Total Farmacias)
+    // Cálculo seguro de Cobertura
     const uniqueVisitedIds = new Set(currentAudits.map(a => getPharmacyData(a).id));
     const coveragePercentage = pharmacyCount > 0 
       ? (uniqueVisitedIds.size / pharmacyCount) * 100 
       : 0;
 
-    // D. Top Ofensores
+    // Cálculo seguro de Eficiencia
+    const solvedThisMonth = currentPendings.filter(p => p.status === 'Solventado').length;
+    const totalPendingsThisMonth = currentPendings.length;
+    
+    // Si no hay pendientes, retornamos null para manejarlo en la UI
+    const efficiencyRate = totalPendingsThisMonth > 0 
+      ? (solvedThisMonth / totalPendingsThisMonth) * 100 
+      : null;
+
+    // Top Ofensores
     const pharmacyScores: Record<string, { total: number, count: number, name: string }> = {};
     currentAudits.forEach(a => {
         const { name } = getPharmacyData(a);
@@ -154,7 +159,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     const worstPerformers = leaderboard.slice(0, 3);
     const bestPerformers = [...leaderboard].reverse().slice(0, 3);
 
-    // E. Auditorías Críticas (< 70%)
     const criticalAudits = currentAudits.filter(a => (a.score || 0) < 70).length;
 
     return {
@@ -162,31 +166,27 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       prevAvg,
       trend,
       hasPreviousData,
-      totalActivity: currentAudits.length + currentCCTV.length + currentPhysical.length + currentVisits.length,
+      totalActivity: currentAudits.length + currentCCTV.length + currentPhysical.length,
       efficiencyRate,
       worstPerformers,
       bestPerformers,
       criticalAudits,
-      totalPendingsCount,
+      totalPendingsThisMonth,
       solvedCount,
       coveragePercentage,
       uniqueVisitedCount: uniqueVisitedIds.size
     };
-  }, [currentAudits, prevAudits, currentCCTV, currentPhysical, currentVisits, currentPendings, pharmacyCount]);
+  }, [currentAudits, prevAudits, currentCCTV, currentPhysical, currentPendings, pharmacyCount, zonePharmacies]); // zonePharmacies quitado de deps directo
 
   const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-  // GENERADOR DE MENSAJE DE DIAGNÓSTICO
   const getInsightMessage = () => {
-    // Escenario 1: Sin datos previos (No comparamos)
     if (!stats.hasPreviousData) {
       if (stats.currentAvg === 0) return "Sin actividad de auditoría registrada en el mes actual.";
       if (stats.currentAvg >= 90) return "Desempeño actual sobresaliente. Mantener estándares de supervisión.";
       if (stats.currentAvg >= 75) return "Desempeño operativo estable con margen de mejora.";
       return "Nivel de cumplimiento bajo. Se requiere intervención inmediata en sedes críticas.";
     }
-
-    // Escenario 2: Con datos previos (Comparamos)
     if (stats.trend > 0) return `TENDENCIA POSITIVA: Mejora del ${stats.trend.toFixed(1)}% respecto al mes anterior.`;
     if (stats.trend < 0) return `ALERTA DE TENDENCIA: Caída del ${Math.abs(stats.trend).toFixed(1)}% en el cumplimiento.`;
     return "Rendimiento estable respecto al mes anterior.";
@@ -276,7 +276,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
            </div>
         </div>
 
-        {/* EFFICIENCY CARD (CORREGIDO) */}
+        {/* EFFICIENCY CARD (REAL) */}
         <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 flex flex-col justify-between h-48 relative overflow-hidden">
            <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-50 rounded-full blur-2xl"></div>
            <div className="relative z-10">
@@ -287,7 +287,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                </span>
              </div>
              <p className="text-[10px] font-bold text-slate-400 mt-1">
-                {stats.solvedCount} de {stats.stats?.totalPendingsThisMonth || stats.totalPendingsCount} casos cerrados
+                {stats.solvedCount} de {stats.totalPendingsThisMonth} casos cerrados
              </p>
            </div>
            <div className="flex gap-1">
@@ -297,7 +297,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
            </div>
         </div>
 
-        {/* TOTAL SEDES (NUEVA TARJETA) */}
+        {/* TOTAL SEDES */}
         <div className="bg-slate-900 p-6 rounded-[2.5rem] shadow-xl shadow-slate-900/20 flex flex-col justify-between h-48 relative overflow-hidden text-white">
            <div className="relative z-10">
              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Total Sedes</span>
@@ -338,7 +338,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                           <span className="font-black text-red-600 text-sm">{p.avg.toFixed(1)}%</span>
                        </div>
                     )) : (
-                       <div className="text-center py-4 text-slate-400 text-xs font-medium italic">Sin sedes por debajo del umbral crítico.</div>
+                       <div className="text-center py-4 text-slate-400 text-xs font-medium italic">Sin datos suficientes para determinar criticidad.</div>
                     )}
                  </div>
               </div>
@@ -376,7 +376,9 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                  {[
                     { label: 'Auditorías de Seguridad', val: currentAudits.length, color: 'bg-orange-500', icon: <Target className="w-4 h-4 text-white" /> },
                     { label: 'Inventarios CCTV', val: currentCCTV.length, color: 'bg-blue-500', icon: <Target className="w-4 h-4 text-white" /> },
-                    { label: 'Incidentes Reportados (Pendientes)', val: stats.totalPendingsCount, color: 'bg-red-500', icon: <ListTodo className="w-4 h-4 text-white" /> },
+                    // CAMBIO: Incidentes reportados
+                    { label: 'Incidentes Reportados (Pendientes)', val: stats.totalPendingsThisMonth, color: 'bg-red-500', icon: <ListTodo className="w-4 h-4 text-white" /> },
+                    // CAMBIO: Cobertura de Zona
                     { label: 'Cobertura de Zona (Sedes Visitadas)', val: stats.uniqueVisitedCount, color: 'bg-emerald-500', icon: <MapPin className="w-4 h-4 text-white" /> },
                  ].map((item, i) => (
                     <div key={i} className="group">
@@ -387,9 +389,10 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                           <span className="font-black text-slate-800">{item.val}</span>
                        </div>
                        <div className="h-4 bg-slate-50 rounded-full overflow-hidden border border-slate-100">
+                          {/* Barra de progreso visual basada en el total de actividades + pendientes */}
                           <div 
                              className={`h-full rounded-full ${item.color} transition-all duration-1000 shadow-sm`} 
-                             style={{ width: `${stats.totalActivity > 0 ? (item.val / (stats.totalActivity + (stats.totalPendingsCount || 1))) * 100 : 0}%` }}
+                             style={{ width: `${Math.min(100, (item.val / (stats.totalActivity + (stats.totalPendingsThisMonth || 1))) * 100)}%` }}
                           ></div>
                        </div>
                     </div>
