@@ -4,7 +4,8 @@ import {
   Filter, 
   Trash2,
   Globe,
-  X
+  X,
+  Pencil // Nuevo icono para editar
 } from 'lucide-react';
 import { AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, Pharmacy } from '../types';
 
@@ -15,10 +16,12 @@ interface VisitLogProps {
   physicalRecords: PhysicalInventoryRecord[];
   managementRecords: ManagementVisitRecord[];
   users: any[];
+  currentUser: any; // Necesario para saber si soy el creador
   onDeleteAudit: (id: string) => void;
   onDeleteCCTV: (id: string) => void;
   onDeletePhysical: (id: string) => void;
   onDeleteManagement: (id: string) => void;
+  onEditAudit?: (audit: AuditState) => void; // Nueva función para editar
   hasAdminPrivileges: boolean;
 }
 
@@ -30,10 +33,12 @@ const VisitLog: React.FC<VisitLogProps> = ({
   cctvRecords, 
   physicalRecords, 
   managementRecords, 
+  currentUser,
   onDeleteAudit,
   onDeleteCCTV,
   onDeletePhysical,
   onDeleteManagement,
+  onEditAudit,
   hasAdminPrivileges
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,15 +46,12 @@ const VisitLog: React.FC<VisitLogProps> = ({
   const [filterZone, setFilterZone] = useState('Todas');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   
-  // ESTADO PARA EL MODAL DE ELIMINACIÓN
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ id: string; type: string } | null>(null);
 
-  const currentUser = JSON.parse(sessionStorage.getItem('xana_active_user') || '{}');
-
   const canFilterByZone = useMemo(() => {
+    if (!currentUser) return false;
     const role = (currentUser.role || '').toLowerCase();
     const email = (currentUser.email || '').toLowerCase();
-    
     return role.includes('gerente') || 
            role.includes('lider') || 
            role === 'super usuario' || 
@@ -107,34 +109,28 @@ const VisitLog: React.FC<VisitLogProps> = ({
     return matchesSearch && matchesType && matchesZone && matchesDate;
   });
 
-  // FUNCIÓN PARA ABRIR EL MODAL (Ya no borra directo)
   const requestDelete = (record: any) => {
     if (!hasAdminPrivileges) return;
     setDeleteConfirmation({ id: record.id, type: record.type });
   };
 
-  // FUNCIÓN PARA CONFIRMAR Y BORRAR REALMENTE
   const confirmDelete = () => {
     if (!deleteConfirmation) return;
-
     if (deleteConfirmation.type === 'Auditoría') onDeleteAudit(deleteConfirmation.id);
     if (deleteConfirmation.type === 'Inventario CCTV') onDeleteCCTV(deleteConfirmation.id);
     if (deleteConfirmation.type === 'Infraestructura') onDeletePhysical(deleteConfirmation.id);
     if (deleteConfirmation.type === 'Visita Gerencial') onDeleteManagement(deleteConfirmation.id);
-
     setDeleteConfirmation(null);
   };
 
   return (
     <div className="max-w-7xl mx-auto p-8 animate-in fade-in duration-500 pb-24">
       
-      {/* HEADER: TEXTO BLANCO */}
       <div className="mb-10">
         <h2 className="text-5xl font-black text-white tracking-tighter uppercase mb-2">BITÁCORA GLOBAL</h2>
         <p className="text-slate-300 font-bold uppercase tracking-widest text-sm">Trazabilidad y Reportes de Campo</p>
       </div>
 
-      {/* Filters Bar */}
       <div className="bg-white p-4 rounded-[2rem] shadow-xl border border-slate-100 mb-8 flex flex-col md:flex-row items-center gap-4">
           <div className="relative group flex-1 w-full">
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-orange-500 transition-colors" />
@@ -194,7 +190,6 @@ const VisitLog: React.FC<VisitLogProps> = ({
           </div>
       </div>
 
-      {/* Table */}
       <div className="bg-white rounded-[2.5rem] shadow-xl border border-white overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -234,6 +229,18 @@ const VisitLog: React.FC<VisitLogProps> = ({
                   </td>
                   <td className="py-6 px-8 align-top text-right">
                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      
+                      {/* BOTÓN EDITAR: Solo para el creador y si es auditoría */}
+                      {record.type === 'Auditoría' && onEditAudit && record.original.createdBy === currentUser?.fullName && (
+                        <button 
+                          onClick={() => onEditAudit(record.original)}
+                          className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors mr-2" 
+                          title="Editar Auditoría"
+                        >
+                          <Pencil className="w-5 h-5" />
+                        </button>
+                      )}
+
                       {hasAdminPrivileges && (
                         <button 
                           onClick={() => requestDelete(record)}
@@ -258,7 +265,6 @@ const VisitLog: React.FC<VisitLogProps> = ({
         </div>
       </div>
 
-      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN (Estilo Profesional) */}
       {deleteConfirmation && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[180] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl w-full max-w-md p-8 shadow-2xl text-center transform transition-all scale-100">
