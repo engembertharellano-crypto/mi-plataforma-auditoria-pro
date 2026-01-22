@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { 
   MapPin, 
   Calendar, 
-  Clock, 
   FileText, 
   Save, 
   X, 
@@ -22,7 +21,6 @@ const NewVisit: React.FC<NewVisitProps> = ({ pharmacies, onCancel, onSave }) => 
     pharmacyId: '',
     customLocation: '', // Para sedes fuera de lista
     date: new Date().toISOString().split('T')[0],
-    time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
     reason: 'Supervisión Operativa',
     customReason: '', // Para actividades personalizadas
     notes: ''
@@ -61,9 +59,7 @@ const NewVisit: React.FC<NewVisitProps> = ({ pharmacies, onCancel, onSave }) => 
       pharmacy: finalPharmacyData, // Guardamos el nombre manual aquí si aplica
       date: formData.date, // Formato YYYY-MM-DD para compatibilidad
       reason: isCustomReason ? formData.customReason.toUpperCase() : formData.reason,
-      notes: formData.notes,
-      // Campos extra para consistencia visual
-      time: formData.time
+      notes: formData.notes
     };
 
     onSave(visitRecord);
@@ -123,30 +119,17 @@ const NewVisit: React.FC<NewVisitProps> = ({ pharmacies, onCancel, onSave }) => 
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fecha</label>
-              <div className="relative">
-                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input 
-                  type="date" 
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-none rounded-xl outline-none focus:ring-2 focus:ring-orange-500 font-bold text-slate-700"
-                  value={formData.date}
-                  onChange={(e) => setFormData({...formData, date: e.target.value})}
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Hora (Aprox)</label>
-              <div className="relative">
-                <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input 
-                  type="time" 
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-none rounded-xl outline-none focus:ring-2 focus:ring-orange-500 font-bold text-slate-700"
-                  value={formData.time}
-                  onChange={(e) => setFormData({...formData, time: e.target.value})}
-                />
-              </div>
+          {/* FECHA (Sin hora) */}
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fecha</label>
+            <div className="relative">
+              <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input 
+                type="date" 
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 border-none rounded-xl outline-none focus:ring-2 focus:ring-orange-500 font-bold text-slate-700"
+                value={formData.date}
+                onChange={(e) => setFormData({...formData, date: e.target.value})}
+              />
             </div>
           </div>
 
