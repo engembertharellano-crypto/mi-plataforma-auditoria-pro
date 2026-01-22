@@ -17,13 +17,14 @@ import DeliveryReceipts from './views/DeliveryReceipts';
 import AssetControl from './views/AssetControl';
 import NewVisit from './views/NewVisit';
 import AccessManagement from './views/AccessManagement';
+import CaseManagement from './views/CaseManagement'; // NUEVA IMPORTACIÓN
 import Settings from './views/Settings';
 import Login from './views/Login';
 import { Menu, CheckCircle2, XCircle, Loader2, WifiOff } from 'lucide-react';
-import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, PendingRecord, StaffRecord, SupportRecord, DeliveryReceipt, ScheduleEntry, BriefingData, Asset, AssetLoan } from './types';
+import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, PendingRecord, StaffRecord, SupportRecord, DeliveryReceipt, ScheduleEntry, BriefingData, Asset, AssetLoan, CaseRecord } from './types';
 import { supabase } from './lib/supabase';
 
-const DATA_VERSION = "11.6-AUDIT-EDIT";
+const DATA_VERSION = "11.7-CASE-MGT";
 
 interface UserData {
   version: string;
@@ -39,6 +40,7 @@ interface UserData {
   schedule: ScheduleEntry[];
   assets: Asset[];
   loans: AssetLoan[];
+  cases: CaseRecord[]; // NUEVO CAMPO
   users: any[];
   dailyBriefing?: BriefingData;
 }
@@ -53,7 +55,7 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentView, setCurrentView] = useState<ViewName>('dashboard');
   const [selectedAudit, setSelectedAudit] = useState<AuditState | null>(null);
-  const [auditToEdit, setAuditToEdit] = useState<AuditState | null>(null); // ESTADO PARA EDICIÓN
+  const [auditToEdit, setAuditToEdit] = useState<AuditState | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -78,6 +80,7 @@ const App: React.FC = () => {
           schedule: parsed.schedule || [],
           assets: parsed.assets || [],
           loans: parsed.loans || [],
+          cases: parsed.cases || [], // RECUPERAR CASOS DEL CACHÉ
           users: parsed.users || [],
           dailyBriefing: parsed.dailyBriefing
         };
@@ -86,7 +89,7 @@ const App: React.FC = () => {
     return {
       version: DATA_VERSION, pharmacies: [], audits: [], cctvRecords: [], physicalRecords: [],
       managementRecords: [], pendingRecords: [], staffRecords: [], supportRecords: [],
-      deliveryReceipts: [], schedule: [], assets: [], loans: [], users: [], dailyBriefing: undefined
+      deliveryReceipts: [], schedule: [], assets: [], loans: [], cases: [], users: [], dailyBriefing: undefined
     };
   });
 
@@ -143,7 +146,7 @@ const App: React.FC = () => {
          pharmQuery = pharmQuery.eq('zone', user.zone);
       }
 
-      const [pharms, auds, cctvs, phys, mgmts, pends, stfs, supps, recs, assts, lns, dbUsers, schs] = await Promise.all([
+      const [pharms, auds, cctvs, phys, mgmts, pends, stfs, supps, recs, assts, lns, casesData, dbUsers, schs] = await Promise.all([
         pharmQuery,
         getTableData('audits'),
         getTableData('cctv_records'),
@@ -155,6 +158,7 @@ const App: React.FC = () => {
         getTableData('delivery_receipts'),
         getTableData('assets'),
         getTableData('loans'),
+        getTableData('cases'), // SINCRONIZAR CASOS
         supabase.from('users').select('*'),
         getTableData('schedule')
       ]);
@@ -187,6 +191,7 @@ const App: React.FC = () => {
           deliveryReceipts: process(recs),
           assets: process(assts),
           loans: process(lns),
+          cases: process(casesData), // GUARDAR CASOS PROCESADOS
           schedule: process(schs),
           users: (dbUsers.data || []).map((u: any) => ({ 
             ...u, fullName: u.full_name, isApproved: u.is_approved, isBlocked: u.is_blocked 
@@ -248,7 +253,6 @@ const App: React.FC = () => {
     } catch (e) { addToast("Error", "error"); }
   };
 
-  // --- LÓGICA DE EDICIÓN DE AUDITORÍA ---
   const handleEditAuditRequest = (audit: AuditState) => {
     setAuditToEdit(audit);
     setCurrentView('audit-wizard');
@@ -256,25 +260,14 @@ const App: React.FC = () => {
 
   const handleFinishAudit = async (audit: AuditState) => {
     if (!checkPermission()) return;
-    
-    // Si hay auditToEdit, usamos su ID. Si no, creamos uno nuevo.
     const isEditing = !!auditToEdit;
     const auditId = isEditing && auditToEdit?.id ? auditToEdit.id : `audit-${Date.now()}`;
     const score = calculateAuditScore(audit);
-    
-    // Mantenemos la fecha original si editamos, o la actual si es nueva
     const date = isEditing && auditToEdit?.date ? auditToEdit.date : new Date().toLocaleDateString('es-ES');
     
-    const completedAudit = { 
-      ...audit, 
-      id: auditId, 
-      date, 
-      score, 
-      createdBy: currentUser.fullName // El creador siempre se mantiene/actualiza al usuario actual
-    };
+    const completedAudit = { ...audit, id: auditId, date, score, createdBy: currentUser.fullName };
 
     setUserData(prev => {
-      // Si editamos, reemplazamos. Si no, agregamos al inicio.
       const newAudits = isEditing 
         ? prev.audits.map(a => a.id === auditId ? completedAudit : a)
         : [completedAudit, ...prev.audits];
@@ -282,8 +275,6 @@ const App: React.FC = () => {
     });
 
     await saveToCloud('audits', auditId, completedAudit);
-    
-    // Limpieza
     setAuditToEdit(null);
     setSelectedAudit(completedAudit);
     setCurrentView('audit-results');
@@ -319,11 +310,7 @@ const App: React.FC = () => {
 
       {supabase && (
         <>
-          <Sidebar currentView={currentView} onNavigate={(view) => { 
-            // Si navegamos fuera, limpiamos el estado de edición
-            if (view !== 'audit-wizard') setAuditToEdit(null);
-            setCurrentView(view); 
-          }} user={currentUser} onLogout={() => { setCurrentUser(null); sessionStorage.removeItem('xana_active_user'); }} isSyncing={isSyncing} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+          <Sidebar currentView={currentView} onNavigate={(view) => { if (view !== 'audit-wizard') setAuditToEdit(null); setCurrentView(view); }} user={currentUser} onLogout={() => { setCurrentUser(null); sessionStorage.removeItem('xana_active_user'); }} isSyncing={isSyncing} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
           <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden fixed top-6 left-6 z-50 p-4 bg-slate-900/80 backdrop-blur-md text-white rounded-2xl shadow-2xl border border-white/10"><Menu className="w-6 h-6" /></button>
 
           <main className={`flex-1 transition-all duration-300 lg:ml-80 p-4 md:p-6 ${isSidebarOpen ? 'blur-sm pointer-events-none lg:blur-none lg:pointer-events-auto' : ''}`}>
@@ -332,7 +319,6 @@ const App: React.FC = () => {
             
             {currentView === 'ai-assistant' && !isReadOnly && <AIAssistant pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} pendingRecords={userData.pendingRecords} staffRecords={userData.staffRecords} schedule={userData.schedule} dailyBriefing={userData.dailyBriefing} onSaveSchedule={async (s) => { if(!checkPermission()) return; setUserData(prev => ({...prev, schedule: s})); if (s.length > 0) await saveToCloud('schedule', s[0].id, s[0]); }} onSaveBriefing={(b) => setUserData(prev => ({...prev, dailyBriefing: b}))} onAddPending={async (p) => { if(!checkPermission()) return; setUserData(prev => ({...prev, pendingRecords: [p, ...prev.pendingRecords]})); await saveToCloud('pending_tasks', p.id, p); }} />}
             
-            {/* AUDIT WIZARD CON SOPORTE PARA EDICIÓN (initialAudit) */}
             {currentView === 'audit-wizard' && <AuditWizard onCancel={() => { setAuditToEdit(null); setCurrentView('dashboard'); }} onFinish={handleFinishAudit} pharmacies={userData.pharmacies} initialAudit={auditToEdit} onAddPharmacy={async (p) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] })); await supabase.from('pharmacies').insert({ id: p.id, name: p.name, address: p.address, zone: p.zone, status: p.status, risk: p.risk, corporate_phone: p.corporatePhone, photo: p.photo, location: p.location }); }} />}
             
             {currentView === 'audit-results' && selectedAudit && <AuditResults audit={selectedAudit} onBack={() => setCurrentView('dashboard')} onSaveReport={async (id, text) => { if(!checkPermission()) return; const updated = userData.audits.map(a => a.id === id ? {...a, reportText: text} : a); setUserData(prev => ({...prev, audits: updated})); const aud = updated.find(x => x.id === id); if(aud) await saveToCloud('audits', id, aud); }} />}
@@ -349,12 +335,30 @@ const App: React.FC = () => {
             
             {currentView === 'asset-control' && <AssetControl pharmacies={userData.pharmacies} assets={userData.assets} loans={userData.loans} onAddAsset={async (a) => { if(!checkPermission()) return; setUserData(prev => ({...prev, assets: [...prev.assets, a]})); await saveToCloud('assets', a.id, a); }} onUpdateAsset={async (a) => { if(!checkPermission()) return; setUserData(prev => ({...prev, assets: prev.assets.map(x => x.id === a.id ? a : x)})); await saveToCloud('assets', a.id, a); }} onDeleteAsset={async (id) => { if(!checkPermission()) return; setUserData(prev => ({...prev, assets: prev.assets.filter(x => x.id !== id)})); await deleteFromCloud('assets', id); }} onSaveLoan={async (l) => { if(!checkPermission()) return; const ln = { ...l, createdBy: currentUser.fullName }; setUserData(prev => ({...prev, loans: [ln, ...prev.loans]})); await saveToCloud('loans', ln.id, ln); }} onReturnLoan={async (id, date, notes) => { if(!checkPermission()) return; const updated = userData.loans.map(l => l.id === id ? {...l, status: 'Devuelto' as const, actualReturnDate: date, notes: l.notes + " | RETORNO: " + notes} : l); setUserData(p => ({...p, loans: updated})); const ln = updated.find(x => x.id === id); if(ln) await saveToCloud('loans', id, ln); }} />}
             
-            {/* VISIT LOG CON FUNCIÓN DE EDICIÓN (onEditAudit) */}
             {currentView === 'visit-log' && <VisitLog pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} users={getFilteredUsers()} currentUser={currentUser} onDeleteAudit={id => { if(!checkPermission()) return; setUserData(p => ({...p, audits: p.audits.filter(x => x.id !== id)})); deleteFromCloud('audits', id); }} onDeleteCCTV={id => { if(!checkPermission()) return; setUserData(p => ({...p, cctvRecords: p.cctvRecords.filter(x => x.id !== id)})); deleteFromCloud('cctv_records', id); }} onDeletePhysical={id => { if(!checkPermission()) return; setUserData(p => ({...p, physicalRecords: p.physicalRecords.filter(x => x.id !== id)})); deleteFromCloud('physical_records', id); }} onDeleteManagement={id => { if(!checkPermission()) return; setUserData(p => ({...p, managementRecords: p.managementRecords.filter(x => x.id !== id)})); deleteFromCloud('management_visits', id); }} hasAdminPrivileges={isBoss} onEditAudit={handleEditAuditRequest} />}
             
             {currentView === 'monthly-summary' && <MonthlySummary pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} pendingRecords={userData.pendingRecords} users={getFilteredUsers()} currentUser={currentUser} />}
             
             {currentView === 'management-report' && !isReadOnly && <ManagementReport pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} />}
+            
+            {/* NUEVA VISTA: GESTIÓN DE CASOS */}
+            {currentView === 'case-management' && (
+              <CaseManagement 
+                pharmacies={userData.pharmacies}
+                cases={userData.cases}
+                onAddCase={async (c) => { 
+                  if(!checkPermission()) return; 
+                  setUserData(prev => ({...prev, cases: [c, ...prev.cases]})); 
+                  await saveToCloud('cases', c.id, c); 
+                }}
+                onUpdateCase={async (c) => { 
+                  if(!checkPermission()) return; 
+                  setUserData(prev => ({...prev, cases: prev.cases.map(x => x.id === c.id ? c : x)})); 
+                  await saveToCloud('cases', c.id, c); 
+                }}
+                currentUser={currentUser}
+              />
+            )}
             
             {currentView === 'pharmacy-list' && <PharmacyList pharmacies={userData.pharmacies} staffRecords={userData.staffRecords} onUpdate={async (p) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: prev.pharmacies.map(x => x.id === p.id ? p : x) })); await supabase.from('pharmacies').upsert({ id: p.id, name: p.name, address: p.address, zone: p.zone, status: p.status, risk: p.risk, corporate_phone: p.corporatePhone, photo: p.photo, location: p.location }); }} onDelete={async (id) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: prev.pharmacies.filter(x => x.id !== id) })); await supabase.from('pharmacies').delete().eq('id', id); }} onAdd={async (p) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] })); await supabase.from('pharmacies').insert({ id: p.id, name: p.name, address: p.address, zone: p.zone, status: p.status, risk: p.risk, corporate_phone: p.corporate_phone, photo: p.photo, location: p.location }); }} currentUser={currentUser} />}
             
