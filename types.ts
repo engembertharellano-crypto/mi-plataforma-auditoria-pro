@@ -1,4 +1,4 @@
-export type ViewName = 'dashboard' | 'ai-assistant' | 'audit-wizard' | 'new-visit' | 'audit-results' | 'cctv-inventory' | 'physical-inventory' | 'pending-tasks' | 'pharmacy-list' | 'visit-log' | 'monthly-summary' | 'management-report' | 'staff-directory' | 'support-directory' | 'delivery-receipts' | 'settings' | 'access-management' | 'asset-control';
+export type ViewName = 'dashboard' | 'ai-assistant' | 'audit-wizard' | 'new-visit' | 'audit-results' | 'cctv-inventory' | 'physical-inventory' | 'pending-tasks' | 'pharmacy-list' | 'visit-log' | 'monthly-summary' | 'management-report' | 'staff-directory' | 'support-directory' | 'delivery-receipts' | 'settings' | 'access-management' | 'asset-control' | 'case-management';
 
 export interface Pharmacy {
   id: string;
@@ -241,4 +241,39 @@ export interface AssetLoan {
   createdBy?: string;
   lentComponents: AssetComponent[];
   loanPhoto?: string;
+}
+
+// --- GESTIÓN DE CASOS (NUEVO MÓDULO) ---
+
+export interface CaseTimelineEntry {
+  id: string;
+  date: string; // Fecha y hora
+  note: string; // Descripción del avance
+  author: string; // Quién registró el avance
+}
+
+export interface CaseRecord {
+  id: string;
+  status: 'Abierto' | 'En Proceso' | 'Cerrado';
+  priority: 'Alta' | 'Media' | 'Baja';
+  date: string; // Fecha de creación del caso
+  
+  // Origen
+  reporterName: string; // Quién reporta la novedad
+  channel: 'Llamada' | 'WhatsApp' | 'Correo' | 'Verbal' | 'Sistema';
+  
+  // Ubicación Flexible
+  locationType: 'Farmacia' | 'Corporativo' | 'CEDIS' | 'Otro';
+  locationName: string; // Nombre real (ej. "Farmacia Centro", "Oficina RRHH")
+  pharmacyId?: string; // Opcional, solo si es farmacia registrada
+  
+  // Contenido
+  title: string;
+  description: string;
+  
+  // Ciclo de vida
+  timeline: CaseTimelineEntry[]; // Historial de seguimiento
+  conclusion?: string; // Resolución final al cerrar
+  closedDate?: string;
+  createdBy: string; // Usuario del sistema que abrió el caso
 }
