@@ -24,7 +24,7 @@ import { Menu, CheckCircle2, XCircle, Loader2, WifiOff } from 'lucide-react';
 import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, PendingRecord, StaffRecord, SupportRecord, DeliveryReceipt, ScheduleEntry, BriefingData, Asset, AssetLoan, CaseRecord } from './types';
 import { supabase } from './lib/supabase';
 
-const DATA_VERSION = "11.8-CASE-INTEGRATION";
+const DATA_VERSION = "11.9-CASE-OFFICIAL-ID";
 
 interface UserData {
   version: string;
@@ -40,7 +40,7 @@ interface UserData {
   schedule: ScheduleEntry[];
   assets: Asset[];
   loans: AssetLoan[];
-  cases: CaseRecord[]; // NUEVO CAMPO DE DATOS
+  cases: CaseRecord[]; // CAMPO PARA CASOS
   users: any[];
   dailyBriefing?: BriefingData;
 }
@@ -158,7 +158,7 @@ const App: React.FC = () => {
         getTableData('delivery_receipts'),
         getTableData('assets'),
         getTableData('loans'),
-        getTableData('cases'), // SINCRONIZACIÓN DE LA TABLA CASES
+        getTableData('cases'), // SINCRONIZACIÓN DE CASOS
         supabase.from('users').select('*'),
         getTableData('schedule')
       ]);
@@ -191,7 +191,7 @@ const App: React.FC = () => {
           deliveryReceipts: process(recs),
           assets: process(assts),
           loans: process(lns),
-          cases: process(casesData), // PROCESAMIENTO DE CASOS
+          cases: process(casesData), // GUARDADO DE CASOS
           schedule: process(schs),
           users: (dbUsers.data || []).map((u: any) => ({ 
             ...u, fullName: u.full_name, isApproved: u.is_approved, isBlocked: u.is_blocked 
@@ -341,7 +341,7 @@ const App: React.FC = () => {
             
             {currentView === 'management-report' && !isReadOnly && <ManagementReport pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} />}
             
-            {/* NUEVA VISTA INTEGRADA: GESTIÓN DE CASOS */}
+            {/* NUEVO MÓDULO CONECTADO */}
             {currentView === 'case-management' && (
               <CaseManagement 
                 pharmacies={userData.pharmacies}
