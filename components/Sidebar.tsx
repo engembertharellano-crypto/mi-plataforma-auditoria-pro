@@ -14,7 +14,7 @@ import {
   Truck, 
   ShieldCheck, 
   Key,
-  Briefcase, // Icono para Casos
+  Briefcase,
   Package
 } from 'lucide-react';
 import { ViewName } from '../types';
@@ -46,9 +46,12 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
+  // ESTILOS RESTAURADOS (TEMA CLARO)
   const isActive = (view: ViewName) => currentView === view 
     ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30' 
-    : 'text-slate-400 hover:bg-white/5 hover:text-white';
+    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900';
+
+  const isReadOnly = () => user?.email === 'directiva@xana.com';
 
   const isBoss = () => {
     if (!user) return false;
@@ -57,19 +60,18 @@ const Sidebar: React.FC<SidebarProps> = ({
     return ['super usuario', 'gerente corporativo de seguridad', 'gerente de seguridad', 'lider de investigaciones', 'coordinador de seguridad'].includes(role) || email === 'directiva@xana.com';
   };
 
-  const isReadOnly = () => user?.email === 'directiva@xana.com';
-
   return (
     <>
       {/* Overlay móvil */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[200] lg:hidden"
+          className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-[200] lg:hidden"
           onClick={onClose}
         />
       )}
 
-      <aside className={`fixed top-0 left-0 h-full w-80 bg-slate-900 text-white p-6 flex flex-col z-[210] transition-transform duration-300 ease-in-out border-r border-white/5 overflow-y-auto custom-scrollbar ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+      {/* SIDEBAR BLANCO (RESTAURADO) */}
+      <aside className={`fixed top-0 left-0 h-full w-80 bg-white text-slate-800 p-6 flex flex-col z-[210] transition-transform duration-300 ease-in-out border-r border-slate-100 overflow-y-auto custom-scrollbar ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         
         {/* Header */}
         <div className="flex items-center gap-4 mb-10 px-2">
@@ -77,8 +79,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             <ShieldCheck className="w-7 h-7 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-black tracking-tighter leading-none">XANA PRO</h1>
-            <p className="text-[10px] font-bold text-slate-500 tracking-[0.2em] mt-1">SEGURIDAD</p>
+            <h1 className="text-2xl font-black tracking-tighter leading-none text-slate-900">XANA PRO</h1>
+            <p className="text-[10px] font-bold text-slate-400 tracking-[0.2em] mt-1">SEGURIDAD</p>
           </div>
         </div>
 
@@ -97,7 +99,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           <div>
-            <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Gestión</p>
+            <p className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Gestión</p>
             <div className="space-y-2">
               <button onClick={() => handleNav('visit-log')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('visit-log')}`}>
                 <FileText className="w-5 h-5" /> Bitácora
@@ -113,7 +115,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           <div>
-            <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Activos</p>
+            <p className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Activos</p>
             <div className="space-y-2">
               <button onClick={() => handleNav('asset-control')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('asset-control')}`}>
                 <Key className="w-5 h-5" /> Control Préstamos
@@ -125,7 +127,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           <div>
-            <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Directorios</p>
+            <p className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Directorios</p>
             <div className="space-y-2">
               <button onClick={() => handleNav('pharmacy-list')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('pharmacy-list')}`}>
                 <Store className="w-5 h-5" /> Farmacias
@@ -140,7 +142,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           <div>
-            <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Reportes</p>
+            <p className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Reportes</p>
             <div className="space-y-2">
               <button onClick={() => handleNav('monthly-summary')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('monthly-summary')}`}>
                 <BarChart3 className="w-5 h-5" /> Estadísticas
@@ -154,7 +156,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           <div>
-            <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Sistema</p>
+            <p className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Sistema</p>
             <div className="space-y-2">
               {/* Solo jefes ven Gestión de Accesos */}
               {!isReadOnly && isBoss() && (
@@ -171,25 +173,25 @@ const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {/* Footer User */}
-        <div className="mt-8 pt-6 border-t border-white/5">
+        <div className="mt-8 pt-6 border-t border-slate-100">
           <div className="flex items-center gap-3 px-2 mb-4">
-            <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-black text-orange-500 border border-slate-700">
+            <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center font-black text-orange-500 border border-slate-100">
               {user?.fullName?.charAt(0) || 'U'}
             </div>
             <div className="overflow-hidden">
-              <p className="font-bold text-sm truncate">{user?.fullName}</p>
-              <p className="text-[10px] font-medium text-slate-500 truncate">{user?.role}</p>
+              <p className="font-bold text-sm text-slate-800 truncate">{user?.fullName}</p>
+              <p className="text-[10px] font-medium text-slate-400 truncate">{user?.role}</p>
             </div>
           </div>
           
           <div className="flex items-center justify-between px-2">
             <div className="flex items-center gap-2">
               <span className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-orange-500 animate-pulse' : 'bg-emerald-500'}`}></span>
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                 {isSyncing ? 'Sincronizando...' : 'Conectado'}
               </span>
             </div>
-            <button onClick={onLogout} className="text-slate-500 hover:text-white transition-colors">
+            <button onClick={onLogout} className="text-slate-400 hover:text-red-500 transition-colors">
               <LogOut className="w-4 h-4" />
             </button>
           </div>
