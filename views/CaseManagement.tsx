@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { 
-  Briefcase, 
   Plus, 
   Search, 
   MapPin, 
-  Calendar, 
   User, 
   MessageSquare, 
   Clock, 
@@ -15,7 +13,8 @@ import {
   Truck,
   MoreHorizontal,
   FileText,
-  ArrowLeft
+  ArrowLeft,
+  Hash // Icono para el número de caso
 } from 'lucide-react';
 import { Pharmacy, CaseRecord, CaseTimelineEntry } from '../types';
 
@@ -37,12 +36,12 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
   const [view, setView] = useState<'list' | 'new' | 'detail'>('list');
   const [selectedCase, setSelectedCase] = useState<CaseRecord | null>(null);
   
-  // Filtros
   const [filterStatus, setFilterStatus] = useState<'Activos' | 'Cerrados'>('Activos');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Formulario Nuevo Caso
+  // Formulario Nuevo Caso (Ahora incluye 'id' manual)
   const [formData, setFormData] = useState<Partial<CaseRecord>>({
+    id: '', // CAMPO MANUAL
     priority: 'Media',
     channel: 'WhatsApp',
     locationType: 'Farmacia',
@@ -51,10 +50,8 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
     title: '',
     description: ''
   });
-  // Auxiliar para selección de farmacia
+  
   const [selectedPharmacyId, setSelectedPharmacyId] = useState('');
-
-  // Formulario de Seguimiento
   const [newTimelineNote, setNewTimelineNote] = useState('');
   const [conclusionText, setConclusionText] = useState('');
   const [isClosing, setIsClosing] = useState(false);
@@ -64,15 +61,20 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
     const matchesStatus = filterStatus === 'Activos' ? c.status !== 'Cerrado' : c.status === 'Cerrado';
     const matchesSearch = c.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           c.locationName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          c.id.includes(searchTerm);
+                          c.id.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesStatus && matchesSearch;
   }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   // --- MANEJADORES ---
 
   const handleCreateCase = () => {
+    // Validaciones (Incluyendo el ID)
+    if (!formData.id) return alert("Debe asignar un Número de Caso.");
     if (!formData.title || !formData.description || !formData.reporterName) return alert("Complete los campos obligatorios");
     
+    // Verificar si el ID ya existe (Validación básica frontend)
+    if (cases.some(c => c.id === formData.id)) return alert("Este número de caso ya existe. Por favor use otro.");
+
     // Resolver Nombre de Ubicación
     let finalLocationName = formData.locationName;
     if (formData.locationType === 'Farmacia') {
@@ -84,7 +86,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
     }
 
     const newCase: CaseRecord = {
-      id: `CASE-${Date.now().toString().slice(-6)}`,
+      id: formData.id, // USAMOS EL ID MANUAL
       date: new Date().toISOString(),
       status: 'Abierto',
       priority: formData.priority as any,
@@ -102,7 +104,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
     onAddCase(newCase);
     setView('list');
     // Reset form
-    setFormData({ priority: 'Media', channel: 'WhatsApp', locationType: 'Farmacia', locationName: '', reporterName: '', title: '', description: '' });
+    setFormData({ id: '', priority: 'Media', channel: 'WhatsApp', locationType: 'Farmacia', locationName: '', reporterName: '', title: '', description: '' });
     setSelectedPharmacyId('');
   };
 
@@ -118,7 +120,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
 
     const updatedCase = {
       ...selectedCase,
-      status: 'En Proceso' as const, // Pasa a En Proceso al interactuar
+      status: 'En Proceso' as const,
       timeline: [newEntry, ...selectedCase.timeline]
     };
 
@@ -172,11 +174,11 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
   return (
     <div className="max-w-[1600px] mx-auto p-6 md:p-10 animate-in fade-in duration-500 pb-20">
       
-      {/* HEADER */}
+      {/* HEADER CORREGIDO: TEXTO BLANCO */}
       <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
         <div>
-          <h1 className="text-4xl font-black text-slate-800 tracking-tighter uppercase mb-2">Gestión de Casos</h1>
-          <p className="text-slate-500 font-bold text-sm uppercase tracking-widest">Control de Novedades e Incidentes</p>
+          <h1 className="text-4xl font-black text-white tracking-tighter uppercase mb-2">Gestión de Casos</h1>
+          <p className="text-slate-300 font-bold text-sm uppercase tracking-widest">Control de Novedades e Incidentes</p>
         </div>
         {view === 'list' && (
           <button 
@@ -191,7 +193,6 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
       {/* VISTA: LISTA DE CASOS */}
       {view === 'list' && (
         <div className="space-y-6">
-          {/* Filtros */}
           <div className="flex flex-col md:flex-row gap-4">
              <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm w-fit">
                 <button onClick={() => setFilterStatus('Activos')} className={`px-6 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${filterStatus === 'Activos' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>Activos</button>
@@ -209,7 +210,6 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
              </div>
           </div>
 
-          {/* Grid de Casos */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
              {filteredCases.map(c => (
                 <div 
@@ -236,7 +236,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
                    </div>
 
                    <div className="pt-4 border-t border-slate-100 flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                      <span>ID: {c.id}</span>
+                      <span className="flex items-center gap-1"><Hash className="w-3 h-3" /> {c.id}</span>
                       <span>{new Date(c.date).toLocaleDateString()}</span>
                    </div>
                 </div>
@@ -260,7 +260,23 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
            </div>
 
            <div className="space-y-6">
-              {/* Prioridad y Canal */}
+              
+              {/* CAMPO MANUAL PARA EL ID DEL CASO */}
+              <div>
+                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Número de Caso / ID</label>
+                 <div className="relative">
+                    <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <input 
+                      type="text" 
+                      placeholder="Ej. CASO-2024-001"
+                      className="w-full pl-12 pr-4 py-3 bg-slate-50 rounded-xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500 uppercase"
+                      value={formData.id}
+                      onChange={(e) => setFormData({...formData, id: e.target.value.toUpperCase()})}
+                      autoFocus
+                    />
+                 </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                  <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Prioridad</label>
@@ -290,7 +306,6 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
                  </div>
               </div>
 
-              {/* UBICACIÓN FLEXIBLE */}
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Ubicación del Incidente</label>
                  
@@ -326,7 +341,6 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
                  )}
               </div>
 
-              {/* Detalles */}
               <div>
                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">¿Quién reporta?</label>
                  <input 
@@ -366,13 +380,12 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
         </div>
       )}
 
-      {/* VISTA: EXPEDIENTE DETALLADO (TIMELINE) */}
+      {/* VISTA: EXPEDIENTE DETALLADO */}
       {view === 'detail' && selectedCase && (
          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            {/* COLUMNA IZQUIERDA: DATOS FIJOS */}
             <div className="space-y-6">
-               <button onClick={() => setView('list')} className="flex items-center gap-2 text-slate-500 font-bold hover:text-slate-800 transition-colors mb-4">
+               <button onClick={() => setView('list')} className="flex items-center gap-2 text-slate-300 font-bold hover:text-white transition-colors mb-4">
                   <ArrowLeft className="w-4 h-4" /> Volver a lista
                </button>
 
@@ -387,6 +400,15 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
                   <h2 className="text-2xl font-black text-slate-800 uppercase leading-tight mb-4">{selectedCase.title}</h2>
                   
                   <div className="space-y-4">
+                     {/* SE MUESTRA EL ID EN EL DETALLE */}
+                     <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
+                        <Hash className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
+                        <div>
+                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Número de Caso</p>
+                           <p className="font-bold text-slate-700 uppercase">{selectedCase.id}</p>
+                        </div>
+                     </div>
+
                      <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
                         <MapPin className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
                         <div>
@@ -434,13 +456,11 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
                </div>
             </div>
 
-            {/* COLUMNA DERECHA: TIMELINE (SEGUIMIENTO) */}
             <div className="lg:col-span-2 space-y-6">
-               <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
+               <h3 className="text-xl font-black text-slate-300 uppercase tracking-tight flex items-center gap-2">
                   <MoreHorizontal className="w-5 h-5 text-orange-500" /> Bitácora de Seguimiento
                </h3>
 
-               {/* Input de Nuevo Seguimiento */}
                {selectedCase.status !== 'Cerrado' && !isClosing && (
                   <div className="bg-white p-4 rounded-[2rem] shadow-lg border border-slate-100 flex gap-4 items-start">
                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
@@ -466,7 +486,6 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
                   </div>
                )}
 
-               {/* Modal/Area de Cierre */}
                {isClosing && (
                   <div className="bg-red-50 p-6 rounded-[2rem] border border-red-100 animate-in fade-in slide-in-from-top-2">
                      <h4 className="text-lg font-black text-red-800 uppercase mb-2">Cierre de Caso</h4>
@@ -484,11 +503,10 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
                   </div>
                )}
 
-               {/* Lista de Eventos */}
-               <div className="space-y-6 relative before:absolute before:left-5 before:top-4 before:bottom-4 before:w-0.5 before:bg-slate-200">
+               <div className="space-y-6 relative before:absolute before:left-5 before:top-4 before:bottom-4 before:w-0.5 before:bg-white/10">
                   {selectedCase.timeline.map((entry, idx) => (
                      <div key={entry.id} className="relative pl-14 group">
-                        <div className="absolute left-3 top-1 w-4 h-4 bg-white border-2 border-orange-500 rounded-full z-10"></div>
+                        <div className="absolute left-3 top-1 w-4 h-4 bg-slate-900 border-2 border-orange-500 rounded-full z-10"></div>
                         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 group-hover:shadow-md transition-all">
                            <div className="flex justify-between items-center mb-2">
                               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(entry.date).toLocaleString()}</span>
@@ -499,9 +517,8 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
                      </div>
                   ))}
                   
-                  {/* Evento de Creación */}
                   <div className="relative pl-14">
-                     <div className="absolute left-3 top-1 w-4 h-4 bg-slate-300 rounded-full z-10"></div>
+                     <div className="absolute left-3 top-1 w-4 h-4 bg-slate-500 rounded-full z-10"></div>
                      <div className="text-xs font-bold text-slate-400 uppercase tracking-widest pt-1">
                         Caso abierto por {selectedCase.createdBy} el {new Date(selectedCase.date).toLocaleString()}
                      </div>
