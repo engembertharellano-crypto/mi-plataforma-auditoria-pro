@@ -243,37 +243,38 @@ export interface AssetLoan {
   loanPhoto?: string;
 }
 
-// --- GESTIÓN DE CASOS (NUEVO MÓDULO) ---
+// --- GESTIÓN DE CASOS ---
 
 export interface CaseTimelineEntry {
   id: string;
-  date: string; // Fecha y hora
-  note: string; // Descripción del avance
-  author: string; // Quién registró el avance
+  date: string;
+  note: string;
+  author: string;
 }
 
 export interface CaseRecord {
   id: string;
+  officialId?: string; // <--- NUEVO CAMPO AGREGADO (Paso A)
   status: 'Abierto' | 'En Proceso' | 'Cerrado';
   priority: 'Alta' | 'Media' | 'Baja';
-  date: string; // Fecha de creación del caso
+  date: string;
   
   // Origen
-  reporterName: string; // Quién reporta la novedad
+  reporterName: string;
   channel: 'Llamada' | 'WhatsApp' | 'Correo' | 'Verbal' | 'Sistema';
   
   // Ubicación Flexible
   locationType: 'Farmacia' | 'Corporativo' | 'CEDIS' | 'Otro';
-  locationName: string; // Nombre real (ej. "Farmacia Centro", "Oficina RRHH")
-  pharmacyId?: string; // Opcional, solo si es farmacia registrada
+  locationName: string;
+  pharmacyId?: string;
   
   // Contenido
   title: string;
   description: string;
   
   // Ciclo de vida
-  timeline: CaseTimelineEntry[]; // Historial de seguimiento
-  conclusion?: string; // Resolución final al cerrar
+  timeline: CaseTimelineEntry[];
+  conclusion?: string;
   closedDate?: string;
-  createdBy: string; // Usuario del sistema que abrió el caso
+  createdBy: string;
 }
