@@ -14,7 +14,9 @@ import {
   MoreHorizontal,
   FileText,
   ArrowLeft,
-  Hash // Icono para el número de caso
+  Hash,
+  Pencil, // Nuevo icono para editar
+  Save
 } from 'lucide-react';
 import { Pharmacy, CaseRecord, CaseTimelineEntry } from '../types';
 
@@ -39,9 +41,9 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
   const [filterStatus, setFilterStatus] = useState<'Activos' | 'Cerrados'>('Activos');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Formulario Nuevo Caso (Ahora incluye 'id' manual)
+  // Formulario Nuevo Caso
   const [formData, setFormData] = useState<Partial<CaseRecord>>({
-    id: '', // CAMPO MANUAL
+    id: '', // Se usará como officialId inicial si el usuario lo escribe
     priority: 'Media',
     channel: 'WhatsApp',
     locationType: 'Farmacia',
@@ -52,30 +54,42 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
   });
   
   const [selectedPharmacyId, setSelectedPharmacyId] = useState('');
+  
+  // Estados para Detalle y Seguimiento
   const [newTimelineNote, setNewTimelineNote] = useState('');
   const [conclusionText, setConclusionText] = useState('');
   const [isClosing, setIsClosing] = useState(false);
 
+  // Estado para Edición de ID Oficial
+  const [isEditingId, setIsEditingId] = useState(false);
+  const [tempOfficialId, setTempOfficialId] = useState('');
+
   // --- LOGICA DE VISUALIZACIÓN ---
   const filteredCases = cases.filter(c => {
     const matchesStatus = filterStatus === 'Activos' ? c.status !== 'Cerrado' : c.status === 'Cerrado';
-    const matchesSearch = c.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          c.locationName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          c.id.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Búsqueda inteligente: busca en título, ubicación, ID interno O ID oficial
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = c.title.toLowerCase().includes(term) || 
+                          c.locationName.toLowerCase().includes(term) ||
+                          c.id.toLowerCase().includes(term) ||
+                          (c.officialId && c.officialId.toLowerCase().includes(term));
+                          
     return matchesStatus && matchesSearch;
   }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   // --- MANEJADORES ---
 
   const handleCreateCase = () => {
-    // Validaciones (Incluyendo el ID)
-    if (!formData.id) return alert("Debe asignar un Número de Caso.");
-    if (!formData.title || !formData.description || !formData.reporterName) return alert("Complete los campos obligatorios");
+    if (!formData.title || !formData.description || !formData.reporterName) return alert("Complete los campos obligatorios.");
     
-    // Verificar si el ID ya existe (Validación básica frontend)
-    if (cases.some(c => c.id === formData.id)) return alert("Este número de caso ya existe. Por favor use otro.");
+    // Generación de ID Interno AUTOMÁTICO (Siempre existe para control de DB)
+    let internalId = `NOV-${Date.now().toString().slice(-6)}`;
+    
+    // Si el usuario escribió un ID manual al crear, lo guardamos como ID OFICIAL
+    let initialOfficialId = formData.id?.trim().toUpperCase() || undefined;
 
-    // Resolver Nombre de Ubicación
+    // Resolver Ubicación
     let finalLocationName = formData.locationName;
     if (formData.locationType === 'Farmacia') {
        const p = pharmacies.find(ph => ph.id === selectedPharmacyId);
@@ -86,7 +100,8 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
     }
 
     const newCase: CaseRecord = {
-      id: formData.id, // USAMOS EL ID MANUAL
+      id: internalId, // ID del sistema
+      officialId: initialOfficialId, // ID humano (opcional)
       date: new Date().toISOString(),
       status: 'Abierto',
       priority: formData.priority as any,
@@ -103,9 +118,22 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
 
     onAddCase(newCase);
     setView('list');
-    // Reset form
     setFormData({ id: '', priority: 'Media', channel: 'WhatsApp', locationType: 'Farmacia', locationName: '', reporterName: '', title: '', description: '' });
     setSelectedPharmacyId('');
+  };
+
+  // Guardar el nuevo número de expediente (Actualización futura)
+  const handleSaveOfficialId = () => {
+    if (!selectedCase) return;
+    
+    const updatedCase = {
+        ...selectedCase,
+        officialId: tempOfficialId.trim().toUpperCase() || undefined // Si lo deja vacío, se quita
+    };
+
+    onUpdateCase(updatedCase);
+    setSelectedCase(updatedCase);
+    setIsEditingId(false);
   };
 
   const handleAddTimeline = () => {
@@ -130,7 +158,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
   };
 
   const handleCloseCase = () => {
-    if (!selectedCase || !conclusionText.trim()) return alert("Debe ingresar una conclusión para cerrar el caso.");
+    if (!selectedCase || !conclusionText.trim()) return alert("Debe ingresar una conclusión.");
 
     const closingEntry: CaseTimelineEntry = {
       id: Date.now().toString(),
@@ -152,7 +180,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
     setIsClosing(false);
   };
 
-  // --- RENDERIZADORES ---
+  // --- HELPERS DE UI ---
 
   const getPriorityColor = (p: string) => {
     switch(p) {
@@ -174,7 +202,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
   return (
     <div className="max-w-[1600px] mx-auto p-6 md:p-10 animate-in fade-in duration-500 pb-20">
       
-      {/* HEADER CORREGIDO: TEXTO BLANCO */}
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
         <div>
           <h1 className="text-4xl font-black text-white tracking-tighter uppercase mb-2">Gestión de Casos</h1>
@@ -202,7 +230,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input 
                   type="text" 
-                  placeholder="Buscar por título, ID o sede..." 
+                  placeholder="Buscar por N° Expediente, título o sede..." 
                   className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:border-orange-500 font-bold text-slate-700"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -236,7 +264,11 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
                    </div>
 
                    <div className="pt-4 border-t border-slate-100 flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                      <span className="flex items-center gap-1"><Hash className="w-3 h-3" /> {c.id}</span>
+                      <span className="flex items-center gap-1">
+                        <Hash className="w-3 h-3" /> 
+                        {/* Muestra el Oficial si existe, si no, el interno */}
+                        {c.officialId ? <span className="text-slate-800">{c.officialId}</span> : c.id}
+                      </span>
                       <span>{new Date(c.date).toLocaleDateString()}</span>
                    </div>
                 </div>
@@ -261,22 +293,24 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
 
            <div className="space-y-6">
               
-              {/* CAMPO MANUAL PARA EL ID DEL CASO */}
+              {/* CAMPO ID (Opcional - Se guarda en officialId) */}
               <div>
-                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Número de Caso / ID</label>
+                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Número de Expediente (Opcional)</label>
                  <div className="relative">
                     <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input 
                       type="text" 
-                      placeholder="Ej. CASO-2024-001"
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 rounded-xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500 uppercase"
+                      placeholder="Dejar vacío si es solo una novedad preliminar"
+                      className="w-full pl-12 pr-4 py-3 bg-slate-50 rounded-xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500 uppercase placeholder-slate-400"
                       value={formData.id}
-                      onChange={(e) => setFormData({...formData, id: e.target.value.toUpperCase()})}
+                      onChange={(e) => setFormData({...formData, id: e.target.value})}
                       autoFocus
                     />
                  </div>
+                 <p className="text-[10px] text-slate-400 mt-1 ml-2 font-medium">Puede dejarlo en blanco. El sistema generará un código interno y podrá asignar el expediente oficial más adelante.</p>
               </div>
 
+              {/* Resto del formulario */}
               <div className="grid grid-cols-2 gap-4">
                  <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Prioridad</label>
@@ -308,7 +342,6 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
 
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Ubicación del Incidente</label>
-                 
                  <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
                     {['Farmacia', 'Corporativo', 'CEDIS', 'Otro'].map(type => (
                        <button 
@@ -400,12 +433,44 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
                   <h2 className="text-2xl font-black text-slate-800 uppercase leading-tight mb-4">{selectedCase.title}</h2>
                   
                   <div className="space-y-4">
-                     {/* SE MUESTRA EL ID EN EL DETALLE */}
-                     <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
+                     
+                     {/* SECCIÓN DE EDICIÓN DE ID OFICIAL */}
+                     <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 relative group">
                         <Hash className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
-                        <div>
-                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Número de Caso</p>
-                           <p className="font-bold text-slate-700 uppercase">{selectedCase.id}</p>
+                        <div className="w-full">
+                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex justify-between">
+                             Número de Expediente
+                             {!isEditingId && selectedCase.status !== 'Cerrado' && (
+                               <button onClick={() => { setIsEditingId(true); setTempOfficialId(selectedCase.officialId || ''); }} className="text-orange-500 hover:text-orange-600 transition-colors" title="Editar / Asignar ID Oficial">
+                                 <Pencil className="w-3 h-3" />
+                               </button>
+                             )}
+                           </p>
+                           
+                           {isEditingId ? (
+                             <div className="flex gap-2 mt-1">
+                               <input 
+                                 type="text" 
+                                 className="w-full p-2 bg-white border border-slate-300 rounded-lg text-sm font-bold uppercase outline-none focus:border-orange-500"
+                                 value={tempOfficialId}
+                                 onChange={(e) => setTempOfficialId(e.target.value)}
+                                 placeholder="Ej. INV-2024-001"
+                                 autoFocus
+                               />
+                               <button onClick={handleSaveOfficialId} className="p-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"><Save className="w-4 h-4" /></button>
+                               <button onClick={() => setIsEditingId(false)} className="p-2 bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300"><X className="w-4 h-4" /></button>
+                             </div>
+                           ) : (
+                             <>
+                               {selectedCase.officialId ? (
+                                 <p className="font-black text-slate-800 text-lg uppercase">{selectedCase.officialId}</p>
+                               ) : (
+                                 <p className="text-sm font-medium text-slate-400 italic">Sin asignar (Preliminar)</p>
+                               )}
+                               {/* Siempre muestra el ID interno como referencia técnica */}
+                               <p className="text-[9px] text-slate-300 font-mono mt-1">REF: {selectedCase.id}</p>
+                             </>
+                           )}
                         </div>
                      </div>
 
