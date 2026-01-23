@@ -17,14 +17,14 @@ import DeliveryReceipts from './views/DeliveryReceipts';
 import AssetControl from './views/AssetControl';
 import NewVisit from './views/NewVisit';
 import AccessManagement from './views/AccessManagement';
-import CaseManagement from './views/CaseManagement'; // NUEVA IMPORTACIÓN
+import CaseManagement from './views/CaseManagement'; // IMPORTACIÓN DEL NUEVO MÓDULO
 import Settings from './views/Settings';
 import Login from './views/Login';
 import { Menu, CheckCircle2, XCircle, Loader2, WifiOff } from 'lucide-react';
 import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, PendingRecord, StaffRecord, SupportRecord, DeliveryReceipt, ScheduleEntry, BriefingData, Asset, AssetLoan, CaseRecord } from './types';
 import { supabase } from './lib/supabase';
 
-const DATA_VERSION = "11.7-CASE-MGT";
+const DATA_VERSION = "11.8-CASE-INTEGRATION";
 
 interface UserData {
   version: string;
@@ -40,7 +40,7 @@ interface UserData {
   schedule: ScheduleEntry[];
   assets: Asset[];
   loans: AssetLoan[];
-  cases: CaseRecord[]; // NUEVO CAMPO
+  cases: CaseRecord[]; // NUEVO CAMPO DE DATOS
   users: any[];
   dailyBriefing?: BriefingData;
 }
@@ -80,7 +80,7 @@ const App: React.FC = () => {
           schedule: parsed.schedule || [],
           assets: parsed.assets || [],
           loans: parsed.loans || [],
-          cases: parsed.cases || [], // RECUPERAR CASOS DEL CACHÉ
+          cases: parsed.cases || [], // RECUPERACIÓN DE CASOS
           users: parsed.users || [],
           dailyBriefing: parsed.dailyBriefing
         };
@@ -158,7 +158,7 @@ const App: React.FC = () => {
         getTableData('delivery_receipts'),
         getTableData('assets'),
         getTableData('loans'),
-        getTableData('cases'), // SINCRONIZAR CASOS
+        getTableData('cases'), // SINCRONIZACIÓN DE LA TABLA CASES
         supabase.from('users').select('*'),
         getTableData('schedule')
       ]);
@@ -191,7 +191,7 @@ const App: React.FC = () => {
           deliveryReceipts: process(recs),
           assets: process(assts),
           loans: process(lns),
-          cases: process(casesData), // GUARDAR CASOS PROCESADOS
+          cases: process(casesData), // PROCESAMIENTO DE CASOS
           schedule: process(schs),
           users: (dbUsers.data || []).map((u: any) => ({ 
             ...u, fullName: u.full_name, isApproved: u.is_approved, isBlocked: u.is_blocked 
@@ -341,7 +341,7 @@ const App: React.FC = () => {
             
             {currentView === 'management-report' && !isReadOnly && <ManagementReport pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} />}
             
-            {/* NUEVA VISTA: GESTIÓN DE CASOS */}
+            {/* NUEVA VISTA INTEGRADA: GESTIÓN DE CASOS */}
             {currentView === 'case-management' && (
               <CaseManagement 
                 pharmacies={userData.pharmacies}
