@@ -1,36 +1,32 @@
 import React from 'react';
 import { 
-  Shield, 
   LayoutDashboard, 
+  Bot, 
   FileText, 
-  Video, 
-  Lock, 
-  History, 
-  BarChart, 
-  FileSearch,
-  LogOut,
-  ClipboardList,
-  Store,
-  Users,
-  Siren,
-  Briefcase,
-  PackageCheck,
-  Sparkles,
-  UserCheck,
-  Settings,
+  CheckSquare, 
+  Store, 
+  Users, 
+  Phone, 
+  Settings, 
+  LogOut, 
+  BarChart3, 
+  FileSpreadsheet, 
+  Truck, 
+  ShieldCheck, 
   Key,
-  X
+  Briefcase, // Icono para Casos
+  Package
 } from 'lucide-react';
 import { ViewName } from '../types';
 
 interface SidebarProps {
   currentView: ViewName;
   onNavigate: (view: ViewName) => void;
-  user?: { fullName: string; role: string; email?: string };
-  onLogout?: () => void;
-  isSyncing?: boolean;
-  isOpen?: boolean;
-  onClose?: () => void;
+  user: any;
+  onLogout: () => void;
+  isSyncing: boolean;
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
@@ -43,145 +39,163 @@ const Sidebar: React.FC<SidebarProps> = ({
   onClose
 }) => {
   
-  const menuItemClass = (active: boolean) => 
-    `flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-300 cursor-pointer group mb-1 ${
-      active 
-        ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/30 translate-x-1' 
-        : 'text-slate-500 hover:bg-slate-100/80 hover:text-slate-900 hover:translate-x-1'
-    }`;
-
-  // Detectar si es la Directiva (insensible a mayúsculas/espacios)
-  const isDirective = user?.email?.trim().toLowerCase() === 'directiva@xana.com';
-
-  // Solo mostrar gestión de accesos si tiene rol Y NO ES la directiva
-  const isAuthManager = user && 
-    ['Gerente de seguridad', 'Lider de investigaciones', 'Super Usuario', 'Gerente Corporativo de Seguridad'].includes(user.role) &&
-    !isDirective;
-
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-  };
-
-  const getDisplayRole = (role: string) => {
-    if (role === 'Super Usuario') return 'Administrador de Sistemas';
-    return role;
-  };
-
-  const handleNavigation = (view: ViewName) => {
+  const handleNav = (view: ViewName) => {
     onNavigate(view);
-    if (onClose) onClose();
+    if (window.innerWidth < 1024) {
+      onClose();
+    }
   };
+
+  const isActive = (view: ViewName) => currentView === view 
+    ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30' 
+    : 'text-slate-400 hover:bg-white/5 hover:text-white';
+
+  const isBoss = () => {
+    if (!user) return false;
+    const role = (user.role || '').toLowerCase();
+    const email = (user.email || '').toLowerCase();
+    return ['super usuario', 'gerente corporativo de seguridad', 'gerente de seguridad', 'lider de investigaciones', 'coordinador de seguridad'].includes(role) || email === 'directiva@xana.com';
+  };
+
+  const isReadOnly = () => user?.email === 'directiva@xana.com';
 
   return (
     <>
+      {/* Overlay móvil */}
       {isOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[55] lg:hidden animate-in fade-in duration-300" onClick={onClose} />
+        <div 
+          className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[200] lg:hidden"
+          onClick={onClose}
+        />
       )}
 
-      <div className={`w-72 h-[96vh] fixed left-4 top-4 glass-sidebar rounded-[2rem] flex flex-col z-[60] overflow-hidden border border-white/60 shadow-2xl transition-transform duration-500 ease-in-out lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-[calc(100%+2rem)]'}`}>
+      <aside className={`fixed top-0 left-0 h-full w-80 bg-slate-900 text-white p-6 flex flex-col z-[210] transition-transform duration-300 ease-in-out border-r border-white/5 overflow-y-auto custom-scrollbar ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+        
         {/* Header */}
-        <div className="p-8 flex items-center justify-between border-b border-slate-100/50 bg-white/40">
-          <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-br from-orange-500 to-red-600 p-2.5 rounded-xl shadow-lg shadow-orange-500/30 ring-2 ring-white">
-              <Shield className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-slate-800 font-black text-xl tracking-tight leading-none">XANA PRO</h1>
-              <p className="text-slate-500 text-[10px] font-bold tracking-widest uppercase mt-1">SEGURIDAD</p>
-            </div>
+        <div className="flex items-center gap-4 mb-10 px-2">
+          <div className="w-12 h-12 bg-orange-500 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/20 shrink-0">
+            <ShieldCheck className="w-7 h-7 text-white" />
           </div>
-          <button onClick={onClose} className="lg:hidden p-2 text-slate-400 hover:text-slate-900 transition-colors"><X className="w-6 h-6" /></button>
-        </div>
-
-        {/* Navigation */}
-        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-1 scrollbar-hide">
-          <div onClick={() => handleNavigation('dashboard')} className={menuItemClass(currentView === 'dashboard')}>
-            <LayoutDashboard className={`w-5 h-5 ${currentView === 'dashboard' ? 'animate-pulse' : ''}`} />
-            <span>Dashboard</span>
-          </div>
-
-          {/* ASISTENTE IA: OCULTO PARA LA DIRECTIVA */}
-          {!isDirective && (
-            <div onClick={() => handleNavigation('ai-assistant')} className={menuItemClass(currentView === 'ai-assistant')}>
-              <Sparkles className={`w-5 h-5 ${currentView === 'ai-assistant' ? 'text-white' : 'text-orange-500'}`} />
-              <span>Asistente IA</span>
-            </div>
-          )}
-
-          {isAuthManager && (
-            <div onClick={() => handleNavigation('access-management')} className={menuItemClass(currentView === 'access-management')}>
-              <UserCheck className={`w-5 h-5 ${currentView === 'access-management' ? 'text-white' : 'text-indigo-500'}`} />
-              <span>Accesos</span>
-            </div>
-          )}
-
-          <div className="mt-6 mb-3 px-4 flex items-center gap-2">
-            <div className="h-px bg-slate-200 flex-1"></div>
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gestión</span>
-            <div className="h-px bg-slate-200 flex-1"></div>
-          </div>
-          
-          <div onClick={() => handleNavigation('audit-wizard')} className={menuItemClass(currentView === 'audit-wizard')}><FileText className="w-5 h-5" /><span>Auditoría</span></div>
-          <div onClick={() => handleNavigation('new-visit')} className={menuItemClass(currentView === 'new-visit')}><Briefcase className="w-5 h-5" /><span>Visita</span></div>
-          <div onClick={() => handleNavigation('delivery-receipts')} className={menuItemClass(currentView === 'delivery-receipts')}><PackageCheck className="w-5 h-5" /><span>Actas</span></div>
-          <div onClick={() => handleNavigation('asset-control')} className={menuItemClass(currentView === 'asset-control')}><Key className={`w-5 h-5 ${currentView === 'asset-control' ? 'text-white' : 'text-orange-500'}`} /><span>Custodia</span></div>
-          <div onClick={() => handleNavigation('cctv-inventory')} className={menuItemClass(currentView === 'cctv-inventory')}><Video className="w-5 h-5" /><span>CCTV</span></div>
-          <div onClick={() => handleNavigation('physical-inventory')} className={menuItemClass(currentView === 'physical-inventory')}><Lock className="w-5 h-5" /><span>Infraestructura</span></div>
-          <div onClick={() => handleNavigation('pending-tasks')} className={menuItemClass(currentView === 'pending-tasks')}><ClipboardList className="w-5 h-5" /><span>Pendientes</span></div>
-
-          <div className="mt-6 mb-3 px-4 flex items-center gap-2">
-             <div className="h-px bg-slate-200 flex-1"></div>
-             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Directorios</span>
-             <div className="h-px bg-slate-200 flex-1"></div>
-          </div>
-          <div onClick={() => handleNavigation('pharmacy-list')} className={menuItemClass(currentView === 'pharmacy-list')}><Store className="w-5 h-5" /><span>Farmacias</span></div>
-          <div onClick={() => handleNavigation('staff-directory')} className={menuItemClass(currentView === 'staff-directory')}><Users className="w-5 h-5" /><span>Personal</span></div>
-          <div onClick={() => handleNavigation('support-directory')} className={menuItemClass(currentView === 'support-directory')}><Siren className="w-5 h-5" /><span>Emergencias</span></div>
-
-          <div className="mt-6 mb-3 px-4 flex items-center gap-2">
-            <div className="h-px bg-slate-200 flex-1"></div>
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reportes</span>
-            <div className="h-px bg-slate-200 flex-1"></div>
-          </div>
-          <div onClick={() => handleNavigation('visit-log')} className={menuItemClass(currentView === 'visit-log')}><History className="w-5 h-5" /><span>Bitácora</span></div>
-          <div onClick={() => handleNavigation('monthly-summary')} className={menuItemClass(currentView === 'monthly-summary')}><BarChart className="w-5 h-5" /><span>Estadísticas</span></div>
-          
-          {/* REPORTE GERENCIAL: OCULTO PARA LA DIRECTIVA */}
-          {!isDirective && (
-            <div onClick={() => handleNavigation('management-report')} className={menuItemClass(currentView === 'management-report')}>
-              <FileSearch className="w-5 h-5" />
-              <span>Reporte Gerencial</span>
-            </div>
-          )}
-          
-          <div className="mt-4">
-             <div onClick={() => handleNavigation('settings')} className={menuItemClass(currentView === 'settings')}>
-               <Settings className="w-5 h-5" />
-               <span>Configuración</span>
-             </div>
+          <div>
+            <h1 className="text-2xl font-black tracking-tighter leading-none">XANA PRO</h1>
+            <p className="text-[10px] font-bold text-slate-500 tracking-[0.2em] mt-1">SEGURIDAD</p>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="p-4 mx-2 mb-2 bg-gradient-to-br from-slate-50 to-white rounded-3xl border border-slate-100 shadow-sm">
-          <div className="flex items-center justify-between px-2 mb-4">
+        {/* Navegación */}
+        <nav className="flex-1 space-y-8">
+          
+          <div className="space-y-2">
+            <button onClick={() => handleNav('dashboard')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('dashboard')}`}>
+              <LayoutDashboard className="w-5 h-5" /> Dashboard
+            </button>
+            {!isReadOnly && (
+              <button onClick={() => handleNav('ai-assistant')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('ai-assistant')}`}>
+                <Bot className="w-5 h-5" /> Asistente IA
+              </button>
+            )}
+          </div>
+
+          <div>
+            <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Gestión</p>
+            <div className="space-y-2">
+              <button onClick={() => handleNav('visit-log')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('visit-log')}`}>
+                <FileText className="w-5 h-5" /> Bitácora
+              </button>
+              <button onClick={() => handleNav('pending-tasks')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('pending-tasks')}`}>
+                <CheckSquare className="w-5 h-5" /> Pendientes
+              </button>
+              {/* NUEVO BOTÓN: GESTIÓN DE CASOS */}
+              <button onClick={() => handleNav('case-management')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('case-management')}`}>
+                <Briefcase className="w-5 h-5" /> Gestión de Casos
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Activos</p>
+            <div className="space-y-2">
+              <button onClick={() => handleNav('asset-control')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('asset-control')}`}>
+                <Key className="w-5 h-5" /> Control Préstamos
+              </button>
+              <button onClick={() => handleNav('delivery-receipts')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('delivery-receipts')}`}>
+                <Truck className="w-5 h-5" /> Recepciones
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Directorios</p>
+            <div className="space-y-2">
+              <button onClick={() => handleNav('pharmacy-list')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('pharmacy-list')}`}>
+                <Store className="w-5 h-5" /> Farmacias
+              </button>
+              <button onClick={() => handleNav('staff-directory')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('staff-directory')}`}>
+                <Users className="w-5 h-5" /> Personal
+              </button>
+              <button onClick={() => handleNav('support-directory')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('support-directory')}`}>
+                <Phone className="w-5 h-5" /> Soporte
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Reportes</p>
+            <div className="space-y-2">
+              <button onClick={() => handleNav('monthly-summary')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('monthly-summary')}`}>
+                <BarChart3 className="w-5 h-5" /> Estadísticas
+              </button>
+              {!isReadOnly && (
+                <button onClick={() => handleNav('management-report')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('management-report')}`}>
+                  <FileSpreadsheet className="w-5 h-5" /> Reporte Gerencial
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Sistema</p>
+            <div className="space-y-2">
+              {/* Solo jefes ven Gestión de Accesos */}
+              {!isReadOnly && isBoss() && (
+                <button onClick={() => handleNav('access-management')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('access-management')}`}>
+                  <ShieldCheck className="w-5 h-5" /> Accesos
+                </button>
+              )}
+              <button onClick={() => handleNav('settings')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('settings')}`}>
+                <Settings className="w-5 h-5" /> Configuración
+              </button>
+            </div>
+          </div>
+
+        </nav>
+
+        {/* Footer User */}
+        <div className="mt-8 pt-6 border-t border-white/5">
+          <div className="flex items-center gap-3 px-2 mb-4">
+            <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-black text-orange-500 border border-slate-700">
+              {user?.fullName?.charAt(0) || 'U'}
+            </div>
+            <div className="overflow-hidden">
+              <p className="font-bold text-sm truncate">{user?.fullName}</p>
+              <p className="text-[10px] font-medium text-slate-500 truncate">{user?.role}</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-between px-2">
             <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-orange-500 animate-pulse' : 'bg-emerald-500'}`}></div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{isSyncing ? 'En Línea' : 'Conectado'}</span>
+              <span className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-orange-500 animate-pulse' : 'bg-emerald-500'}`}></span>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                {isSyncing ? 'Sincronizando...' : 'Conectado'}
+              </span>
             </div>
-          </div>
-          <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
-            <div className="w-10 h-10 rounded-2xl bg-slate-800 flex items-center justify-center text-white font-bold text-xs shadow-md ring-2 ring-slate-100">
-              {user ? getInitials(user.fullName) : 'U'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-slate-800 text-sm font-bold truncate">{user ? user.fullName.split(' ')[0] : 'Usuario'}</p>
-              <p className="text-slate-400 text-[10px] uppercase font-bold truncate">{user ? getDisplayRole(user.role) : 'Auditor'}</p>
-            </div>
-            <button onClick={onLogout} className="text-slate-300 hover:text-red-500 hover:bg-red-50 p-2.5 rounded-xl transition-all" title="Cerrar Sesión"><LogOut className="w-4 h-4" /></button>
+            <button onClick={onLogout} className="text-slate-500 hover:text-white transition-colors">
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
-      </div>
+
+      </aside>
     </>
   );
 };
