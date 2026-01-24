@@ -46,12 +46,13 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  // ESTILOS RESTAURADOS (TEMA CLARO)
+  // ESTILOS (TEMA CLARO)
   const isActive = (view: ViewName) => currentView === view 
     ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30' 
     : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900';
 
-  const isReadOnly = () => user?.email === 'directiva@xana.com';
+  // CORRECCIÓN AQUÍ: Ahora es una variable booleana directa, no una función.
+  const isReadOnlyUser = user?.email === 'directiva@xana.com';
 
   const isBoss = () => {
     if (!user) return false;
@@ -70,7 +71,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* SIDEBAR BLANCO (RESTAURADO) */}
+      {/* SIDEBAR BLANCO */}
       <aside className={`fixed top-0 left-0 h-full w-80 bg-white text-slate-800 p-6 flex flex-col z-[210] transition-transform duration-300 ease-in-out border-r border-slate-100 overflow-y-auto custom-scrollbar ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         
         {/* Header */}
@@ -91,7 +92,9 @@ const Sidebar: React.FC<SidebarProps> = ({
             <button onClick={() => handleNav('dashboard')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('dashboard')}`}>
               <LayoutDashboard className="w-5 h-5" /> Dashboard
             </button>
-            {!isReadOnly && (
+            
+            {/* LÓGICA CORREGIDA: Si NO es solo lectura, MUESTRA el Asistente */}
+            {!isReadOnlyUser && (
               <button onClick={() => handleNav('ai-assistant')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('ai-assistant')}`}>
                 <Bot className="w-5 h-5" /> Asistente IA
               </button>
@@ -107,7 +110,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               <button onClick={() => handleNav('pending-tasks')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('pending-tasks')}`}>
                 <CheckSquare className="w-5 h-5" /> Pendientes
               </button>
-              {/* NUEVO BOTÓN: GESTIÓN DE CASOS */}
+              {/* BOTÓN: GESTIÓN DE CASOS */}
               <button onClick={() => handleNav('case-management')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('case-management')}`}>
                 <Briefcase className="w-5 h-5" /> Gestión de Casos
               </button>
@@ -147,7 +150,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               <button onClick={() => handleNav('monthly-summary')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('monthly-summary')}`}>
                 <BarChart3 className="w-5 h-5" /> Estadísticas
               </button>
-              {!isReadOnly && (
+              {!isReadOnlyUser && (
                 <button onClick={() => handleNav('management-report')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('management-report')}`}>
                   <FileSpreadsheet className="w-5 h-5" /> Reporte Gerencial
                 </button>
@@ -158,8 +161,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div>
             <p className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Sistema</p>
             <div className="space-y-2">
-              {/* Solo jefes ven Gestión de Accesos */}
-              {!isReadOnly && isBoss() && (
+              {!isReadOnlyUser && isBoss() && (
                 <button onClick={() => handleNav('access-management')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('access-management')}`}>
                   <ShieldCheck className="w-5 h-5" /> Accesos
                 </button>
