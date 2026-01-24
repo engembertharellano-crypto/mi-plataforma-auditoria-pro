@@ -39,50 +39,60 @@ const QUESTION_MAP: Record<string, string> = {
   'radio': 'Equipos de Radio'
 };
 
-// --- HELPER DE FUERZA BRUTA PARA NÚMEROS ---
-const forceNumber = (val: any): number => {
+// --- UTILIDAD DE LIMPIEZA DE NÚMEROS ---
+// Convierte "2 unidades", "2", 2, "02" a el número 2.
+const cleanNumber = (val: any): number => {
+  if (val === null || val === undefined) return 0;
   if (typeof val === 'number') return val;
-  if (typeof val === 'string') {
-    // Eliminar cualquier caracter no numérico y parsear
-    const clean = val.replace(/[^0-9.]/g, '');
-    const num = parseFloat(clean);
-    return isNaN(num) ? 0 : num;
-  }
-  return 0;
+  const str = String(val).replace(/[^0-9.]/g, ''); // Elimina letras
+  const num = parseFloat(str);
+  return isNaN(num) ? 0 : num;
 };
 
-// --- ESCÁNER DE PATRONES (SHAPE DETECTION) ---
-// Busca objetos que tengan estructura de conteo { total: X, bueno: Y }
-const scanForCounts = (obj: any): { total: number, ok: number } => {
-  let result = { total: 0, ok: 0 };
+// --- ESCÁNER DE PATRONES RECURSIVO ---
+// Busca en las profundidades del objeto cualquier cosa que parezca un conteo
+const deepScanForStats = (obj: any): { total: number, ok: number } => {
+  let accTotal = 0;
+  let accOk = 0;
+
+  if (!obj || typeof obj !== 'object') return { total: 0, ok: 0 };
+
+  // 1. REVISAR SI EL OBJETO ACTUAL ES UN DATO DE INTERÉS
+  const keys = Object.keys(obj).map(k => k.toLowerCase());
   
-  if (!obj || typeof obj !== 'object') return result;
+  // Palabras clave para "Total" o "Instalados"
+  const totalKey = keys.find(k => ['total', 'installed', 'cantidad', 'instalados', 'totalcameras'].includes(k));
+  // Palabras clave para "Bien", "Operativo" u "OK"
+  const okKey = keys.find(k => ['ok', 'working', 'operative', 'good', 'operativos', 'buenos', 'funcional', 'operativecameras'].includes(k));
 
-  // 1. Verificar si el objeto actual ES un conteo en sí mismo
-  // Buscamos llaves comunes para "Total"
-  const totalKey = Object.keys(obj).find(k => /^(total|installed|quantity|cantidad|instalados)$/i.test(k));
-  // Buscamos llaves comunes para "Operativo"
-  const okKey = Object.keys(obj).find(k => /^(ok|working|operative|good|operativos|buenos|funcional)$/i.test(k));
-
+  // Si encontramos el par (Total + OK) en este nivel, sumamos
   if (totalKey && okKey) {
-    const totalVal = forceNumber(obj[totalKey]);
-    const okVal = forceNumber(obj[okKey]);
-    if (totalVal > 0) {
-      result.total += totalVal;
-      result.ok += okVal;
+    // Recuperar las llaves originales (sensitive case)
+    const originalTotalKey = Object.keys(obj).find(k => k.toLowerCase() === totalKey);
+    const originalOkKey = Object.keys(obj).find(k => k.toLowerCase() === okKey);
+    
+    if (originalTotalKey && originalOkKey) {
+      const t = cleanNumber(obj[originalTotalKey]);
+      const o = cleanNumber(obj[originalOkKey]);
+      if (t > 0) {
+        accTotal += t;
+        accOk += o;
+      }
     }
   }
 
-  // 2. Profundizar (Recursión) para buscar dentro de hijos
-  Object.values(obj).forEach(value => {
-    if (typeof value === 'object' && value !== null) {
-      const childResult = scanForCounts(value);
-      result.total += childResult.total;
-      result.ok += childResult.ok;
+  // 2. SEGUIR BUSCANDO EN LOS HIJOS (RECURSIÓN)
+  // Independientemente de si encontramos algo aquí, revisamos si hay objetos hijos con más datos
+  // (Ej: Un objeto 'camaras' puede tener 'total', pero adentro tener 'analogas' con su propio 'total')
+  Object.values(obj).forEach(val => {
+    if (typeof val === 'object' && val !== null) {
+      const childStats = deepScanForStats(val);
+      accTotal += childStats.total;
+      accOk += childStats.ok;
     }
   });
 
-  return result;
+  return { total: accTotal, ok: accOk };
 };
 
 interface MonthlySummaryProps {
@@ -121,7 +131,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       ? pharmacies 
       : pharmacies.filter(p => p.zone === selectedZone);
     
-    // Convertimos IDs a String para evitar errores de comparación
     const pharmacyIds = new Set(filteredPharmacies.map(p => String(p.id)));
 
     return {
@@ -130,7 +139,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       cctv: cctvRecords.filter(r => pharmacyIds.has(String(r.pharmacyId))),
       physical: physicalRecords.filter(r => pharmacyIds.has(String(r.pharmacyId))),
       management: managementRecords.filter(r => pharmacyIds.has(String(r.pharmacyId))),
-      cases: cases // Mantenemos casos
+      cases: cases 
     };
   }, [selectedZone, pharmacies, audits, cctvRecords, physicalRecords, managementRecords, cases]);
 
@@ -165,7 +174,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   const totalActivities = currentAudits.length + currentCCTV.length + currentPhysical.length + currentManagement.length;
 
   // =========================================================================
-  // CÁLCULO DE INVENTARIOS CON ESCÁNER DE PATRONES (SHAPE DETECTION)
+  // CÁLCULO DE INVENTARIOS CON ESCÁNER PROFUNDO
   // =========================================================================
 
   // 1. CCTV
@@ -173,11 +182,22 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   let cctvOk = 0;
 
   currentCCTV.forEach((record: any) => {
-    // Escaneamos todo el registro buscando patrones { total: X, ok: Y }
-    const counts = scanForCounts(record);
-    cctvTotal += counts.total;
-    cctvOk += counts.ok;
+    // Escaneo profundo de todo el registro
+    const stats = deepScanForStats(record);
+    cctvTotal += stats.total;
+    cctvOk += stats.ok;
   });
+
+  // Si después del escaneo profundo sigue en 0 (caso muy raro), intentar fallback manual
+  // para propiedades raíz mal nombradas
+  if (cctvTotal === 0 && currentCCTV.length > 0) {
+      // Fallback a contar registros si no se detectó detalle interno
+      cctvTotal = currentCCTV.length;
+      cctvOk = currentCCTV.filter((r: any) => {
+          const s = (r.status || '').toLowerCase();
+          return s.includes('operativo') || s.includes('buen') || s.includes('ok');
+      }).length;
+  }
 
   const cctvHealth = cctvTotal > 0 
     ? Math.round((cctvOk / cctvTotal) * 100) 
@@ -188,11 +208,20 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   let infraOk = 0;
 
   currentPhysical.forEach((record: any) => {
-    // Escaneamos todo el registro buscando patrones { installed: X, operative: Y }
-    const counts = scanForCounts(record);
-    infraTotal += counts.total;
-    infraOk += counts.ok;
+    // Escaneo profundo
+    const stats = deepScanForStats(record);
+    infraTotal += stats.total;
+    infraOk += stats.ok;
   });
+
+   // Fallback similar para Infraestructura
+   if (infraTotal === 0 && currentPhysical.length > 0) {
+      infraTotal = currentPhysical.length;
+      infraOk = currentPhysical.filter((r: any) => {
+          const s = (r.status || '').toLowerCase();
+          return s.includes('operativo') || s.includes('buen') || s.includes('ok');
+      }).length;
+  }
 
   const infraHealth = infraTotal > 0 
     ? Math.round((infraOk / infraTotal) * 100) 
@@ -205,7 +234,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   const lowPerforming = sortedAudits.slice(0, 3);
   const topPerforming = [...sortedAudits].reverse().slice(0, 3);
 
-  // --- LÓGICA INTELIGENTE (FOCOS DE RIESGO) ---
+  // --- LÓGICA INTELIGENTE ---
   const failureCounts: Record<string, number> = {};
   currentAudits.forEach(audit => {
     if (audit.processAnswers) {
@@ -285,7 +314,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       {/* KPI CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         
-        {/* Auditoría */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-blue-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Promedio Auditoría</p>
@@ -298,7 +326,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* Cobertura */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-emerald-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Cobertura Mensual</p>
@@ -311,7 +338,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* Eficiencia */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-purple-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Eficiencia Resolución</p>
@@ -324,7 +350,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* Actividad */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-orange-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Actividad Total</p>
