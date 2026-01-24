@@ -25,7 +25,6 @@ import {
   CaseRecord 
 } from '../types';
 
-// --- DICCIONARIO DE TRADUCCIÓN ---
 const QUESTION_MAP: Record<string, string> = {
   'p1.1': 'Uniforme y Presencia',
   'p1.2': 'Libro de Novedades',
@@ -85,7 +84,8 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       physical: physicalRecords.filter(r => pharmacyIds.has(r.pharmacyId)),
       management: managementRecords.filter(r => pharmacyIds.has(r.pharmacyId)),
       cases: cases.filter(c => {
-        // Lógica simplificada de filtrado de casos por zona
+        // Filtrado básico de casos. Si el caso tuviera pharmacyId se filtraría mejor.
+        // Por ahora, asumimos que se muestran todos o se requeriría lógica backend.
         return true; 
       })
     };
@@ -121,83 +121,62 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const totalActivities = currentAudits.length + currentCCTV.length + currentPhysical.length + currentManagement.length;
 
-  // --- LÓGICA DE INVENTARIOS (CORREGIDA: SUMA DE ELEMENTOS) ---
+  // --- LÓGICA DE INVENTARIOS REPARADA (SUMA DE ITEMS INTERNOS) ---
   
-  // CCTV: Operatividad
+  // 1. BLINDAJE CCTV (Sumar cámaras análogas + IP)
   let totalCamerasSum = 0;
   let activeCamerasSum = 0;
-  let totalCCTVRecords = 0;
-  let activeCCTVRecords = 0;
 
   currentCCTV.forEach((r: any) => {
-      totalCCTVRecords++;
-      
-      // Intentar leer totales de cámaras del registro
-      let recordTotal = r.cameraCounts?.total || r.totalCameras || 0;
-      let recordActive = r.cameraCounts?.ok || r.operativeCameras || 0;
-
-      if (recordTotal > 0) {
-          totalCamerasSum += recordTotal;
-          activeCamerasSum += recordActive;
-      }
-
-      // Fallback: Evaluar estatus del registro
-      const status = (r.status || '').toLowerCase();
-      if (['operativo', 'buen estado', 'bueno', 'funcional', 'activo', 'en linea', 'ok'].includes(status)) {
-        activeCCTVRecords++;
-      }
+    // Buscar conteos de cámaras análogas
+    if (r.analogCameras) {
+      const total = parseInt(r.analogCameras.total || 0);
+      const ok = parseInt(r.analogCameras.working || r.analogCameras.ok || r.analogCameras.operative || 0);
+      totalCamerasSum += total;
+      activeCamerasSum += ok;
+    }
+    // Buscar conteos de cámaras IP
+    if (r.ipCameras) {
+      const total = parseInt(r.ipCameras.total || 0);
+      const ok = parseInt(r.ipCameras.working || r.ipCameras.ok || r.ipCameras.operative || 0);
+      totalCamerasSum += total;
+      activeCamerasSum += ok;
+    }
+    // Soporte para estructura plana antigua (por si acaso)
+    if (!r.analogCameras && !r.ipCameras && r.totalCameras) {
+      totalCamerasSum += parseInt(r.totalCameras || 0);
+      activeCamerasSum += parseInt(r.operativeCameras || 0);
+    }
   });
 
-  let cctvHealth = 0;
-  let cctvSubtitle = "Sin datos";
+  const cctvHealth = totalCamerasSum > 0 
+    ? Math.round((activeCamerasSum / totalCamerasSum) * 100) 
+    : 0;
 
-  if (totalCamerasSum > 0) {
-      // Prioridad: Cálculo basado en suma de cámaras
-      cctvHealth = Math.round((activeCamerasSum / totalCamerasSum) * 100);
-      cctvSubtitle = `${totalCamerasSum} Cámaras Auditadas`;
-  } else if (totalCCTVRecords > 0) {
-      // Fallback: Cálculo basado en registros
-      cctvHealth = Math.round((activeCCTVRecords / totalCCTVRecords) * 100);
-      cctvSubtitle = `${totalCCTVRecords} Sistemas Auditados`;
-  }
-
-  // INFRAESTRUCTURA: Estado
-  let totalInfraElementsSum = 0;
-  let goodInfraElementsSum = 0;
-  let totalInfraRecords = 0;
-  let goodInfraRecords = 0;
+  // 2. ESTADO INFRAESTRUCTURA (Sumar items individuales: Santamarías + Luces + etc.)
+  let totalInfraSum = 0;
+  let goodInfraSum = 0;
 
   currentPhysical.forEach((r: any) => {
-      totalInfraRecords++;
-
-      // Intentar leer totales de elementos del registro
-      let recordTotal = r.counts?.installed || r.installed || 0;
-      let recordGood = r.counts?.operative || r.operative || 0;
-      
-      if (recordTotal > 0) {
-          totalInfraElementsSum += recordTotal;
-          goodInfraElementsSum += recordGood;
-      }
-
-      // Fallback: Evaluar estatus del registro
-      const status = (r.status || '').toLowerCase();
-      if (['buen estado', 'operativo', 'bueno', 'ok', 'sin novedad', 'completo'].includes(status)) {
-        goodInfraRecords++;
-      }
+    // Iterar sobre el array de items (ej: Santamarías, Iluminación, etc.)
+    if (r.items && Array.isArray(r.items)) {
+      r.items.forEach((item: any) => {
+        // Parsear números asegurando que sean enteros
+        const installed = parseInt(item.installed || item.total || 0);
+        const operative = parseInt(item.operative || item.good || item.working || 0);
+        
+        if (installed > 0) {
+          totalInfraSum += installed;
+          goodInfraSum += operative;
+        }
+      });
+    }
   });
 
-  let infraHealth = 0;
-  let infraSubtitle = "Sin datos";
+  const infraHealth = totalInfraSum > 0 
+    ? Math.round((goodInfraSum / totalInfraSum) * 100) 
+    : 0;
 
-  if (totalInfraElementsSum > 0) {
-      // Prioridad: Cálculo basado en suma de elementos
-      infraHealth = Math.round((goodInfraElementsSum / totalInfraElementsSum) * 100);
-      infraSubtitle = `${totalInfraElementsSum} Elementos Rev.`;
-  } else if (totalInfraRecords > 0) {
-      // Fallback: Cálculo basado en registros
-      infraHealth = Math.round((goodInfraRecords / totalInfraRecords) * 100);
-      infraSubtitle = `${totalInfraRecords} Registros Rev.`;
-  }
 
   // --- ORDENAMIENTO ---
   const sortedAudits = [...currentAudits].sort((a, b) => (a.score || 0) - (b.score || 0));
@@ -284,6 +263,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       {/* KPI CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         
+        {/* Auditoría */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-blue-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Promedio Auditoría</p>
@@ -296,6 +276,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
+        {/* Cobertura */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-emerald-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Cobertura Mensual</p>
@@ -308,6 +289,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
+        {/* Eficiencia */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-purple-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Eficiencia Resolución</p>
@@ -320,6 +302,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
+        {/* Actividad */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-orange-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Actividad Total</p>
@@ -335,6 +318,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       {/* ESTADO DE FUERZA (CCTV + INFRAESTRUCTURA) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
         
+        {/* Blindaje CCTV */}
         <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-400">
@@ -349,10 +333,11 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
              <span className={`text-3xl font-black ${cctvHealth >= 90 ? 'text-emerald-400' : cctvHealth >= 70 ? 'text-orange-400' : 'text-red-400'}`}>
                {cctvHealth}%
              </span>
-             <p className="text-[10px] text-slate-500 font-bold uppercase">{cctvSubtitle}</p>
+             <p className="text-[10px] text-slate-500 font-bold uppercase">{totalCamerasSum} Cámaras Auditadas</p>
           </div>
         </div>
 
+        {/* Infraestructura */}
         <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-teal-500/20 rounded-2xl flex items-center justify-center text-teal-400">
@@ -367,7 +352,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
              <span className={`text-3xl font-black ${infraHealth >= 90 ? 'text-emerald-400' : infraHealth >= 70 ? 'text-orange-400' : 'text-red-400'}`}>
                {infraHealth}%
              </span>
-             <p className="text-[10px] text-slate-500 font-bold uppercase">{infraSubtitle}</p>
+             <p className="text-[10px] text-slate-500 font-bold uppercase">{totalInfraSum} Elementos Rev.</p>
           </div>
         </div>
 
