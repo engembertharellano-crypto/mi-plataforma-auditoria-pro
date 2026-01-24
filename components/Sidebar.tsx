@@ -14,8 +14,7 @@ import {
   Truck, 
   ShieldCheck, 
   Key,
-  Briefcase,
-  Package
+  Briefcase
 } from 'lucide-react';
 import { ViewName } from '../types';
 
@@ -46,24 +45,23 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  // ESTILOS (TEMA CLARO)
   const isActive = (view: ViewName) => currentView === view 
     ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30' 
     : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900';
 
-  // CORRECCIÓN AQUÍ: Ahora es una variable booleana directa, no una función.
   const isReadOnlyUser = user?.email === 'directiva@xana.com';
 
-  const isBoss = () => {
+  // CORRECCIÓN: Lista estricta de roles que pueden ver "Accesos"
+  const isAdmin = () => {
     if (!user) return false;
     const role = (user.role || '').toLowerCase();
     const email = (user.email || '').toLowerCase();
-    return ['super usuario', 'gerente corporativo de seguridad', 'gerente de seguridad', 'lider de investigaciones', 'coordinador de seguridad'].includes(role) || email === 'directiva@xana.com';
+    // Solo Gerentes y Super Usuario. Se eliminaron coordinadores y líderes.
+    return ['super usuario', 'gerente corporativo de seguridad', 'gerente de seguridad'].includes(role) || email === 'directiva@xana.com';
   };
 
   return (
     <>
-      {/* Overlay móvil */}
       {isOpen && (
         <div 
           className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-[200] lg:hidden"
@@ -71,10 +69,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* SIDEBAR BLANCO */}
       <aside className={`fixed top-0 left-0 h-full w-80 bg-white text-slate-800 p-6 flex flex-col z-[210] transition-transform duration-300 ease-in-out border-r border-slate-100 overflow-y-auto custom-scrollbar ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         
-        {/* Header */}
         <div className="flex items-center gap-4 mb-10 px-2">
           <div className="w-12 h-12 bg-orange-500 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/20 shrink-0">
             <ShieldCheck className="w-7 h-7 text-white" />
@@ -85,7 +81,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* Navegación */}
         <nav className="flex-1 space-y-8">
           
           <div className="space-y-2">
@@ -93,7 +88,6 @@ const Sidebar: React.FC<SidebarProps> = ({
               <LayoutDashboard className="w-5 h-5" /> Dashboard
             </button>
             
-            {/* LÓGICA CORREGIDA: Si NO es solo lectura, MUESTRA el Asistente */}
             {!isReadOnlyUser && (
               <button onClick={() => handleNav('ai-assistant')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('ai-assistant')}`}>
                 <Bot className="w-5 h-5" /> Asistente IA
@@ -110,7 +104,6 @@ const Sidebar: React.FC<SidebarProps> = ({
               <button onClick={() => handleNav('pending-tasks')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('pending-tasks')}`}>
                 <CheckSquare className="w-5 h-5" /> Pendientes
               </button>
-              {/* BOTÓN: GESTIÓN DE CASOS */}
               <button onClick={() => handleNav('case-management')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('case-management')}`}>
                 <Briefcase className="w-5 h-5" /> Gestión de Casos
               </button>
@@ -161,7 +154,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div>
             <p className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Sistema</p>
             <div className="space-y-2">
-              {!isReadOnlyUser && isBoss() && (
+              {/* SOLO SI ES ADMIN REAL (Gerente o Super Usuario) */}
+              {!isReadOnlyUser && isAdmin() && (
                 <button onClick={() => handleNav('access-management')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('access-management')}`}>
                   <ShieldCheck className="w-5 h-5" /> Accesos
                 </button>
@@ -174,7 +168,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         </nav>
 
-        {/* Footer User */}
         <div className="mt-8 pt-6 border-t border-slate-100">
           <div className="flex items-center gap-3 px-2 mb-4">
             <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center font-black text-orange-500 border border-slate-100">
