@@ -382,4 +382,111 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* Focos de Riesgo */}
-        <div className="bg
+        <div className="bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-800 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+          
+          <h3 className="text-lg font-black text-white uppercase mb-8 flex items-center gap-3 relative z-10">
+            <Siren className="w-6 h-6 text-red-500 animate-pulse" /> Inteligencia de Riesgos
+          </h3>
+          
+          <div className="space-y-6 relative z-10">
+            
+            <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm transition-colors hover:bg-white/10">
+              <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center text-orange-500 shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Hallazgo más Repetido</p>
+                <p className="text-white font-bold leading-tight text-sm">
+                  {topFailure ? topFailure[0] : "Sin hallazgos recurrentes"}
+                </p>
+                <p className="text-xs text-orange-400 mt-1">
+                  {topFailure ? `${topFailure[1]} veces detectado` : "Excelente cumplimiento"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm transition-colors hover:bg-white/10">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-500 shrink-0">
+                <Target className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tipología Predominante</p>
+                <p className="text-white font-bold leading-tight text-sm">
+                  {topCaseType ? topCaseType[0] : "Sin actividad delictiva"}
+                </p>
+                <p className="text-xs text-blue-400 mt-1">
+                  {topCaseType ? `Principal causa (${topCaseType[1]})` : "Sin reportes"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm transition-colors hover:bg-white/10">
+              <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-red-500 shrink-0">
+                <Zap className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Urgencia Operativa</p>
+                <p className="text-white font-bold leading-tight text-sm">
+                  {highPriorityOpen > 0 ? `${highPriorityOpen} Casos de Alta Prioridad` : "Sin urgencias activas"}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {highPriorityOpen > 0 ? "Requiere gestión inmediata" : "Operación estable"}
+                </p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Listas */}
+        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+            <h3 className="text-lg font-black text-slate-800 uppercase mb-6 flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-emerald-500" /> Top Rendimiento
+            </h3>
+            <div className="space-y-4">
+              {topPerforming.length > 0 ? topPerforming.map(a => (
+                <div key={a.id} className="flex justify-between items-center p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white font-bold text-xs"><Building2 className="w-4 h-4"/></div>
+                    <div>
+                      <p className="font-bold text-slate-800 text-xs uppercase">{a.pharmacy?.name}</p>
+                      <p className="text-[10px] text-emerald-600 font-bold">{a.date}</p>
+                    </div>
+                  </div>
+                  <span className="text-xl font-black text-emerald-600">{a.score}%</span>
+                </div>
+              )) : <p className="text-slate-400 text-xs text-center py-4">Sin datos suficientes</p>}
+            </div>
+          </div>
+
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+            <h3 className="text-lg font-black text-slate-800 uppercase mb-6 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-500" /> Puntos Críticos
+            </h3>
+            <div className="space-y-4">
+              {lowPerforming.length > 0 ? lowPerforming.map(a => (
+                <div key={a.id} className="flex justify-between items-center p-3 bg-red-50 rounded-xl border border-red-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white font-bold text-xs"><AlertTriangle className="w-4 h-4"/></div>
+                    <div>
+                      <p className="font-bold text-slate-800 text-xs uppercase">{a.pharmacy?.name}</p>
+                      <p className="text-[10px] text-red-600 font-bold">{a.date}</p>
+                    </div>
+                  </div>
+                  <span className="text-xl font-black text-red-600">{a.score}%</span>
+                </div>
+              )) : <p className="text-slate-400 text-xs text-center py-4">Sin puntos críticos</p>}
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+export default MonthlySummary;
