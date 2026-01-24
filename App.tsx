@@ -17,14 +17,14 @@ import DeliveryReceipts from './views/DeliveryReceipts';
 import AssetControl from './views/AssetControl';
 import NewVisit from './views/NewVisit';
 import AccessManagement from './views/AccessManagement';
-import CaseManagement from './views/CaseManagement'; // IMPORTACIÓN DEL NUEVO MÓDULO
+import CaseManagement from './views/CaseManagement';
 import Settings from './views/Settings';
 import Login from './views/Login';
 import { Menu, CheckCircle2, XCircle, Loader2, WifiOff } from 'lucide-react';
 import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, PendingRecord, StaffRecord, SupportRecord, DeliveryReceipt, ScheduleEntry, BriefingData, Asset, AssetLoan, CaseRecord } from './types';
 import { supabase } from './lib/supabase';
 
-const DATA_VERSION = "11.9-CASE-OFFICIAL-ID";
+const DATA_VERSION = "11.11-CASE-DELETE-FIXED";
 
 interface UserData {
   version: string;
@@ -40,7 +40,7 @@ interface UserData {
   schedule: ScheduleEntry[];
   assets: Asset[];
   loans: AssetLoan[];
-  cases: CaseRecord[]; // CAMPO PARA CASOS
+  cases: CaseRecord[];
   users: any[];
   dailyBriefing?: BriefingData;
 }
@@ -80,7 +80,7 @@ const App: React.FC = () => {
           schedule: parsed.schedule || [],
           assets: parsed.assets || [],
           loans: parsed.loans || [],
-          cases: parsed.cases || [], // RECUPERACIÓN DE CASOS
+          cases: parsed.cases || [], 
           users: parsed.users || [],
           dailyBriefing: parsed.dailyBriefing
         };
@@ -158,7 +158,7 @@ const App: React.FC = () => {
         getTableData('delivery_receipts'),
         getTableData('assets'),
         getTableData('loans'),
-        getTableData('cases'), // SINCRONIZACIÓN DE CASOS
+        getTableData('cases'), 
         supabase.from('users').select('*'),
         getTableData('schedule')
       ]);
@@ -191,7 +191,7 @@ const App: React.FC = () => {
           deliveryReceipts: process(recs),
           assets: process(assts),
           loans: process(lns),
-          cases: process(casesData), // GUARDADO DE CASOS
+          cases: process(casesData),
           schedule: process(schs),
           users: (dbUsers.data || []).map((u: any) => ({ 
             ...u, fullName: u.full_name, isApproved: u.is_approved, isBlocked: u.is_blocked 
@@ -231,12 +231,13 @@ const App: React.FC = () => {
     } catch (e) { addToast("Error al Guardar", "error"); }
   };
 
+  // Función genérica para borrar de la nube
   const deleteFromCloud = async (table: string, id: string) => {
     if (!checkPermission()) return;
     if (!supabase) return;
     try {
       await supabase.from(table).delete().eq('id', id);
-      addToast("Eliminado", "success");
+      addToast("Eliminado Correctamente", "success");
     } catch (e) { addToast("Error al borrar", "error"); }
   };
 
@@ -341,7 +342,7 @@ const App: React.FC = () => {
             
             {currentView === 'management-report' && !isReadOnly && <ManagementReport pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} />}
             
-            {/* NUEVO MÓDULO CONECTADO */}
+            {/* GESTIÓN DE CASOS: AQUÍ ESTÁ EL CABLE CONECTADO AHORA */}
             {currentView === 'case-management' && (
               <CaseManagement 
                 pharmacies={userData.pharmacies}
@@ -356,7 +357,13 @@ const App: React.FC = () => {
                   setUserData(prev => ({...prev, cases: prev.cases.map(x => x.id === c.id ? c : x)})); 
                   await saveToCloud('cases', c.id, c); 
                 }}
+                onDeleteCase={async (id) => {  // <--- ESTA ES LA FUNCIÓN QUE FALTABA
+                  if(!checkPermission()) return;
+                  setUserData(prev => ({...prev, cases: prev.cases.filter(x => x.id !== id)}));
+                  await deleteFromCloud('cases', id);
+                }}
                 currentUser={currentUser}
+                hasAdminPrivileges={isBoss}
               />
             )}
             
