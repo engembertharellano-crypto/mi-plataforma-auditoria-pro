@@ -18,7 +18,7 @@ import {
   KeyRound, 
   Briefcase,
   ShieldAlert,
-  Plane, // Icono para el modo viaje
+  Plane,
   Map
 } from 'lucide-react';
 import { ViewName } from '../types';
@@ -31,7 +31,6 @@ interface SidebarProps {
   isSyncing: boolean;
   isOpen: boolean;
   onClose: () => void;
-  // Props para el Modo Viaje
   isTravelMode: boolean;
   onToggleTravelMode: () => void;
 }
@@ -51,7 +50,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'ai-assistant', label: 'Asistente IA', icon: BrainCircuit, highlight: true },
-    { id: 'visit-log', label: 'Bitácora', icon: CalendarDays }, // <--- NOMBRE CORREGIDO
+    { id: 'visit-log', label: 'Bitácora', icon: CalendarDays },
     { id: 'case-management', label: 'Gestión de Casos', icon: ShieldAlert },
     { id: 'audit-wizard', label: 'Iniciar Auditoría', icon: ClipboardCheck },
     { id: 'new-visit', label: 'Registrar Visita', icon: Briefcase },
@@ -87,16 +86,16 @@ const Sidebar: React.FC<SidebarProps> = ({
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         
-        {/* HEADER */}
+        {/* HEADER BRANDING ACTUALIZADO */}
         <div className="p-8 pb-4">
-          <div className="flex items-center gap-4 mb-8">
-            <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20">
-              <span className="font-black text-2xl tracking-tighter">X</span>
-            </div>
-            <div>
-              <h1 className="font-black text-2xl tracking-tight leading-none">XANA</h1>
-              <p className="text-[10px] font-bold text-slate-400 tracking-[0.3em] uppercase mt-1">Security Suite</p>
-            </div>
+          <div className="mb-8 select-none">
+            <h1 className="text-4xl font-black text-white tracking-tighter italic leading-none">
+              XANA <span className="text-orange-500">PRO</span>
+            </h1>
+            <div className="h-1.5 w-16 bg-orange-600 rounded-full my-4"></div>
+            <p className="text-[11px] font-bold text-slate-500 tracking-[0.2em] uppercase">
+              SISTEMA DE SEGURIDAD
+            </p>
           </div>
 
           {/* PERFIL */}
@@ -111,7 +110,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          {/* MODO VIAJE (Solo visible para coordinadores, no admins) */}
+          {/* MODO VIAJE */}
           {!isAdmin && (
             <button 
               onClick={onToggleTravelMode}
