@@ -24,7 +24,7 @@ import { Menu, CheckCircle2, XCircle, Loader2, WifiOff } from 'lucide-react';
 import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, PendingRecord, StaffRecord, SupportRecord, DeliveryReceipt, ScheduleEntry, BriefingData, Asset, AssetLoan, CaseRecord } from './types';
 import { supabase } from './lib/supabase';
 
-const DATA_VERSION = "11.14-STATS-SECURITY-LINKED";
+const DATA_VERSION = "11.15-FIXED-SECURITY-SAVE";
 
 interface UserData {
   version: string;
@@ -181,8 +181,8 @@ const App: React.FC = () => {
           corporatePhone: p.corporate_phone, 
           photo: p.photo, 
           location: p.location,
-          // --- AQUÍ CONECTAMOS EL CAMPO NUEVO ---
-          hasSecurityOfficer: p.has_security_officer // Mapeo snake_case a camelCase
+          // --- AQUÍ ESTÁ LA MAGIA: LEER EL DATO DE LA NUBE ---
+          hasSecurityOfficer: p.has_security_officer
         }));
 
         if (cloudPharms.length === 0 && prev.pharmacies.length > 0 && !pharms.data) return prev;
@@ -378,10 +378,11 @@ const App: React.FC = () => {
                 <PharmacyList 
                     pharmacies={userData.pharmacies} 
                     staffRecords={userData.staffRecords} 
+                    // --- FUNCIÓN DE ACTUALIZACIÓN CONECTADA A LA BASE DE DATOS ---
                     onUpdate={async (p) => { 
                         if(!checkPermission()) return; 
                         setUserData(prev => ({ ...prev, pharmacies: prev.pharmacies.map(x => x.id === p.id ? p : x) })); 
-                        // --- ACTUALIZACIÓN DE SEGURIDAD EN LA BD ---
+                        
                         await supabase.from('pharmacies').upsert({ 
                             id: p.id, 
                             name: p.name, 
@@ -392,7 +393,8 @@ const App: React.FC = () => {
                             corporate_phone: p.corporatePhone, 
                             photo: p.photo, 
                             location: p.location,
-                            has_security_officer: p.hasSecurityOfficer // Nuevo campo
+                            // AQUÍ ENVIAMOS EL DATO DEL VIGILANTE
+                            has_security_officer: p.hasSecurityOfficer 
                         }); 
                     }} 
                     onDelete={async (id) => { 
@@ -403,7 +405,7 @@ const App: React.FC = () => {
                     onAdd={async (p) => { 
                         if(!checkPermission()) return; 
                         setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] })); 
-                        // --- INSERCIÓN DE SEGURIDAD EN LA BD ---
+                        
                         await supabase.from('pharmacies').insert({ 
                             id: p.id, 
                             name: p.name, 
@@ -414,7 +416,8 @@ const App: React.FC = () => {
                             corporate_phone: p.corporatePhone, 
                             photo: p.photo, 
                             location: p.location,
-                            has_security_officer: p.hasSecurityOfficer // Nuevo campo
+                            // AQUÍ TAMBIÉN LO ENVIAMOS AL CREAR
+                            has_security_officer: p.hasSecurityOfficer 
                         }); 
                     }} 
                     currentUser={currentUser} 
