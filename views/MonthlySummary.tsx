@@ -4,12 +4,10 @@ import {
   TrendingUp, 
   MapPin, 
   Calendar, 
-  Briefcase,
+  Briefcase, // Icono para Casos
   AlertTriangle,
   CheckCircle2,
-  XCircle,
-  Building2,
-  Search
+  Building2
 } from 'lucide-react';
 import { 
   Pharmacy, 
@@ -18,7 +16,7 @@ import {
   PhysicalInventoryRecord, 
   ManagementVisitRecord, 
   PendingRecord,
-  CaseRecord 
+  CaseRecord // Importamos el tipo de Casos
 } from '../types';
 
 interface MonthlySummaryProps {
@@ -28,7 +26,7 @@ interface MonthlySummaryProps {
   physicalRecords: PhysicalInventoryRecord[];
   managementRecords: ManagementVisitRecord[];
   pendingRecords: PendingRecord[];
-  cases: CaseRecord[];
+  cases: CaseRecord[]; // Recibimos los casos
   users: any[];
   currentUser: any;
 }
@@ -40,20 +38,18 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   physicalRecords, 
   managementRecords, 
   pendingRecords,
-  cases = [], 
+  cases = [], // Valor por defecto
   users,
   currentUser 
 }) => {
 
-  // --- CÁLCULOS DE KPI ---
-  
-  // 1. Auditorías
+  // --- KPI 1: CALIFICACIÓN PROMEDIO (Auditorías) ---
   const auditScores = audits.map(a => a.score || 0);
   const avgAuditScore = auditScores.length > 0 
     ? Math.round(auditScores.reduce((a, b) => a + b, 0) / auditScores.length) 
     : 0;
 
-  // 2. Cobertura
+  // --- KPI 2: COBERTURA VISITAS ---
   const totalPharmacies = pharmacies.length;
   const visitedPharmacies = new Set([
     ...audits.map(a => a.pharmacy?.id),
@@ -63,12 +59,12 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   ]).size;
   const coverage = totalPharmacies > 0 ? Math.round((visitedPharmacies / totalPharmacies) * 100) : 0;
 
-  // 3. Eficiencia (CASOS)
+  // --- KPI 3: EFICIENCIA DE RESOLUCIÓN (MODIFICADO: USA CASOS) ---
   const totalCases = cases.length;
   const closedCases = cases.filter(c => c.status === 'Cerrado').length;
   const efficiency = totalCases > 0 ? Math.round((closedCases / totalCases) * 100) : 0;
 
-  // 4. Actividad
+  // --- KPI 4: ACTIVIDAD TOTAL ---
   const totalActivities = audits.length + cctvRecords.length + physicalRecords.length + managementRecords.length;
 
   // --- DATOS PARA TABLAS INFERIORES ---
@@ -78,7 +74,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     .sort((a, b) => (a.score || 0) - (b.score || 0))
     .slice(0, 3);
 
-  // Distribución de Casos
+  // Distribución de CASOS (Antes era pendientes)
   const casesByPriority = {
     Alta: cases.filter(c => c.priority === 'Alta').length,
     Media: cases.filter(c => c.priority === 'Media').length,
@@ -88,7 +84,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   return (
     <div className="max-w-[1600px] mx-auto p-6 md:p-10 pb-20 animate-in fade-in duration-500">
       
-      {/* HEADER */}
+      {/* HEADER (Color Oscuro Correcto) */}
       <div className="flex items-center gap-4 mb-10">
         <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center shadow-2xl shrink-0">
           <BarChart3 className="w-7 h-7 text-white" />
@@ -99,10 +95,10 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
         </div>
       </div>
 
-      {/* KPI CARDS (FILA SUPERIOR) */}
+      {/* KPI CARDS (4 Tarjetas Completas) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         
-        {/* Card 1 */}
+        {/* KPI 1 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-blue-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Promedio Auditoría</p>
@@ -115,7 +111,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* Card 2 */}
+        {/* KPI 2 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-emerald-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Cobertura Mensual</p>
@@ -128,7 +124,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* Card 3 (CASOS) */}
+        {/* KPI 3: CONECTADO A CASOS */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-purple-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Eficiencia Resolución</p>
@@ -141,7 +137,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* Card 4 */}
+        {/* KPI 4 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-orange-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Actividad Total</p>
@@ -151,12 +147,13 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
           <p className="mt-4 text-xs font-bold text-slate-400">Registros este mes</p>
         </div>
+
       </div>
 
-      {/* SECCIÓN INFERIOR RESTAURADA */}
+      {/* SECCIÓN INFERIOR (TABLAS Y GRÁFICOS) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Columna 1: Prioridad de Casos (Nuevo Gráfico Visual) */}
+        {/* Columna 1: Distribución de Casos (Antes Pendientes) */}
         <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
           <h3 className="text-lg font-black text-slate-800 uppercase mb-6 flex items-center gap-2">
             <Briefcase className="w-5 h-5 text-purple-500" /> Distribución de Casos
