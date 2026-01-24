@@ -9,7 +9,7 @@ import {
   CheckCircle2, 
   AlertCircle, 
   X, 
-  Building2,
+  Building2, 
   Truck, 
   MoreHorizontal, 
   FileText, 
@@ -45,6 +45,9 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
   const [filterStatus, setFilterStatus] = useState<'Activos' | 'Cerrados'>('Activos');
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Estados para Modal de Borrado
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
   // Formulario Nuevo Caso
   const [formData, setFormData] = useState<Partial<CaseRecord>>({
     id: '', 
@@ -76,7 +79,6 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
   }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   // --- LÓGICA DE PERMISOS ---
-  // El usuario puede borrar si es Admin O si él mismo creó el caso
   const canDelete = selectedCase && (hasAdminPrivileges || selectedCase.createdBy === currentUser?.fullName);
 
   // --- MANEJADORES ---
@@ -154,13 +156,12 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
     setIsClosing(false);
   };
 
-  const handleDeleteRequest = () => {
-    if (!canDelete) return; // Doble chequeo de seguridad
-    if (window.confirm("¿Está seguro de que desea ELIMINAR este expediente definitivamente? Esta acción no se puede deshacer.")) {
-        onDeleteCase(selectedCase!.id);
-        setView('list');
-        setSelectedCase(null);
-    }
+  const confirmDelete = () => {
+    if (!selectedCase) return;
+    onDeleteCase(selectedCase.id); // Llama a la función de App.tsx
+    setShowDeleteModal(false);
+    setSelectedCase(null);
+    setView('list');
   };
 
   // --- HELPERS UI ---
@@ -349,7 +350,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
                           <div className="p-4 bg-slate-100 rounded-xl"><p className="text-[10px] font-black text-slate-500 uppercase mb-1">Conclusión Final</p><p className="text-sm font-medium text-slate-700">{selectedCase.conclusion}</p><p className="text-[10px] text-slate-400 mt-2 text-right">Cerrado el {new Date(selectedCase.closedDate!).toLocaleDateString()}</p></div>
                        )}
                        {canDelete && (
-                         <button onClick={handleDeleteRequest} className="w-full py-3 bg-red-50 text-red-600 rounded-xl font-bold uppercase text-xs hover:bg-red-100 flex items-center justify-center gap-2">
+                         <button onClick={() => setShowDeleteModal(true)} className="w-full py-3 bg-red-50 text-red-600 rounded-xl font-bold uppercase text-xs hover:bg-red-100 flex items-center justify-center gap-2">
                            <Trash2 className="w-4 h-4" /> Eliminar Expediente
                          </button>
                        )}
@@ -385,6 +386,37 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
             </div>
          </div>
       )}
+
+      {/* MODAL DE CONFIRMACIÓN DE BORRADO (Diseño Profesional) */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[250] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2rem] w-full max-w-md p-8 shadow-2xl text-center transform transition-all scale-100">
+             <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-10 h-10 text-red-600" />
+             </div>
+             <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tight">¿Eliminar Expediente?</h3>
+             <p className="text-slate-500 font-medium mb-8 leading-relaxed">
+               Estás a punto de eliminar el caso <span className="font-bold text-slate-800">{selectedCase?.officialId || selectedCase?.id}</span> permanentemente. <br/><br/>
+               <span className="text-red-600 font-bold text-xs uppercase tracking-widest">Esta acción no se puede deshacer.</span>
+             </p>
+             <div className="flex gap-4">
+               <button 
+                 onClick={() => setShowDeleteModal(false)} 
+                 className="flex-1 py-4 rounded-xl border-2 border-slate-100 font-bold text-slate-600 hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest"
+               >
+                 Cancelar
+               </button>
+               <button 
+                 onClick={confirmDelete} 
+                 className="flex-1 py-4 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-200 uppercase text-xs tracking-widest"
+               >
+                 Sí, Eliminar
+               </button>
+             </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
