@@ -24,7 +24,7 @@ import { Menu, CheckCircle2, XCircle, Loader2, WifiOff } from 'lucide-react';
 import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, PendingRecord, StaffRecord, SupportRecord, DeliveryReceipt, ScheduleEntry, BriefingData, Asset, AssetLoan, CaseRecord } from './types';
 import { supabase } from './lib/supabase';
 
-const DATA_VERSION = "11.15-FIXED-SECURITY-SAVE";
+const DATA_VERSION = "11.17-TRAVEL-MODE-READY";
 
 interface UserData {
   version: string;
@@ -141,11 +141,10 @@ const App: React.FC = () => {
         return data || [];
       };
 
+      // --- CAMBIO CLAVE: DESCARGAR TODAS LAS FARMACIAS SIEMPRE ---
+      // Esto permite que el "Modo Viaje" funcione, ya que la data estará local.
       let pharmQuery = supabase.from('pharmacies').select('*').order('name');
-      if (!userIsBoss && user.zone) {
-         pharmQuery = pharmQuery.eq('zone', user.zone);
-      }
-
+      
       const [pharms, auds, cctvs, phys, mgmts, pends, stfs, supps, recs, assts, lns, casesData, dbUsers, schs] = await Promise.all([
         pharmQuery,
         getTableData('audits'),
@@ -181,7 +180,6 @@ const App: React.FC = () => {
           corporatePhone: p.corporate_phone, 
           photo: p.photo, 
           location: p.location,
-          // --- AQUÍ ESTÁ LA MAGIA: LEER EL DATO DE LA NUBE ---
           hasSecurityOfficer: p.has_security_officer
         }));
 
@@ -231,9 +229,18 @@ const App: React.FC = () => {
     if (!checkPermission()) return;
     if (!supabase || !currentUser) return;
     try {
-      const payload: any = { id, data, created_by: currentUser.fullName, zone: currentUser.zone || 'Global' };
+      // INTELIGENCIA: Guardar con la zona de la farmacia, no del usuario
+      const realZone = 
+        data.zone || 
+        (data.pharmacy && data.pharmacy.zone) || 
+        currentUser.zone || 
+        'Global';
+
+      const payload: any = { id, data, created_by: currentUser.fullName, zone: realZone };
+      
       const pharmacyId = data.pharmacyId || (data.pharmacy && data.pharmacy.id);
       if (pharmacyId) payload.pharmacy_id = pharmacyId;
+      
       const { error } = await supabase.from(table).upsert(payload);
       if (error) throw error;
       addToast("Guardado", "success");
@@ -378,11 +385,9 @@ const App: React.FC = () => {
                 <PharmacyList 
                     pharmacies={userData.pharmacies} 
                     staffRecords={userData.staffRecords} 
-                    // --- FUNCIÓN DE ACTUALIZACIÓN CONECTADA A LA BASE DE DATOS ---
                     onUpdate={async (p) => { 
                         if(!checkPermission()) return; 
                         setUserData(prev => ({ ...prev, pharmacies: prev.pharmacies.map(x => x.id === p.id ? p : x) })); 
-                        
                         await supabase.from('pharmacies').upsert({ 
                             id: p.id, 
                             name: p.name, 
@@ -393,7 +398,6 @@ const App: React.FC = () => {
                             corporate_phone: p.corporatePhone, 
                             photo: p.photo, 
                             location: p.location,
-                            // AQUÍ ENVIAMOS EL DATO DEL VIGILANTE
                             has_security_officer: p.hasSecurityOfficer 
                         }); 
                     }} 
@@ -405,7 +409,6 @@ const App: React.FC = () => {
                     onAdd={async (p) => { 
                         if(!checkPermission()) return; 
                         setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] })); 
-                        
                         await supabase.from('pharmacies').insert({ 
                             id: p.id, 
                             name: p.name, 
@@ -416,7 +419,6 @@ const App: React.FC = () => {
                             corporate_phone: p.corporatePhone, 
                             photo: p.photo, 
                             location: p.location,
-                            // AQUÍ TAMBIÉN LO ENVIAMOS AL CREAR
                             has_security_officer: p.hasSecurityOfficer 
                         }); 
                     }} 
