@@ -144,7 +144,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   // 1. CCTV
   let cctvTotal = 0; 
   let cctvOk = 0;
-  let cctvBad = 0; // Contador de malas
+  let cctvBad = 0;
   
   currentCCTV.forEach((rawRecord: any) => {
     const r = parseData(rawRecord);
@@ -155,7 +155,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     
     cctvTotal += totalLocal;
     cctvOk += okLocal;
-    cctvBad += (totalLocal - okLocal); // Calculamos las malas
+    cctvBad += (totalLocal - okLocal);
   });
 
   const cctvHealth = cctvTotal > 0 ? Math.round((cctvOk / cctvTotal) * 100) : 0;
@@ -164,7 +164,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   let infraTotal = 0; 
   let infraOk = 0;
   
-  // Acumulador de fallas por tipo
   const infraFailures: Record<string, number> = {
     'Santamaría': 0,
     'Candado': 0,
@@ -187,7 +186,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     infraTotal += (reqS + reqC + reqE + reqI);
     infraOk += (goodS + goodC + goodE + goodI);
 
-    // Sumar fallas específicas
     if (reqS > goodS) infraFailures['Santamaría'] += (reqS - goodS);
     if (reqC > goodC) infraFailures['Candado'] += (reqC - goodC);
     if (reqE > goodE) infraFailures['Espejo'] += (reqE - goodE);
@@ -196,7 +194,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const infraHealth = infraTotal > 0 ? Math.round((infraOk / infraTotal) * 100) : 0;
 
-  // Convertir objeto de fallas a lista de texto
+  // Lista completa sin recortar
   const infraFailureList = Object.entries(infraFailures)
     .filter(([_, count]) => count > 0)
     .map(([name, count]) => `${count} ${name}${count > 1 ? 's' : ''}`);
@@ -358,7 +356,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
              <span className={`text-3xl font-black ${cctvHealth >= 90 ? 'text-emerald-400' : cctvHealth >= 70 ? 'text-orange-400' : 'text-red-400'}`}>
                {cctvHealth}%
              </span>
-             {/* DETALLE DE FALLAS CCTV */}
              {cctvBad > 0 ? (
                <p className="text-[10px] text-red-400 font-bold uppercase flex items-center justify-end gap-1 mt-1">
                  <XCircle className="w-3 h-3" /> {cctvBad} Cámaras Inactivas
@@ -386,17 +383,13 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
              <span className={`text-3xl font-black ${infraHealth >= 90 ? 'text-emerald-400' : infraHealth >= 70 ? 'text-orange-400' : 'text-red-400'}`}>
                {infraHealth}%
              </span>
-             {/* DETALLE DE FALLAS INFRAESTRUCTURA */}
              {infraFailureList.length > 0 ? (
                <div className="flex flex-col items-end mt-1">
-                 {infraFailureList.slice(0, 2).map((fail, i) => (
+                 {infraFailureList.map((fail, i) => (
                    <p key={i} className="text-[9px] text-red-400 font-bold uppercase flex items-center gap-1">
                      <AlertTriangle className="w-3 h-3" /> {fail}
                    </p>
                  ))}
-                 {infraFailureList.length > 2 && (
-                   <p className="text-[9px] text-red-400 font-bold uppercase">... y {infraFailureList.length - 2} más</p>
-                 )}
                </div>
              ) : (
                <p className="text-[10px] text-emerald-400 font-bold uppercase flex items-center justify-end gap-1 mt-1">
