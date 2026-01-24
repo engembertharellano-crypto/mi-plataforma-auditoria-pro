@@ -4,7 +4,12 @@ import {
   TrendingUp, 
   MapPin, 
   Calendar, 
-  Briefcase // Icono para Casos
+  Briefcase,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  Building2,
+  Search
 } from 'lucide-react';
 import { 
   Pharmacy, 
@@ -13,7 +18,7 @@ import {
   PhysicalInventoryRecord, 
   ManagementVisitRecord, 
   PendingRecord,
-  CaseRecord // Importamos el tipo de datos de Casos
+  CaseRecord 
 } from '../types';
 
 interface MonthlySummaryProps {
@@ -23,7 +28,7 @@ interface MonthlySummaryProps {
   physicalRecords: PhysicalInventoryRecord[];
   managementRecords: ManagementVisitRecord[];
   pendingRecords: PendingRecord[];
-  cases: CaseRecord[]; // Recibimos la lista de casos
+  cases: CaseRecord[];
   users: any[];
   currentUser: any;
 }
@@ -34,19 +39,21 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   cctvRecords, 
   physicalRecords, 
   managementRecords, 
-  pendingRecords, 
-  cases = [], // Valor por defecto
+  pendingRecords,
+  cases = [], 
   users,
   currentUser 
 }) => {
 
-  // --- KPI 1: CALIFICACIÓN PROMEDIO (Auditorías) ---
+  // --- CÁLCULOS DE KPI ---
+  
+  // 1. Auditorías
   const auditScores = audits.map(a => a.score || 0);
   const avgAuditScore = auditScores.length > 0 
     ? Math.round(auditScores.reduce((a, b) => a + b, 0) / auditScores.length) 
     : 0;
 
-  // --- KPI 2: COBERTURA VISITAS ---
+  // 2. Cobertura
   const totalPharmacies = pharmacies.length;
   const visitedPharmacies = new Set([
     ...audits.map(a => a.pharmacy?.id),
@@ -56,18 +63,32 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   ]).size;
   const coverage = totalPharmacies > 0 ? Math.round((visitedPharmacies / totalPharmacies) * 100) : 0;
 
-  // --- KPI 3: EFICIENCIA DE RESOLUCIÓN (BASADO EN CASOS) ---
+  // 3. Eficiencia (CASOS)
   const totalCases = cases.length;
   const closedCases = cases.filter(c => c.status === 'Cerrado').length;
   const efficiency = totalCases > 0 ? Math.round((closedCases / totalCases) * 100) : 0;
 
-  // --- KPI 4: ACTIVIDAD TOTAL ---
+  // 4. Actividad
   const totalActivities = audits.length + cctvRecords.length + physicalRecords.length + managementRecords.length;
+
+  // --- DATOS PARA TABLAS INFERIORES ---
+  
+  // Farmacias con menor rendimiento (Bottom 3)
+  const lowPerformingPharmacies = [...audits]
+    .sort((a, b) => (a.score || 0) - (b.score || 0))
+    .slice(0, 3);
+
+  // Distribución de Casos
+  const casesByPriority = {
+    Alta: cases.filter(c => c.priority === 'Alta').length,
+    Media: cases.filter(c => c.priority === 'Media').length,
+    Baja: cases.filter(c => c.priority === 'Baja').length,
+  };
 
   return (
     <div className="max-w-[1600px] mx-auto p-6 md:p-10 pb-20 animate-in fade-in duration-500">
       
-      {/* HEADER - RESTAURADO A COLOR OSCURO */}
+      {/* HEADER */}
       <div className="flex items-center gap-4 mb-10">
         <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center shadow-2xl shrink-0">
           <BarChart3 className="w-7 h-7 text-white" />
@@ -78,10 +99,10 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
         </div>
       </div>
 
-      {/* KPI CARDS */}
+      {/* KPI CARDS (FILA SUPERIOR) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         
-        {/* KPI 1: Promedio Auditoría */}
+        {/* Card 1 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-blue-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Promedio Auditoría</p>
@@ -94,7 +115,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* KPI 2: Cobertura Mensual */}
+        {/* Card 2 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-emerald-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Cobertura Mensual</p>
@@ -107,7 +128,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* KPI 3: Eficiencia (AHORA CON CASOS) */}
+        {/* Card 3 (CASOS) */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-purple-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Eficiencia Resolución</p>
@@ -116,11 +137,11 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
             <Briefcase className="w-6 h-6 mb-2 text-purple-500" />
           </div>
           <div className="mt-4 text-xs font-bold text-slate-400">
-            {closedCases} de {totalCases} Expedientes Cerrados
+            {closedCases} de {totalCases} Casos Cerrados
           </div>
         </div>
 
-        {/* KPI 4: Actividad Total */}
+        {/* Card 4 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-orange-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Actividad Total</p>
@@ -130,13 +151,86 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
           <p className="mt-4 text-xs font-bold text-slate-400">Registros este mes</p>
         </div>
-
       </div>
 
-      <div className="bg-slate-50 rounded-[2.5rem] p-10 text-center border border-slate-100">
-        <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Gráficos detallados disponibles en reporte gerencial</p>
-      </div>
+      {/* SECCIÓN INFERIOR RESTAURADA */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* Columna 1: Prioridad de Casos (Nuevo Gráfico Visual) */}
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+          <h3 className="text-lg font-black text-slate-800 uppercase mb-6 flex items-center gap-2">
+            <Briefcase className="w-5 h-5 text-purple-500" /> Distribución de Casos
+          </h3>
+          <div className="space-y-6">
+            <div>
+              <div className="flex justify-between text-xs font-black uppercase mb-2 text-slate-500">
+                <span>Alta Prioridad</span>
+                <span>{casesByPriority.Alta}</span>
+              </div>
+              <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                <div className="h-full bg-red-500 rounded-full" style={{ width: `${totalCases > 0 ? (casesByPriority.Alta / totalCases) * 100 : 0}%` }}></div>
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-xs font-black uppercase mb-2 text-slate-500">
+                <span>Media Prioridad</span>
+                <span>{casesByPriority.Media}</span>
+              </div>
+              <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                <div className="h-full bg-orange-500 rounded-full" style={{ width: `${totalCases > 0 ? (casesByPriority.Media / totalCases) * 100 : 0}%` }}></div>
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-xs font-black uppercase mb-2 text-slate-500">
+                <span>Baja Prioridad</span>
+                <span>{casesByPriority.Baja}</span>
+              </div>
+              <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-500 rounded-full" style={{ width: `${totalCases > 0 ? (casesByPriority.Baja / totalCases) * 100 : 0}%` }}></div>
+              </div>
+            </div>
+          </div>
+          <div className="mt-8 pt-6 border-t border-slate-100 flex justify-between items-center">
+             <span className="text-xs font-bold text-slate-400 uppercase">Total Casos Activos</span>
+             <span className="text-2xl font-black text-slate-800">{totalCases - closedCases}</span>
+          </div>
+        </div>
 
+        {/* Columna 2: Puntos Críticos (Audit Score bajo) */}
+        <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+          <h3 className="text-lg font-black text-slate-800 uppercase mb-6 flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-red-500" /> Puntos de Atención (Bajo Score)
+          </h3>
+          
+          {lowPerformingPharmacies.length > 0 ? (
+            <div className="space-y-4">
+              {lowPerformingPharmacies.map((audit) => (
+                <div key={audit.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center border border-slate-200 font-bold text-slate-400">
+                      <Building2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="font-black text-slate-800 uppercase text-sm">{audit.pharmacy?.name || 'Farmacia Desconocida'}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{audit.date}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-2xl font-black text-red-500">{audit.score}%</span>
+                    <p className="text-[10px] font-bold text-red-400 uppercase">Crítico</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="h-40 flex flex-col items-center justify-center text-slate-300 border-2 border-dashed border-slate-200 rounded-2xl">
+              <CheckCircle2 className="w-8 h-8 mb-2" />
+              <p className="font-bold text-xs uppercase tracking-widest">Sin puntos críticos detectados</p>
+            </div>
+          )}
+        </div>
+
+      </div>
     </div>
   );
 };
