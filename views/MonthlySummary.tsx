@@ -4,10 +4,12 @@ import {
   TrendingUp, 
   MapPin, 
   Calendar, 
-  Briefcase,
+  Briefcase, 
   AlertTriangle,
   CheckCircle2,
-  Building2
+  Building2,
+  Trophy,
+  Activity
 } from 'lucide-react';
 import { 
   Pharmacy, 
@@ -43,12 +45,13 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   currentUser 
 }) => {
 
-  // --- KPI LOGIC ---
+  // --- KPI 1: CALIFICACIÓN PROMEDIO ---
   const auditScores = audits.map(a => a.score || 0);
   const avgAuditScore = auditScores.length > 0 
     ? Math.round(auditScores.reduce((a, b) => a + b, 0) / auditScores.length) 
     : 0;
 
+  // --- KPI 2: COBERTURA VISITAS ---
   const totalPharmacies = pharmacies.length;
   const visitedPharmacies = new Set([
     ...audits.map(a => a.pharmacy?.id),
@@ -58,17 +61,26 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   ]).size;
   const coverage = totalPharmacies > 0 ? Math.round((visitedPharmacies / totalPharmacies) * 100) : 0;
 
-  // EFICIENCIA BASADA EN CASOS
+  // --- KPI 3: EFICIENCIA (CASOS) ---
   const totalCases = cases.length;
   const closedCases = cases.filter(c => c.status === 'Cerrado').length;
   const efficiency = totalCases > 0 ? Math.round((closedCases / totalCases) * 100) : 0;
 
+  // --- KPI 4: ACTIVIDAD TOTAL ---
   const totalActivities = audits.length + cctvRecords.length + physicalRecords.length + managementRecords.length;
 
-  const lowPerformingPharmacies = [...audits]
-    .sort((a, b) => (a.score || 0) - (b.score || 0))
-    .slice(0, 3);
+  // --- DATOS PARA SECCIÓN INFERIOR ---
+  
+  // Ordenar auditorías por puntaje
+  const sortedAudits = [...audits].sort((a, b) => (a.score || 0) - (b.score || 0));
+  
+  // Top 3 Peores (Puntos Críticos)
+  const lowPerforming = sortedAudits.slice(0, 3);
+  
+  // Top 3 Mejores (Top Rendimiento)
+  const topPerforming = [...sortedAudits].reverse().slice(0, 3);
 
+  // Distribución de Casos
   const casesByPriority = {
     Alta: cases.filter(c => c.priority === 'Alta').length,
     Media: cases.filter(c => c.priority === 'Media').length,
@@ -78,7 +90,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   return (
     <div className="max-w-[1600px] mx-auto p-6 md:p-10 pb-20 animate-in fade-in duration-500">
       
-      {/* HEADER (CON TEXTO BLANCO COMO PEDISTE) */}
+      {/* HEADER (BLANCO) */}
       <div className="flex items-center gap-4 mb-10">
         <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center shadow-2xl shrink-0 border border-slate-700">
           <BarChart3 className="w-7 h-7 text-white" />
@@ -92,6 +104,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       {/* KPI CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         
+        {/* KPI 1 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-blue-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Promedio Auditoría</p>
@@ -104,6 +117,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
+        {/* KPI 2 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-emerald-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Cobertura Mensual</p>
@@ -116,6 +130,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
+        {/* KPI 3 (CASOS) */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-purple-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Eficiencia Resolución</p>
@@ -128,6 +143,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
+        {/* KPI 4 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-orange-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Actividad Total</p>
@@ -140,17 +156,18 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
       </div>
 
+      {/* SECCIÓN INFERIOR RECUPERADA (LISTAS DE BUENOS Y MALOS) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
+        {/* Columna 1: Distribución Casos */}
         <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
           <h3 className="text-lg font-black text-slate-800 uppercase mb-6 flex items-center gap-2">
-            <Briefcase className="w-5 h-5 text-purple-500" /> Distribución de Casos
+            <Activity className="w-5 h-5 text-purple-500" /> Distribución de Casos
           </h3>
           <div className="space-y-6">
             <div>
               <div className="flex justify-between text-xs font-black uppercase mb-2 text-slate-500">
-                <span>Alta Prioridad</span>
-                <span>{casesByPriority.Alta}</span>
+                <span>Alta Prioridad</span><span>{casesByPriority.Alta}</span>
               </div>
               <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
                 <div className="h-full bg-red-500 rounded-full" style={{ width: `${totalCases > 0 ? (casesByPriority.Alta / totalCases) * 100 : 0}%` }}></div>
@@ -158,8 +175,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
             </div>
             <div>
               <div className="flex justify-between text-xs font-black uppercase mb-2 text-slate-500">
-                <span>Media Prioridad</span>
-                <span>{casesByPriority.Media}</span>
+                <span>Media Prioridad</span><span>{casesByPriority.Media}</span>
               </div>
               <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
                 <div className="h-full bg-orange-500 rounded-full" style={{ width: `${totalCases > 0 ? (casesByPriority.Media / totalCases) * 100 : 0}%` }}></div>
@@ -167,51 +183,60 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
             </div>
             <div>
               <div className="flex justify-between text-xs font-black uppercase mb-2 text-slate-500">
-                <span>Baja Prioridad</span>
-                <span>{casesByPriority.Baja}</span>
+                <span>Baja Prioridad</span><span>{casesByPriority.Baja}</span>
               </div>
               <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
                 <div className="h-full bg-blue-500 rounded-full" style={{ width: `${totalCases > 0 ? (casesByPriority.Baja / totalCases) * 100 : 0}%` }}></div>
               </div>
             </div>
           </div>
-          <div className="mt-8 pt-6 border-t border-slate-100 flex justify-between items-center">
-             <span className="text-xs font-bold text-slate-400 uppercase">Total Casos Activos</span>
-             <span className="text-2xl font-black text-slate-800">{totalCases - closedCases}</span>
-          </div>
         </div>
 
-        <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-          <h3 className="text-lg font-black text-slate-800 uppercase mb-6 flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-red-500" /> Puntos de Atención (Bajo Score)
-          </h3>
+        {/* Columna 2 y 3: Listas de Desempeño */}
+        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
           
-          {lowPerformingPharmacies.length > 0 ? (
+          {/* TOP BUENO (Mejores Scores) */}
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+            <h3 className="text-lg font-black text-slate-800 uppercase mb-6 flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-emerald-500" /> Top Rendimiento
+            </h3>
             <div className="space-y-4">
-              {lowPerformingPharmacies.map((audit) => (
-                <div key={audit.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center border border-slate-200 font-bold text-slate-400">
-                      <Building2 className="w-5 h-5" />
-                    </div>
+              {topPerforming.length > 0 ? topPerforming.map(a => (
+                <div key={a.id} className="flex justify-between items-center p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white font-bold text-xs"><Building2 className="w-4 h-4"/></div>
                     <div>
-                      <p className="font-black text-slate-800 uppercase text-sm">{audit.pharmacy?.name || 'Farmacia Desconocida'}</p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{audit.date}</p>
+                      <p className="font-bold text-slate-800 text-xs uppercase">{a.pharmacy?.name}</p>
+                      <p className="text-[10px] text-emerald-600 font-bold">{a.date}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-2xl font-black text-red-500">{audit.score}%</span>
-                    <p className="text-[10px] font-bold text-red-400 uppercase">Crítico</p>
-                  </div>
+                  <span className="text-xl font-black text-emerald-600">{a.score}%</span>
                 </div>
-              ))}
+              )) : <p className="text-slate-400 text-xs text-center py-4">Sin datos suficientes</p>}
             </div>
-          ) : (
-            <div className="h-40 flex flex-col items-center justify-center text-slate-300 border-2 border-dashed border-slate-200 rounded-2xl">
-              <CheckCircle2 className="w-8 h-8 mb-2" />
-              <p className="font-bold text-xs uppercase tracking-widest">Sin puntos críticos detectados</p>
+          </div>
+
+          {/* TOP MALO (Puntos Críticos) */}
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+            <h3 className="text-lg font-black text-slate-800 uppercase mb-6 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-500" /> Puntos Críticos
+            </h3>
+            <div className="space-y-4">
+              {lowPerforming.length > 0 ? lowPerforming.map(a => (
+                <div key={a.id} className="flex justify-between items-center p-3 bg-red-50 rounded-xl border border-red-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white font-bold text-xs"><AlertTriangle className="w-4 h-4"/></div>
+                    <div>
+                      <p className="font-bold text-slate-800 text-xs uppercase">{a.pharmacy?.name}</p>
+                      <p className="text-[10px] text-red-600 font-bold">{a.date}</p>
+                    </div>
+                  </div>
+                  <span className="text-xl font-black text-red-600">{a.score}%</span>
+                </div>
+              )) : <p className="text-slate-400 text-xs text-center py-4">Sin puntos críticos</p>}
             </div>
-          )}
+          </div>
+
         </div>
 
       </div>
