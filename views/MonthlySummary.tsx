@@ -6,12 +6,13 @@ import {
   Calendar, 
   Briefcase, 
   AlertTriangle,
-  CheckCircle2,
   Building2,
   Trophy,
   Siren,
   Target,
-  Zap
+  Zap,
+  Camera,
+  BrickWall // Icono para Infraestructura
 } from 'lucide-react';
 import { 
   Pharmacy, 
@@ -23,7 +24,7 @@ import {
   CaseRecord 
 } from '../types';
 
-// --- DICCIONARIO DE TRADUCCIÓN (CÓDIGO -> TEXTO HUMANO) ---
+// --- DICCIONARIO DE TRADUCCIÓN ---
 const QUESTION_MAP: Record<string, string> = {
   'p1.1': 'Uniforme y Presencia',
   'p1.2': 'Libro de Novedades',
@@ -83,14 +84,39 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const totalActivities = audits.length + cctvRecords.length + physicalRecords.length + managementRecords.length;
 
+  // --- LÓGICA DE INVENTARIOS (NUEVO) ---
+  
+  // CCTV: Operatividad
+  let totalCameras = 0;
+  let activeCameras = 0;
+  // Recorremos registros de CCTV, asumimos que cada registro puede tener múltiples cámaras
+  // O si el registro representa el estado de un sistema. 
+  // Si el registro de CCTV tiene una lista de cámaras (detalle), idealmente iteraríamos eso.
+  // Como simplificación basada en la estructura actual, contaremos registros "Operativos".
+  // Si tienes un campo específico de cantidad, ajústalo aquí.
+  cctvRecords.forEach(r => {
+      // Si el registro tiene status global
+      if (r.status === 'Operativo') activeCameras++;
+      totalCameras++;
+  });
+  const cctvHealth = totalCameras > 0 ? Math.round((activeCameras / totalCameras) * 100) : 0;
+
+  // INFRAESTRUCTURA: Estado
+  let totalInfra = 0;
+  let goodInfra = 0;
+  physicalRecords.forEach(r => {
+      if (r.status === 'Buen Estado') goodInfra++;
+      totalInfra++;
+  });
+  const infraHealth = totalInfra > 0 ? Math.round((goodInfra / totalInfra) * 100) : 0;
+
+
   // --- ORDENAMIENTO ---
   const sortedAudits = [...audits].sort((a, b) => (a.score || 0) - (b.score || 0));
   const lowPerforming = sortedAudits.slice(0, 3);
   const topPerforming = [...sortedAudits].reverse().slice(0, 3);
 
   // --- LÓGICA INTELIGENTE (FOCOS DE RIESGO) ---
-  
-  // 1. Falla Recurrente (Traduciendo el código)
   const failureCounts: Record<string, number> = {};
   audits.forEach(audit => {
     if (audit.processAnswers) {
@@ -112,13 +138,9 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   });
   const topFailure = Object.entries(failureCounts).sort((a, b) => b[1] - a[1])[0];
 
-  // 2. Tipología de Caso (AHORA MÁS INTELIGENTE)
   const caseTypeCounts: Record<string, number> = {};
   cases.forEach(c => {
     let type = c.type;
-
-    // --- LÓGICA INTELIGENTE DE RESPALDO ---
-    // Si no tiene tipo asignado, intentamos deducirlo por el título
     if (!type || type === 'General' || type === '') {
       const titleLower = (c.title || '').toLowerCase();
       if (titleLower.includes('cámara') || titleLower.includes('cctv') || titleLower.includes('dvr') || titleLower.includes('grabador') || titleLower.includes('video')) {
@@ -128,23 +150,19 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       } else if (titleLower.includes('procedimiento') || titleLower.includes('protocolo') || titleLower.includes('incumplimiento')) {
         type = 'Falla de Procedimiento';
       } else {
-        // Si no podemos deducirlo, ahí sí queda como pendiente de clasificar
         type = 'Pendiente de Clasificar';
       }
     }
-    // ------------------------------------
-
     caseTypeCounts[type] = (caseTypeCounts[type] || 0) + 1;
   });
   const topCaseType = Object.entries(caseTypeCounts).sort((a, b) => b[1] - a[1])[0];
 
-  // 3. Urgencia (Casos Alta Prioridad Abiertos)
   const highPriorityOpen = cases.filter(c => c.priority === 'Alta' && c.status !== 'Cerrado').length;
 
   return (
     <div className="max-w-[1600px] mx-auto p-6 md:p-10 pb-20 animate-in fade-in duration-500">
       
-      {/* HEADER (BLANCO SOBRE OSCURO) */}
+      {/* HEADER */}
       <div className="flex items-center gap-4 mb-10">
         <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center shadow-2xl shrink-0 border border-slate-700">
           <BarChart3 className="w-7 h-7 text-white" />
@@ -155,7 +173,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
         </div>
       </div>
 
-      {/* KPI CARDS (SUPERIOR) */}
+      {/* KPI CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         
         {/* Auditoría */}
@@ -184,7 +202,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* Eficiencia (Casos) */}
+        {/* Eficiencia */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-purple-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Eficiencia Resolución</p>
@@ -210,10 +228,53 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
       </div>
 
+      {/* NUEVA SECCIÓN: ESTADO DE FUERZA (CCTV + INFRAESTRUCTURA) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+        
+        {/* Blindaje CCTV */}
+        <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-400">
+              <Camera className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-white font-black uppercase text-sm">Blindaje CCTV</p>
+              <p className="text-slate-400 text-xs font-bold">Operatividad Tecnológica</p>
+            </div>
+          </div>
+          <div className="text-right">
+             <span className={`text-3xl font-black ${cctvHealth >= 90 ? 'text-emerald-400' : cctvHealth >= 70 ? 'text-orange-400' : 'text-red-400'}`}>
+               {cctvHealth}%
+             </span>
+             <p className="text-[10px] text-slate-500 font-bold uppercase">{totalCameras} Equipos Auditados</p>
+          </div>
+        </div>
+
+        {/* Infraestructura */}
+        <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-teal-500/20 rounded-2xl flex items-center justify-center text-teal-400">
+              <BrickWall className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-white font-black uppercase text-sm">Estado Infraestructura</p>
+              <p className="text-slate-400 text-xs font-bold">Condiciones Físicas</p>
+            </div>
+          </div>
+          <div className="text-right">
+             <span className={`text-3xl font-black ${infraHealth >= 90 ? 'text-emerald-400' : infraHealth >= 70 ? 'text-orange-400' : 'text-red-400'}`}>
+               {infraHealth}%
+             </span>
+             <p className="text-[10px] text-slate-500 font-bold uppercase">{totalInfra} Elementos Rev.</p>
+          </div>
+        </div>
+
+      </div>
+
       {/* SECCIÓN INFERIOR */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* COLUMNA 1: FOCOS DE RIESGO (INTELIGENTE) */}
+        {/* COLUMNA 1: FOCOS DE RIESGO */}
         <div className="bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-800 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
           
@@ -223,7 +284,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           
           <div className="space-y-6 relative z-10">
             
-            {/* 1. Hallazgo Recurrente (Traducido) */}
             <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm transition-colors hover:bg-white/10">
               <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center text-orange-500 shrink-0">
                 <AlertTriangle className="w-6 h-6" />
@@ -234,12 +294,11 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                   {topFailure ? topFailure[0] : "Sin hallazgos recurrentes"}
                 </p>
                 <p className="text-xs text-orange-400 mt-1">
-                  {topFailure ? `${topFailure[1]} veces detectado en auditorías` : "Excelente cumplimiento"}
+                  {topFailure ? `${topFailure[1]} veces detectado` : "Excelente cumplimiento"}
                 </p>
               </div>
             </div>
 
-            {/* 2. Tipología Predominante (AHORA INTELIGENTE) */}
             <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm transition-colors hover:bg-white/10">
               <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-500 shrink-0">
                 <Target className="w-6 h-6" />
@@ -250,12 +309,11 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                   {topCaseType ? topCaseType[0] : "Sin actividad delictiva"}
                 </p>
                 <p className="text-xs text-blue-400 mt-1">
-                  {topCaseType ? `Principal causa de expedientes (${topCaseType[1]})` : "Sin reportes recientes"}
+                  {topCaseType ? `Principal causa (${topCaseType[1]})` : "Sin reportes"}
                 </p>
               </div>
             </div>
 
-            {/* 3. Urgencia Operativa */}
             <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm transition-colors hover:bg-white/10">
               <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-red-500 shrink-0">
                 <Zap className="w-6 h-6" />
@@ -277,7 +335,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
         {/* COLUMNA 2 Y 3: LISTAS DE DESEMPEÑO */}
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
           
-          {/* Top Rendimiento */}
           <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
             <h3 className="text-lg font-black text-slate-800 uppercase mb-6 flex items-center gap-2">
               <Trophy className="w-5 h-5 text-emerald-500" /> Top Rendimiento
@@ -298,7 +355,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
             </div>
           </div>
 
-          {/* Puntos Críticos */}
           <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
             <h3 className="text-lg font-black text-slate-800 uppercase mb-6 flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-red-500" /> Puntos Críticos
