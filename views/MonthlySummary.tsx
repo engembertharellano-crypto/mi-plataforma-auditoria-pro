@@ -39,6 +39,16 @@ const QUESTION_MAP: Record<string, string> = {
   'radio': 'Equipos de Radio'
 };
 
+// HELPER: Fuerza bruta para convertir cualquier cosa a número
+const safeInt = (val: any): number => {
+  if (typeof val === 'number') return val;
+  if (typeof val === 'string') {
+    const parsed = parseInt(val, 10);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+  return 0;
+};
+
 interface MonthlySummaryProps {
   pharmacies: Pharmacy[];
   audits: AuditState[];
@@ -83,7 +93,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       cctv: cctvRecords.filter(r => pharmacyIds.has(r.pharmacyId)),
       physical: physicalRecords.filter(r => pharmacyIds.has(r.pharmacyId)),
       management: managementRecords.filter(r => pharmacyIds.has(r.pharmacyId)),
-      cases: cases.filter(c => true) // Mostramos todos los casos o filtra por ID si estuviera disponible
+      cases: cases.filter(c => true) 
     };
   }, [selectedZone, pharmacies, audits, cctvRecords, physicalRecords, managementRecords, cases]);
 
@@ -96,7 +106,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     cases: currentCases 
   } = filteredData;
 
-  // --- KPI 1-4 LOGIC ---
+  // --- KPI LOGIC ---
   const auditScores = currentAudits.map(a => a.score || 0);
   const avgAuditScore = auditScores.length > 0 
     ? Math.round(auditScores.reduce((a, b) => a + b, 0) / auditScores.length) 
@@ -118,30 +128,33 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   const totalActivities = currentAudits.length + currentCCTV.length + currentPhysical.length + currentManagement.length;
 
   // =========================================================================
-  // LÓGICA DE ESCANEO PROFUNDO (UNIVERSAL) PARA INVENTARIOS
+  // LÓGICA DE INVENTARIOS A PRUEBA DE FALLOS (FUERZA BRUTA + CONVERSIÓN TIPOS)
   // =========================================================================
 
-  // 1. ESCÁNER DE CCTV
+  // 1. CCTV (Búsqueda recursiva de totales)
   let totalCamerasSum = 0;
   let activeCamerasSum = 0;
 
   currentCCTV.forEach((record: any) => {
-    // A) Estrategia Específica (Basada en tu Foto 52)
-    // Buscamos analogCameras { total, ok/working } y ipCameras { total, ok/working }
+    // Intento 1: Estructura conocida (Analog/IP)
     if (record.analogCameras) {
-       totalCamerasSum += Number(record.analogCameras.total || 0);
-       activeCamerasSum += Number(record.analogCameras.ok || record.analogCameras.working || record.analogCameras.operative || 0);
+       totalCamerasSum += safeInt(record.analogCameras.total);
+       // Busca cualquier variante de "bueno"
+       activeCamerasSum += safeInt(record.analogCameras.ok || record.analogCameras.working || record.analogCameras.operative);
     }
     if (record.ipCameras) {
-       totalCamerasSum += Number(record.ipCameras.total || 0);
-       activeCamerasSum += Number(record.ipCameras.ok || record.ipCameras.working || record.ipCameras.operative || 0);
+       totalCamerasSum += safeInt(record.ipCameras.total);
+       activeCamerasSum += safeInt(record.ipCameras.ok || record.ipCameras.working || record.ipCameras.operative);
     }
 
-    // B) Estrategia de Respaldo (Si la estructura es plana)
-    // Si no encontró nada arriba, busca propiedades directas
-    if (totalCamerasSum === 0 && record.totalCameras) {
-       totalCamerasSum += Number(record.totalCameras || 0);
-       activeCamerasSum += Number(record.operativeCameras || record.activeCameras || 0);
+    // Intento 2: Propiedades planas (Si están en la raíz)
+    if (record.totalCameras) totalCamerasSum += safeInt(record.totalCameras);
+    if (record.operativeCameras) activeCamerasSum += safeInt(record.operativeCameras);
+    
+    // Intento 3: Buscar en "cameraCounts"
+    if (record.cameraCounts) {
+       totalCamerasSum += safeInt(record.cameraCounts.total);
+       activeCamerasSum += safeInt(record.cameraCounts.ok || record.cameraCounts.working);
     }
   });
 
@@ -149,41 +162,41 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     ? Math.round((activeCamerasSum / totalCamerasSum) * 100) 
     : 0;
 
-  // 2. ESCÁNER DE INFRAESTRUCTURA
+  // 2. INFRAESTRUCTURA (Búsqueda recursiva de items)
   let totalInfraSum = 0;
   let goodInfraSum = 0;
 
   currentPhysical.forEach((record: any) => {
-    // Recorremos TODAS las llaves del registro buscando objetos que tengan "installed"
+    // Estrategia: Recorrer TODAS las propiedades del objeto record
+    // Si alguna propiedad es un objeto y tiene 'installed', la sumamos.
     const keys = Object.keys(record);
     
     keys.forEach(key => {
-      const value = record[key];
-      
-      // Verificamos si es un objeto y no es null
-      if (typeof value === 'object' && value !== null) {
-        // ¿Tiene propiedad 'installed'? (Como Santamarias, Iluminación en tu foto 53)
-        if ('installed' in value) {
-          const inst = Number(value.installed || 0);
-          const oper = Number(value.operative || value.good || value.working || 0);
-          
-          if (inst > 0) {
-            totalInfraSum += inst;
-            goodInfraSum += oper;
-          }
+      const val = record[key];
+      // Verificamos si es un objeto (como 'santamarias', 'iluminacion')
+      if (val && typeof val === 'object') {
+        // ¿Tiene la llave 'installed' o 'total'?
+        if ('installed' in val || 'total' in val) {
+           const inst = safeInt(val.installed || val.total);
+           const oper = safeInt(val.operative || val.good || val.working || val.ok);
+           
+           if (inst > 0) {
+             totalInfraSum += inst;
+             goodInfraSum += oper;
+           }
         }
       }
     });
 
-    // Estrategia B: Si los items están en un array llamado 'items'
-    if (Array.isArray(record.items)) {
+    // Estrategia B: Si existe un array 'items' explícito
+    if (record.items && Array.isArray(record.items)) {
       record.items.forEach((item: any) => {
-        const inst = Number(item.installed || item.total || 0);
-        const oper = Number(item.operative || item.good || 0);
-        if (inst > 0) {
-          totalInfraSum += inst;
-          goodInfraSum += oper;
-        }
+         const inst = safeInt(item.installed || item.total);
+         const oper = safeInt(item.operative || item.good || item.working || item.ok);
+         if (inst > 0) {
+           totalInfraSum += inst;
+           goodInfraSum += oper;
+         }
       });
     }
   });
@@ -191,7 +204,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   const infraHealth = totalInfraSum > 0 
     ? Math.round((goodInfraSum / totalInfraSum) * 100) 
     : 0;
-
+  
   // =========================================================================
 
   // --- ORDENAMIENTO ---
@@ -199,7 +212,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   const lowPerforming = sortedAudits.slice(0, 3);
   const topPerforming = [...sortedAudits].reverse().slice(0, 3);
 
-  // --- LÓGICA INTELIGENTE ---
+  // --- LÓGICA INTELIGENTE (FOCOS DE RIESGO) ---
   const failureCounts: Record<string, number> = {};
   currentAudits.forEach(audit => {
     if (audit.processAnswers) {
