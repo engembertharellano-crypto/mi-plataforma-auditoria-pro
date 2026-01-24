@@ -24,7 +24,7 @@ import { Menu, CheckCircle2, XCircle, Loader2, WifiOff } from 'lucide-react';
 import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, PendingRecord, StaffRecord, SupportRecord, DeliveryReceipt, ScheduleEntry, BriefingData, Asset, AssetLoan, CaseRecord } from './types';
 import { supabase } from './lib/supabase';
 
-const DATA_VERSION = "11.13-STATS-CASES-LINKED";
+const DATA_VERSION = "11.14-STATS-SECURITY-LINKED";
 
 interface UserData {
   version: string;
@@ -172,8 +172,17 @@ const App: React.FC = () => {
 
       setUserData(prev => {
         const cloudPharms = (pharms.data || []).map((p: any) => ({
-          id: p.id, name: p.name, address: p.address, zone: p.zone, status: p.status,
-          risk: p.risk, corporatePhone: p.corporate_phone, photo: p.photo, location: p.location
+          id: p.id, 
+          name: p.name, 
+          address: p.address, 
+          zone: p.zone, 
+          status: p.status,
+          risk: p.risk, 
+          corporatePhone: p.corporate_phone, 
+          photo: p.photo, 
+          location: p.location,
+          // --- AQUÍ CONECTAMOS EL CAMPO NUEVO ---
+          hasSecurityOfficer: p.has_security_officer // Mapeo snake_case a camelCase
         }));
 
         if (cloudPharms.length === 0 && prev.pharmacies.length > 0 && !pharms.data) return prev;
@@ -337,7 +346,6 @@ const App: React.FC = () => {
             
             {currentView === 'visit-log' && <VisitLog pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} users={getFilteredUsers()} currentUser={currentUser} onDeleteAudit={id => { if(!checkPermission()) return; setUserData(p => ({...p, audits: p.audits.filter(x => x.id !== id)})); deleteFromCloud('audits', id); }} onDeleteCCTV={id => { if(!checkPermission()) return; setUserData(p => ({...p, cctvRecords: p.cctvRecords.filter(x => x.id !== id)})); deleteFromCloud('cctv_records', id); }} onDeletePhysical={id => { if(!checkPermission()) return; setUserData(p => ({...p, physicalRecords: p.physicalRecords.filter(x => x.id !== id)})); deleteFromCloud('physical_records', id); }} onDeleteManagement={id => { if(!checkPermission()) return; setUserData(p => ({...p, managementRecords: p.managementRecords.filter(x => x.id !== id)})); deleteFromCloud('management_visits', id); }} hasAdminPrivileges={isBoss} onEditAudit={handleEditAuditRequest} />}
             
-            {/* AQUÍ PASAMOS LOS CASOS A ESTADÍSTICAS */}
             {currentView === 'monthly-summary' && <MonthlySummary pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} pendingRecords={userData.pendingRecords} cases={userData.cases} users={getFilteredUsers()} currentUser={currentUser} />}
             
             {currentView === 'management-report' && !isReadOnly && <ManagementReport pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} />}
@@ -366,7 +374,52 @@ const App: React.FC = () => {
               />
             )}
             
-            {currentView === 'pharmacy-list' && <PharmacyList pharmacies={userData.pharmacies} staffRecords={userData.staffRecords} onUpdate={async (p) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: prev.pharmacies.map(x => x.id === p.id ? p : x) })); await supabase.from('pharmacies').upsert({ id: p.id, name: p.name, address: p.address, zone: p.zone, status: p.status, risk: p.risk, corporate_phone: p.corporate_phone, photo: p.photo, location: p.location }); }} onDelete={async (id) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: prev.pharmacies.filter(x => x.id !== id) })); await supabase.from('pharmacies').delete().eq('id', id); }} onAdd={async (p) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] })); await supabase.from('pharmacies').insert({ id: p.id, name: p.name, address: p.address, zone: p.zone, status: p.status, risk: p.risk, corporate_phone: p.corporate_phone, photo: p.photo, location: p.location }); }} currentUser={currentUser} />}
+            {currentView === 'pharmacy-list' && (
+                <PharmacyList 
+                    pharmacies={userData.pharmacies} 
+                    staffRecords={userData.staffRecords} 
+                    onUpdate={async (p) => { 
+                        if(!checkPermission()) return; 
+                        setUserData(prev => ({ ...prev, pharmacies: prev.pharmacies.map(x => x.id === p.id ? p : x) })); 
+                        // --- ACTUALIZACIÓN DE SEGURIDAD EN LA BD ---
+                        await supabase.from('pharmacies').upsert({ 
+                            id: p.id, 
+                            name: p.name, 
+                            address: p.address, 
+                            zone: p.zone, 
+                            status: p.status, 
+                            risk: p.risk, 
+                            corporate_phone: p.corporatePhone, 
+                            photo: p.photo, 
+                            location: p.location,
+                            has_security_officer: p.hasSecurityOfficer // Nuevo campo
+                        }); 
+                    }} 
+                    onDelete={async (id) => { 
+                        if(!checkPermission()) return; 
+                        setUserData(prev => ({ ...prev, pharmacies: prev.pharmacies.filter(x => x.id !== id) })); 
+                        await supabase.from('pharmacies').delete().eq('id', id); 
+                    }} 
+                    onAdd={async (p) => { 
+                        if(!checkPermission()) return; 
+                        setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] })); 
+                        // --- INSERCIÓN DE SEGURIDAD EN LA BD ---
+                        await supabase.from('pharmacies').insert({ 
+                            id: p.id, 
+                            name: p.name, 
+                            address: p.address, 
+                            zone: p.zone, 
+                            status: p.status, 
+                            risk: p.risk, 
+                            corporate_phone: p.corporatePhone, 
+                            photo: p.photo, 
+                            location: p.location,
+                            has_security_officer: p.hasSecurityOfficer // Nuevo campo
+                        }); 
+                    }} 
+                    currentUser={currentUser} 
+                />
+            )}
             
             {currentView === 'staff-directory' && <StaffDirectory pharmacies={userData.pharmacies} staffRecords={userData.staffRecords} readOnly={isReadOnly} onAddStaff={async (s) => { if(!checkPermission()) return; setUserData(prev => ({...prev, staffRecords: [s, ...prev.staffRecords]})); await saveToCloud('staff', s.id, s); }} onDeleteStaff={async (id) => { if(!checkPermission()) return; setUserData(prev => ({...prev, staffRecords: prev.staffRecords.filter(x => x.id !== id)})); await deleteFromCloud('staff', id); }} />}
             
