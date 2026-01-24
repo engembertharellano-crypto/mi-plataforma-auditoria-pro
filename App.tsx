@@ -24,7 +24,7 @@ import { Menu, CheckCircle2, XCircle, Loader2, WifiOff } from 'lucide-react';
 import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, PendingRecord, StaffRecord, SupportRecord, DeliveryReceipt, ScheduleEntry, BriefingData, Asset, AssetLoan, CaseRecord } from './types';
 import { supabase } from './lib/supabase';
 
-const DATA_VERSION = "11.11-CASE-DELETE-FIXED";
+const DATA_VERSION = "11.13-STATS-CASES-LINKED";
 
 interface UserData {
   version: string;
@@ -231,7 +231,6 @@ const App: React.FC = () => {
     } catch (e) { addToast("Error al Guardar", "error"); }
   };
 
-  // Función genérica para borrar de la nube
   const deleteFromCloud = async (table: string, id: string) => {
     if (!checkPermission()) return;
     if (!supabase) return;
@@ -320,7 +319,7 @@ const App: React.FC = () => {
             
             {currentView === 'ai-assistant' && !isReadOnly && <AIAssistant pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} pendingRecords={userData.pendingRecords} staffRecords={userData.staffRecords} schedule={userData.schedule} dailyBriefing={userData.dailyBriefing} onSaveSchedule={async (s) => { if(!checkPermission()) return; setUserData(prev => ({...prev, schedule: s})); if (s.length > 0) await saveToCloud('schedule', s[0].id, s[0]); }} onSaveBriefing={(b) => setUserData(prev => ({...prev, dailyBriefing: b}))} onAddPending={async (p) => { if(!checkPermission()) return; setUserData(prev => ({...prev, pendingRecords: [p, ...prev.pendingRecords]})); await saveToCloud('pending_tasks', p.id, p); }} />}
             
-            {currentView === 'audit-wizard' && <AuditWizard onCancel={() => { setAuditToEdit(null); setCurrentView('dashboard'); }} onFinish={handleFinishAudit} pharmacies={userData.pharmacies} initialAudit={auditToEdit} onAddPharmacy={async (p) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] })); await supabase.from('pharmacies').insert({ id: p.id, name: p.name, address: p.address, zone: p.zone, status: p.status, risk: p.risk, corporate_phone: p.corporatePhone, photo: p.photo, location: p.location }); }} />}
+            {currentView === 'audit-wizard' && <AuditWizard onCancel={() => { setAuditToEdit(null); setCurrentView('dashboard'); }} onFinish={handleFinishAudit} pharmacies={userData.pharmacies} initialAudit={auditToEdit} onAddPharmacy={async (p) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] })); await supabase.from('pharmacies').insert({ id: p.id, name: p.name, address: p.address, zone: p.zone, status: p.status, risk: p.risk, corporate_phone: p.corporate_phone, photo: p.photo, location: p.location }); }} />}
             
             {currentView === 'audit-results' && selectedAudit && <AuditResults audit={selectedAudit} onBack={() => setCurrentView('dashboard')} onSaveReport={async (id, text) => { if(!checkPermission()) return; const updated = userData.audits.map(a => a.id === id ? {...a, reportText: text} : a); setUserData(prev => ({...prev, audits: updated})); const aud = updated.find(x => x.id === id); if(aud) await saveToCloud('audits', id, aud); }} />}
             
@@ -338,11 +337,11 @@ const App: React.FC = () => {
             
             {currentView === 'visit-log' && <VisitLog pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} users={getFilteredUsers()} currentUser={currentUser} onDeleteAudit={id => { if(!checkPermission()) return; setUserData(p => ({...p, audits: p.audits.filter(x => x.id !== id)})); deleteFromCloud('audits', id); }} onDeleteCCTV={id => { if(!checkPermission()) return; setUserData(p => ({...p, cctvRecords: p.cctvRecords.filter(x => x.id !== id)})); deleteFromCloud('cctv_records', id); }} onDeletePhysical={id => { if(!checkPermission()) return; setUserData(p => ({...p, physicalRecords: p.physicalRecords.filter(x => x.id !== id)})); deleteFromCloud('physical_records', id); }} onDeleteManagement={id => { if(!checkPermission()) return; setUserData(p => ({...p, managementRecords: p.managementRecords.filter(x => x.id !== id)})); deleteFromCloud('management_visits', id); }} hasAdminPrivileges={isBoss} onEditAudit={handleEditAuditRequest} />}
             
-            {currentView === 'monthly-summary' && <MonthlySummary pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} pendingRecords={userData.pendingRecords} users={getFilteredUsers()} currentUser={currentUser} />}
+            {/* AQUÍ PASAMOS LOS CASOS A ESTADÍSTICAS */}
+            {currentView === 'monthly-summary' && <MonthlySummary pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} pendingRecords={userData.pendingRecords} cases={userData.cases} users={getFilteredUsers()} currentUser={currentUser} />}
             
             {currentView === 'management-report' && !isReadOnly && <ManagementReport pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} />}
             
-            {/* GESTIÓN DE CASOS: AQUÍ ESTÁ EL CABLE CONECTADO AHORA */}
             {currentView === 'case-management' && (
               <CaseManagement 
                 pharmacies={userData.pharmacies}
@@ -357,7 +356,7 @@ const App: React.FC = () => {
                   setUserData(prev => ({...prev, cases: prev.cases.map(x => x.id === c.id ? c : x)})); 
                   await saveToCloud('cases', c.id, c); 
                 }}
-                onDeleteCase={async (id) => {  // <--- ESTA ES LA FUNCIÓN QUE FALTABA
+                onDeleteCase={async (id) => {
                   if(!checkPermission()) return;
                   setUserData(prev => ({...prev, cases: prev.cases.filter(x => x.id !== id)}));
                   await deleteFromCloud('cases', id);
@@ -367,7 +366,7 @@ const App: React.FC = () => {
               />
             )}
             
-            {currentView === 'pharmacy-list' && <PharmacyList pharmacies={userData.pharmacies} staffRecords={userData.staffRecords} onUpdate={async (p) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: prev.pharmacies.map(x => x.id === p.id ? p : x) })); await supabase.from('pharmacies').upsert({ id: p.id, name: p.name, address: p.address, zone: p.zone, status: p.status, risk: p.risk, corporate_phone: p.corporatePhone, photo: p.photo, location: p.location }); }} onDelete={async (id) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: prev.pharmacies.filter(x => x.id !== id) })); await supabase.from('pharmacies').delete().eq('id', id); }} onAdd={async (p) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] })); await supabase.from('pharmacies').insert({ id: p.id, name: p.name, address: p.address, zone: p.zone, status: p.status, risk: p.risk, corporate_phone: p.corporate_phone, photo: p.photo, location: p.location }); }} currentUser={currentUser} />}
+            {currentView === 'pharmacy-list' && <PharmacyList pharmacies={userData.pharmacies} staffRecords={userData.staffRecords} onUpdate={async (p) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: prev.pharmacies.map(x => x.id === p.id ? p : x) })); await supabase.from('pharmacies').upsert({ id: p.id, name: p.name, address: p.address, zone: p.zone, status: p.status, risk: p.risk, corporate_phone: p.corporate_phone, photo: p.photo, location: p.location }); }} onDelete={async (id) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: prev.pharmacies.filter(x => x.id !== id) })); await supabase.from('pharmacies').delete().eq('id', id); }} onAdd={async (p) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] })); await supabase.from('pharmacies').insert({ id: p.id, name: p.name, address: p.address, zone: p.zone, status: p.status, risk: p.risk, corporate_phone: p.corporate_phone, photo: p.photo, location: p.location }); }} currentUser={currentUser} />}
             
             {currentView === 'staff-directory' && <StaffDirectory pharmacies={userData.pharmacies} staffRecords={userData.staffRecords} readOnly={isReadOnly} onAddStaff={async (s) => { if(!checkPermission()) return; setUserData(prev => ({...prev, staffRecords: [s, ...prev.staffRecords]})); await saveToCloud('staff', s.id, s); }} onDeleteStaff={async (id) => { if(!checkPermission()) return; setUserData(prev => ({...prev, staffRecords: prev.staffRecords.filter(x => x.id !== id)})); await deleteFromCloud('staff', id); }} />}
             
