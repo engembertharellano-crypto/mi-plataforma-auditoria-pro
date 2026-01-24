@@ -25,6 +25,7 @@ import {
   CaseRecord 
 } from '../types';
 
+// --- DICCIONARIO ---
 const QUESTION_MAP: Record<string, string> = {
   'p1.1': 'Uniforme y Presencia',
   'p1.2': 'Libro de Novedades',
@@ -39,14 +40,33 @@ const QUESTION_MAP: Record<string, string> = {
   'radio': 'Equipos de Radio'
 };
 
-// HELPER: Fuerza bruta para convertir cualquier cosa a número
+// --- HELPERS ---
 const safeInt = (val: any): number => {
+  if (val === null || val === undefined) return 0;
   if (typeof val === 'number') return val;
-  if (typeof val === 'string') {
-    const parsed = parseInt(val, 10);
-    return isNaN(parsed) ? 0 : parsed;
+  const parsed = parseInt(String(val), 10);
+  return isNaN(parsed) ? 0 : parsed;
+};
+
+// Función RECURSIVA para encontrar totales en cualquier estructura de objeto
+const recursiveSum = (obj: any, targetKeys: string[]): number => {
+  let sum = 0;
+  if (!obj || typeof obj !== 'object') return 0;
+
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      const value = obj[key];
+      // Si la llave actual está en nuestros objetivos, sumamos su valor
+      if (targetKeys.includes(key.toLowerCase())) {
+        sum += safeInt(value);
+      } 
+      // Si el valor es otro objeto, profundizamos (excepto si es fecha o null)
+      else if (typeof value === 'object' && value !== null) {
+        sum += recursiveSum(value, targetKeys);
+      }
+    }
   }
-  return 0;
+  return sum;
 };
 
 interface MonthlySummaryProps {
@@ -75,25 +95,29 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const [selectedZone, setSelectedZone] = useState<string>('Todas');
 
+  // Obtener zonas únicas
   const zones = useMemo(() => {
     const uniqueZones = new Set(pharmacies.map(p => p.zone).filter(Boolean));
     return ['Todas', ...Array.from(uniqueZones)];
   }, [pharmacies]);
 
+  // --- FILTRADO DE DATA (CORREGIDO ID STRING VS NUMBER) ---
   const filteredData = useMemo(() => {
     const filteredPharmacies = selectedZone === 'Todas' 
       ? pharmacies 
       : pharmacies.filter(p => p.zone === selectedZone);
     
-    const pharmacyIds = new Set(filteredPharmacies.map(p => p.id));
+    // Usamos Set de Strings para evitar errores de tipo (1 vs "1")
+    const pharmacyIds = new Set(filteredPharmacies.map(p => String(p.id)));
 
     return {
       pharmacies: filteredPharmacies,
-      audits: audits.filter(a => a.pharmacy?.id && pharmacyIds.has(a.pharmacy.id)),
-      cctv: cctvRecords.filter(r => pharmacyIds.has(r.pharmacyId)),
-      physical: physicalRecords.filter(r => pharmacyIds.has(r.pharmacyId)),
-      management: managementRecords.filter(r => pharmacyIds.has(r.pharmacyId)),
-      cases: cases.filter(c => true) 
+      audits: audits.filter(a => a.pharmacy?.id && pharmacyIds.has(String(a.pharmacy.id))),
+      // Aquí estaba el error probable: Comparación estricta fallaba
+      cctv: cctvRecords.filter(r => pharmacyIds.has(String(r.pharmacyId))),
+      physical: physicalRecords.filter(r => pharmacyIds.has(String(r.pharmacyId))),
+      management: managementRecords.filter(r => pharmacyIds.has(String(r.pharmacyId))),
+      cases: cases // Mantenemos todos los casos visibles por ahora para no perder data
     };
   }, [selectedZone, pharmacies, audits, cctvRecords, physicalRecords, managementRecords, cases]);
 
@@ -113,12 +137,15 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     : 0;
 
   const totalPharmaciesCount = currentPharmacies.length;
+  // Calculamos cobertura única
   const visitedPharmacies = new Set([
-    ...currentAudits.map(a => a.pharmacy?.id),
-    ...currentCCTV.map(r => r.pharmacyId),
-    ...currentPhysical.map(r => r.pharmacyId),
-    ...currentManagement.map(r => r.pharmacyId)
+    ...currentAudits.map(a => String(a.pharmacy?.id)),
+    ...currentCCTV.map(r => String(r.pharmacyId)),
+    ...currentPhysical.map(r => String(r.pharmacyId)),
+    ...currentManagement.map(r => String(r.pharmacyId))
   ]).size;
+  
+  // Evitamos dividir por cero
   const coverage = totalPharmaciesCount > 0 ? Math.round((visitedPharmacies / totalPharmaciesCount) * 100) : 0;
 
   const totalCases = currentCases.length;
@@ -128,83 +155,47 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   const totalActivities = currentAudits.length + currentCCTV.length + currentPhysical.length + currentManagement.length;
 
   // =========================================================================
-  // LÓGICA DE INVENTARIOS A PRUEBA DE FALLOS (FUERZA BRUTA + CONVERSIÓN TIPOS)
+  // CÁLCULO DE INVENTARIOS CON ESCÁNER RECURSIVO
   // =========================================================================
 
-  // 1. CCTV (Búsqueda recursiva de totales)
+  // 1. CCTV
   let totalCamerasSum = 0;
   let activeCamerasSum = 0;
 
   currentCCTV.forEach((record: any) => {
-    // Intento 1: Estructura conocida (Analog/IP)
-    if (record.analogCameras) {
-       totalCamerasSum += safeInt(record.analogCameras.total);
-       // Busca cualquier variante de "bueno"
-       activeCamerasSum += safeInt(record.analogCameras.ok || record.analogCameras.working || record.analogCameras.operative);
-    }
-    if (record.ipCameras) {
-       totalCamerasSum += safeInt(record.ipCameras.total);
-       activeCamerasSum += safeInt(record.ipCameras.ok || record.ipCameras.working || record.ipCameras.operative);
-    }
-
-    // Intento 2: Propiedades planas (Si están en la raíz)
-    if (record.totalCameras) totalCamerasSum += safeInt(record.totalCameras);
-    if (record.operativeCameras) activeCamerasSum += safeInt(record.operativeCameras);
+    // Buscamos cualquier llave que suene a total de cámaras
+    const totalInRecord = recursiveSum(record, ['total', 'totalcameras', 'installed']);
+    // Buscamos cualquier llave que suene a cámara funcionando
+    const activeInRecord = recursiveSum(record, ['ok', 'working', 'operative', 'good', 'operativecameras', 'activecameras']);
     
-    // Intento 3: Buscar en "cameraCounts"
-    if (record.cameraCounts) {
-       totalCamerasSum += safeInt(record.cameraCounts.total);
-       activeCamerasSum += safeInt(record.cameraCounts.ok || record.cameraCounts.working);
-    }
+    totalCamerasSum += totalInRecord;
+    activeCamerasSum += activeInRecord;
   });
 
+  // Cálculo de porcentaje CCTV
   const cctvHealth = totalCamerasSum > 0 
     ? Math.round((activeCamerasSum / totalCamerasSum) * 100) 
     : 0;
 
-  // 2. INFRAESTRUCTURA (Búsqueda recursiva de items)
+  // 2. INFRAESTRUCTURA
   let totalInfraSum = 0;
   let goodInfraSum = 0;
 
   currentPhysical.forEach((record: any) => {
-    // Estrategia: Recorrer TODAS las propiedades del objeto record
-    // Si alguna propiedad es un objeto y tiene 'installed', la sumamos.
-    const keys = Object.keys(record);
+    // Buscamos totales instalados
+    const totalInRecord = recursiveSum(record, ['total', 'installed', 'quantity', 'cantidad']);
+    // Buscamos operativos
+    const activeInRecord = recursiveSum(record, ['ok', 'working', 'operative', 'good', 'operativos', 'buenos']);
     
-    keys.forEach(key => {
-      const val = record[key];
-      // Verificamos si es un objeto (como 'santamarias', 'iluminacion')
-      if (val && typeof val === 'object') {
-        // ¿Tiene la llave 'installed' o 'total'?
-        if ('installed' in val || 'total' in val) {
-           const inst = safeInt(val.installed || val.total);
-           const oper = safeInt(val.operative || val.good || val.working || val.ok);
-           
-           if (inst > 0) {
-             totalInfraSum += inst;
-             goodInfraSum += oper;
-           }
-        }
-      }
-    });
-
-    // Estrategia B: Si existe un array 'items' explícito
-    if (record.items && Array.isArray(record.items)) {
-      record.items.forEach((item: any) => {
-         const inst = safeInt(item.installed || item.total);
-         const oper = safeInt(item.operative || item.good || item.working || item.ok);
-         if (inst > 0) {
-           totalInfraSum += inst;
-           goodInfraSum += oper;
-         }
-      });
-    }
+    totalInfraSum += totalInRecord;
+    goodInfraSum += activeInRecord;
   });
 
+  // Cálculo de porcentaje Infraestructura
   const infraHealth = totalInfraSum > 0 
     ? Math.round((goodInfraSum / totalInfraSum) * 100) 
     : 0;
-  
+
   // =========================================================================
 
   // --- ORDENAMIENTO ---
@@ -258,7 +249,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   return (
     <div className="max-w-[1600px] mx-auto p-6 md:p-10 pb-20 animate-in fade-in duration-500">
       
-      {/* HEADER CON FILTRO */}
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center shadow-2xl shrink-0 border border-slate-700">
@@ -292,7 +283,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       {/* KPI CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         
-        {/* Auditoría */}
+        {/* KPI 1 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-blue-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Promedio Auditoría</p>
@@ -305,7 +296,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* Cobertura */}
+        {/* KPI 2 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-emerald-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Cobertura Mensual</p>
@@ -318,7 +309,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* Eficiencia */}
+        {/* KPI 3 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-purple-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Eficiencia Resolución</p>
@@ -331,7 +322,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* Actividad */}
+        {/* KPI 4 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-orange-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Actividad Total</p>
@@ -347,7 +338,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       {/* ESTADO DE FUERZA (CCTV + INFRAESTRUCTURA) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
         
-        {/* Blindaje CCTV */}
+        {/* CCTV */}
         <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-400">
@@ -362,7 +353,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
              <span className={`text-3xl font-black ${cctvHealth >= 90 ? 'text-emerald-400' : cctvHealth >= 70 ? 'text-orange-400' : 'text-red-400'}`}>
                {cctvHealth}%
              </span>
-             <p className="text-[10px] text-slate-500 font-bold uppercase">{totalCamerasSum} Cámaras Auditadas</p>
+             <p className="text-[10px] text-slate-500 font-bold uppercase">{totalCamerasSum} Cámaras Totales</p>
           </div>
         </div>
 
@@ -390,110 +381,5 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       {/* SECCIÓN INFERIOR */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        <div className="bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-800 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-          
-          <h3 className="text-lg font-black text-white uppercase mb-8 flex items-center gap-3 relative z-10">
-            <Siren className="w-6 h-6 text-red-500 animate-pulse" /> Inteligencia de Riesgos
-          </h3>
-          
-          <div className="space-y-6 relative z-10">
-            
-            <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm transition-colors hover:bg-white/10">
-              <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center text-orange-500 shrink-0">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Hallazgo más Repetido</p>
-                <p className="text-white font-bold leading-tight text-sm">
-                  {topFailure ? topFailure[0] : "Sin hallazgos recurrentes"}
-                </p>
-                <p className="text-xs text-orange-400 mt-1">
-                  {topFailure ? `${topFailure[1]} veces detectado` : "Excelente cumplimiento"}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm transition-colors hover:bg-white/10">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-500 shrink-0">
-                <Target className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tipología Predominante</p>
-                <p className="text-white font-bold leading-tight text-sm">
-                  {topCaseType ? topCaseType[0] : "Sin actividad delictiva"}
-                </p>
-                <p className="text-xs text-blue-400 mt-1">
-                  {topCaseType ? `Principal causa (${topCaseType[1]})` : "Sin reportes"}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm transition-colors hover:bg-white/10">
-              <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-red-500 shrink-0">
-                <Zap className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Urgencia Operativa</p>
-                <p className="text-white font-bold leading-tight text-sm">
-                  {highPriorityOpen > 0 ? `${highPriorityOpen} Casos de Alta Prioridad` : "Sin urgencias activas"}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">
-                  {highPriorityOpen > 0 ? "Requiere gestión inmediata" : "Operación estable"}
-                </p>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-          
-          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-            <h3 className="text-lg font-black text-slate-800 uppercase mb-6 flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-emerald-500" /> Top Rendimiento
-            </h3>
-            <div className="space-y-4">
-              {topPerforming.length > 0 ? topPerforming.map(a => (
-                <div key={a.id} className="flex justify-between items-center p-3 bg-emerald-50 rounded-xl border border-emerald-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white font-bold text-xs"><Building2 className="w-4 h-4"/></div>
-                    <div>
-                      <p className="font-bold text-slate-800 text-xs uppercase">{a.pharmacy?.name}</p>
-                      <p className="text-[10px] text-emerald-600 font-bold">{a.date}</p>
-                    </div>
-                  </div>
-                  <span className="text-xl font-black text-emerald-600">{a.score}%</span>
-                </div>
-              )) : <p className="text-slate-400 text-xs text-center py-4">Sin datos suficientes</p>}
-            </div>
-          </div>
-
-          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-            <h3 className="text-lg font-black text-slate-800 uppercase mb-6 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-500" /> Puntos Críticos
-            </h3>
-            <div className="space-y-4">
-              {lowPerforming.length > 0 ? lowPerforming.map(a => (
-                <div key={a.id} className="flex justify-between items-center p-3 bg-red-50 rounded-xl border border-red-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white font-bold text-xs"><AlertTriangle className="w-4 h-4"/></div>
-                    <div>
-                      <p className="font-bold text-slate-800 text-xs uppercase">{a.pharmacy?.name}</p>
-                      <p className="text-[10px] text-red-600 font-bold">{a.date}</p>
-                    </div>
-                  </div>
-                  <span className="text-xl font-black text-red-600">{a.score}%</span>
-                </div>
-              )) : <p className="text-slate-400 text-xs text-center py-4">Sin puntos críticos</p>}
-            </div>
-          </div>
-
-        </div>
-
-      </div>
-    </div>
-  );
-};
-
-export default MonthlySummary;
+        {/* Focos de Riesgo */}
+        <div className="bg
