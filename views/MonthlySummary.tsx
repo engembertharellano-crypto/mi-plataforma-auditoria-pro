@@ -83,11 +83,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       cctv: cctvRecords.filter(r => pharmacyIds.has(r.pharmacyId)),
       physical: physicalRecords.filter(r => pharmacyIds.has(r.pharmacyId)),
       management: managementRecords.filter(r => pharmacyIds.has(r.pharmacyId)),
-      cases: cases.filter(c => {
-        // Filtrado básico de casos. Si el caso tuviera pharmacyId se filtraría mejor.
-        // Por ahora, asumimos que se muestran todos o se requeriría lógica backend.
-        return true; 
-      })
+      cases: cases.filter(c => true) // Mostramos todos los casos o filtra por ID si estuviera disponible
     };
   }, [selectedZone, pharmacies, audits, cctvRecords, physicalRecords, managementRecords, cases]);
 
@@ -100,7 +96,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     cases: currentCases 
   } = filteredData;
 
-  // --- KPI LOGIC ---
+  // --- KPI 1-4 LOGIC ---
   const auditScores = currentAudits.map(a => a.score || 0);
   const avgAuditScore = auditScores.length > 0 
     ? Math.round(auditScores.reduce((a, b) => a + b, 0) / auditScores.length) 
@@ -121,31 +117,31 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const totalActivities = currentAudits.length + currentCCTV.length + currentPhysical.length + currentManagement.length;
 
-  // --- LÓGICA DE INVENTARIOS REPARADA (SUMA DE ITEMS INTERNOS) ---
-  
-  // 1. BLINDAJE CCTV (Sumar cámaras análogas + IP)
+  // =========================================================================
+  // LÓGICA DE ESCANEO PROFUNDO (UNIVERSAL) PARA INVENTARIOS
+  // =========================================================================
+
+  // 1. ESCÁNER DE CCTV
   let totalCamerasSum = 0;
   let activeCamerasSum = 0;
 
-  currentCCTV.forEach((r: any) => {
-    // Buscar conteos de cámaras análogas
-    if (r.analogCameras) {
-      const total = parseInt(r.analogCameras.total || 0);
-      const ok = parseInt(r.analogCameras.working || r.analogCameras.ok || r.analogCameras.operative || 0);
-      totalCamerasSum += total;
-      activeCamerasSum += ok;
+  currentCCTV.forEach((record: any) => {
+    // A) Estrategia Específica (Basada en tu Foto 52)
+    // Buscamos analogCameras { total, ok/working } y ipCameras { total, ok/working }
+    if (record.analogCameras) {
+       totalCamerasSum += Number(record.analogCameras.total || 0);
+       activeCamerasSum += Number(record.analogCameras.ok || record.analogCameras.working || record.analogCameras.operative || 0);
     }
-    // Buscar conteos de cámaras IP
-    if (r.ipCameras) {
-      const total = parseInt(r.ipCameras.total || 0);
-      const ok = parseInt(r.ipCameras.working || r.ipCameras.ok || r.ipCameras.operative || 0);
-      totalCamerasSum += total;
-      activeCamerasSum += ok;
+    if (record.ipCameras) {
+       totalCamerasSum += Number(record.ipCameras.total || 0);
+       activeCamerasSum += Number(record.ipCameras.ok || record.ipCameras.working || record.ipCameras.operative || 0);
     }
-    // Soporte para estructura plana antigua (por si acaso)
-    if (!r.analogCameras && !r.ipCameras && r.totalCameras) {
-      totalCamerasSum += parseInt(r.totalCameras || 0);
-      activeCamerasSum += parseInt(r.operativeCameras || 0);
+
+    // B) Estrategia de Respaldo (Si la estructura es plana)
+    // Si no encontró nada arriba, busca propiedades directas
+    if (totalCamerasSum === 0 && record.totalCameras) {
+       totalCamerasSum += Number(record.totalCameras || 0);
+       activeCamerasSum += Number(record.operativeCameras || record.activeCameras || 0);
     }
   });
 
@@ -153,21 +149,40 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     ? Math.round((activeCamerasSum / totalCamerasSum) * 100) 
     : 0;
 
-  // 2. ESTADO INFRAESTRUCTURA (Sumar items individuales: Santamarías + Luces + etc.)
+  // 2. ESCÁNER DE INFRAESTRUCTURA
   let totalInfraSum = 0;
   let goodInfraSum = 0;
 
-  currentPhysical.forEach((r: any) => {
-    // Iterar sobre el array de items (ej: Santamarías, Iluminación, etc.)
-    if (r.items && Array.isArray(r.items)) {
-      r.items.forEach((item: any) => {
-        // Parsear números asegurando que sean enteros
-        const installed = parseInt(item.installed || item.total || 0);
-        const operative = parseInt(item.operative || item.good || item.working || 0);
-        
-        if (installed > 0) {
-          totalInfraSum += installed;
-          goodInfraSum += operative;
+  currentPhysical.forEach((record: any) => {
+    // Recorremos TODAS las llaves del registro buscando objetos que tengan "installed"
+    const keys = Object.keys(record);
+    
+    keys.forEach(key => {
+      const value = record[key];
+      
+      // Verificamos si es un objeto y no es null
+      if (typeof value === 'object' && value !== null) {
+        // ¿Tiene propiedad 'installed'? (Como Santamarias, Iluminación en tu foto 53)
+        if ('installed' in value) {
+          const inst = Number(value.installed || 0);
+          const oper = Number(value.operative || value.good || value.working || 0);
+          
+          if (inst > 0) {
+            totalInfraSum += inst;
+            goodInfraSum += oper;
+          }
+        }
+      }
+    });
+
+    // Estrategia B: Si los items están en un array llamado 'items'
+    if (Array.isArray(record.items)) {
+      record.items.forEach((item: any) => {
+        const inst = Number(item.installed || item.total || 0);
+        const oper = Number(item.operative || item.good || 0);
+        if (inst > 0) {
+          totalInfraSum += inst;
+          goodInfraSum += oper;
         }
       });
     }
@@ -177,6 +192,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     ? Math.round((goodInfraSum / totalInfraSum) * 100) 
     : 0;
 
+  // =========================================================================
 
   // --- ORDENAMIENTO ---
   const sortedAudits = [...currentAudits].sort((a, b) => (a.score || 0) - (b.score || 0));
