@@ -39,79 +39,6 @@ const QUESTION_MAP: Record<string, string> = {
   'radio': 'Equipos de Radio'
 };
 
-// --- HELPER: Limpieza numérica robusta ---
-const getNumber = (val: any): number => {
-  if (typeof val === 'number') return val;
-  if (typeof val === 'string') {
-    const clean = val.replace(/[^0-9.]/g, ''); // Solo números y puntos
-    const num = parseFloat(clean);
-    return isNaN(num) ? 0 : num;
-  }
-  return 0;
-};
-
-// --- HELPER: Escáner Ultra-Profundo (Con soporte JSON Parse) ---
-// Esta función entra en objetos, arrays y STRINGS que parezcan objetos.
-const deepScan = (obj: any, keysTotal: string[], keysOk: string[]): { total: number, ok: number } => {
-  let acc = { total: 0, ok: 0 };
-
-  if (!obj) return acc;
-
-  // 1. Si es un string que parece JSON, intentamos abrirlo
-  if (typeof obj === 'string') {
-    if (obj.trim().startsWith('{') || obj.trim().startsWith('[')) {
-      try {
-        const parsed = JSON.parse(obj);
-        return deepScan(parsed, keysTotal, keysOk); // Escanear el contenido parseado
-      } catch (e) {
-        return acc; // No era JSON válido, ignorar
-      }
-    }
-    return acc;
-  }
-
-  // 2. Si es Array, recorrer cada elemento
-  if (Array.isArray(obj)) {
-    obj.forEach(item => {
-      const res = deepScan(item, keysTotal, keysOk);
-      acc.total += res.total;
-      acc.ok += res.ok;
-    });
-    return acc;
-  }
-
-  // 3. Si es Objeto, buscar las llaves y/o profundizar
-  if (typeof obj === 'object') {
-    const keys = Object.keys(obj);
-    
-    // Verificar si este nivel tiene el par (Total + Ok)
-    // Buscamos keys que coincidan (case insensitive)
-    const foundTotalKey = keys.find(k => keysTotal.includes(k.toLowerCase()));
-    const foundOkKey = keys.find(k => keysOk.includes(k.toLowerCase()));
-
-    if (foundTotalKey && foundOkKey) {
-      const t = getNumber(obj[foundTotalKey]);
-      const o = getNumber(obj[foundOkKey]);
-      if (t > 0) {
-        acc.total += t;
-        acc.ok += o;
-      }
-    }
-
-    // Seguir profundizando en todas las propiedades (por si hay más datos anidados)
-    keys.forEach(k => {
-      // Evitamos recursión infinita en propiedades simples
-      if (typeof obj[k] === 'object' || (typeof obj[k] === 'string' && (obj[k].startsWith('{') || obj[k].startsWith('[')))) {
-         const res = deepScan(obj[k], keysTotal, keysOk);
-         acc.total += res.total;
-         acc.ok += res.ok;
-      }
-    });
-  }
-
-  return acc;
-};
-
 interface MonthlySummaryProps {
   pharmacies: Pharmacy[];
   audits: AuditState[];
@@ -143,11 +70,13 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     return ['Todas', ...Array.from(uniqueZones)];
   }, [pharmacies]);
 
+  // --- FILTRO DE DATA ---
   const filteredData = useMemo(() => {
     const filteredPharmacies = selectedZone === 'Todas' 
       ? pharmacies 
       : pharmacies.filter(p => p.zone === selectedZone);
     
+    // Usamos Strings para garantizar coincidencia de IDs
     const pharmacyIds = new Set(filteredPharmacies.map(p => String(p.id)));
 
     return {
@@ -191,36 +120,41 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   const totalActivities = currentAudits.length + currentCCTV.length + currentPhysical.length + currentManagement.length;
 
   // =========================================================================
-  // CÁLCULO DE INVENTARIOS (USANDO ESCÁNER DE JSON Y PATRONES)
+  // CÁLCULO DE INVENTARIOS (COPIADO EXACTO DEL REPORTE GERENCIAL)
   // =========================================================================
 
-  // Palabras clave para CCTV (Basadas en Foto 52 y comunes)
-  const cctvTotalKeys = ['total', 'installed', 'totalcameras', 'cantidad'];
-  const cctvOkKeys = ['ok', 'working', 'operative', 'good', 'buenos', 'funcional', 'operativecameras'];
-
-  // Palabras clave para Infraestructura (Basadas en Foto 53)
-  const infraTotalKeys = ['installed', 'instalados', 'total', 'cantidad'];
-  const infraOkKeys = ['operative', 'operativos', 'good', 'ok', 'buenos'];
-
-  // 1. CCTV
-  let cctvTotal = 0;
-  let cctvOk = 0;
-  currentCCTV.forEach((record: any) => {
-    const stats = deepScan(record, cctvTotalKeys, cctvOkKeys);
-    cctvTotal += stats.total;
-    cctvOk += stats.ok;
+  // 1. CCTV (Lógica IDÉNTICA al ManagementReport)
+  let totalCams = 0; 
+  let operativeCams = 0;
+  
+  currentCCTV.forEach((r: any) => {
+    // Protección: Si r.cameras no existe, usamos objeto vacío para no romper
+    const cams = r.cameras || {};
+    
+    // Suma exacta del reporte gerencial
+    totalCams += ((cams.analogTotal || 0) + (cams.ipTotal || 0));
+    operativeCams += ((cams.analogOperative || 0) + (cams.ipOperative || 0));
   });
-  const cctvHealth = cctvTotal > 0 ? Math.round((cctvOk / cctvTotal) * 100) : 0;
 
-  // 2. INFRAESTRUCTURA
-  let infraTotal = 0;
-  let infraOk = 0;
-  currentPhysical.forEach((record: any) => {
-    const stats = deepScan(record, infraTotalKeys, infraOkKeys);
-    infraTotal += stats.total;
-    infraOk += stats.ok;
+  const cctvHealth = totalCams > 0 ? Math.round((operativeCams / totalCams) * 100) : 0;
+
+  // 2. INFRAESTRUCTURA (Lógica IDÉNTICA al ManagementReport)
+  let totalPhys = 0; 
+  let operativePhys = 0;
+  
+  currentPhysical.forEach((r: any) => {
+    // Protección: Si los objetos no existen, usamos vacíos
+    const santamarias = r.santamarias || {};
+    const candados = r.candados || {};
+    const espejos = r.espejos || {};
+    const iluminacion = r.iluminacion || {};
+
+    // Suma exacta del reporte gerencial
+    totalPhys += ((santamarias.required || 0) + (candados.required || 0) + (espejos.required || 0) + (iluminacion.required || 0));
+    operativePhys += ((santamarias.good || 0) + (candados.good || 0) + (espejos.good || 0) + (iluminacion.good || 0));
   });
-  const infraHealth = infraTotal > 0 ? Math.round((infraOk / infraTotal) * 100) : 0;
+
+  const physicalHealth = totalPhys > 0 ? Math.round((operativePhys / totalPhys) * 100) : 0;
 
   // =========================================================================
 
@@ -379,7 +313,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
              <span className={`text-3xl font-black ${cctvHealth >= 90 ? 'text-emerald-400' : cctvHealth >= 70 ? 'text-orange-400' : 'text-red-400'}`}>
                {cctvHealth}%
              </span>
-             <p className="text-[10px] text-slate-500 font-bold uppercase">{cctvTotal} Cámaras Totales</p>
+             <p className="text-[10px] text-slate-500 font-bold uppercase">{totalCams} Cámaras Totales</p>
           </div>
         </div>
 
@@ -395,10 +329,10 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
             </div>
           </div>
           <div className="text-right">
-             <span className={`text-3xl font-black ${infraHealth >= 90 ? 'text-emerald-400' : infraHealth >= 70 ? 'text-orange-400' : 'text-red-400'}`}>
-               {infraHealth}%
+             <span className={`text-3xl font-black ${physicalHealth >= 90 ? 'text-emerald-400' : physicalHealth >= 70 ? 'text-orange-400' : 'text-red-400'}`}>
+               {physicalHealth}%
              </span>
-             <p className="text-[10px] text-slate-500 font-bold uppercase">{infraTotal} Elementos Rev.</p>
+             <p className="text-[10px] text-slate-500 font-bold uppercase">{totalPhys} Elementos Rev.</p>
           </div>
         </div>
 
