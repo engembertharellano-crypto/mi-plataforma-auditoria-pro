@@ -21,14 +21,12 @@ import {
   RotateCw,
   Minus,
   Maximize,
-  ChevronDown,
   AlertTriangle,
   UserCheck,
   Users,
   Navigation,
   ShieldCheck,
-  ShieldAlert,
-  Plane // Icono de modo viaje
+  ShieldAlert
 } from 'lucide-react';
 import { Pharmacy, StaffRecord } from '../types';
 
@@ -39,36 +37,41 @@ interface PharmacyListProps {
   onDelete: (id: string) => void;
   onAdd: (pharmacy: Pharmacy) => void;
   currentUser: any;
+  // RECIBIMOS LA SEÑAL DEL MODO VIAJE
+  isTravelMode: boolean;
 }
 
 const ZONES = ['Gran Caracas Llanos', 'Gran Caracas Oriente', 'Centro Occidente'] as const;
 
-const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, onUpdate, onDelete, onAdd, currentUser }) => {
+const PharmacyList: React.FC<PharmacyListProps> = ({ 
+  pharmacies, 
+  staffRecords, 
+  onUpdate, 
+  onDelete, 
+  onAdd, 
+  currentUser,
+  isTravelMode 
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingPharmacy, setEditingPharmacy] = useState<Pharmacy | null>(null);
   const [viewingPharmacy, setViewingPharmacy] = useState<Pharmacy | null>(null);
   const [showNewPharmacyModal, setShowNewPharmacyModal] = useState(false);
   const [showGlobalMap, setShowGlobalMap] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ id: string; name: string } | null>(null);
-  
-  // --- NUEVO ESTADO: MODO VIAJE ---
-  const [viewMode, setViewMode] = useState<'mine' | 'all'>('mine');
 
   const isAdmin = useMemo(() => {
     const adminRoles = ['Gerente de seguridad', 'Lider de investigaciones', 'Super Usuario'];
     return adminRoles.includes(currentUser?.role);
   }, [currentUser]);
 
-  // Si es admin, siempre ve todo (ignora el filtro)
-  useEffect(() => {
-    if (isAdmin) setViewMode('all');
-  }, [isAdmin]);
+  // Si está en modo viaje o es admin, permite elegir zona. Si no, usa su zona por defecto.
+  const initialZone = (isAdmin || isTravelMode) ? 'Gran Caracas Llanos' : (currentUser?.zone || 'Gran Caracas Llanos');
 
   const [newPharmacyData, setNewPharmacyData] = useState({
     name: '',
     address: '',
     corporatePhone: '',
-    zone: (isAdmin ? 'Gran Caracas Llanos' : currentUser?.zone) as Pharmacy['zone'],
+    zone: initialZone as Pharmacy['zone'],
     location: null as { lat: number; lng: number } | null,
     photo: null as string | null,
     hasSecurityOfficer: false
@@ -78,7 +81,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
     name: '',
     address: '',
     corporatePhone: '',
-    zone: 'Gran Caracas Llanos' as Pharmacy['zone'],
+    zone: initialZone as Pharmacy['zone'],
     location: null as { lat: number; lng: number } | null,
     photo: null as string | null,
     hasSecurityOfficer: false
@@ -110,18 +113,6 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [tempLocation, setTempLocation] = useState<{ lat: number; lng: number } | null>(null);
-
-  // --- FILTRO INTELIGENTE (LA CLAVE DEL MODO VIAJE) ---
-  const filteredPharmacies = pharmacies.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          p.address.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    // Si es admin o está en 'Modo Viaje', muestra todas.
-    // Si no, solo muestra las de su zona.
-    const matchesZone = isAdmin || viewMode === 'all' || p.zone === currentUser?.zone;
-
-    return matchesSearch && matchesZone;
-  });
 
   // --- MAP INITIALIZATION ---
   useEffect(() => {
@@ -161,8 +152,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         const orangeIcon = L.divIcon({ className: 'custom-marker', html: `<div style="background-color: #ea580c; width: 24px; height: 24px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.3);"></div>`, iconSize: [24, 24], iconAnchor: [12, 24], tooltipAnchor: [15, -15] });
         
-        // Usar filteredPharmacies para el mapa también
-        const zonePharmacies = filteredPharmacies.filter(p => p.location);
+        const zonePharmacies = pharmacies.filter(p => p.location);
         const bounds = L.latLngBounds([]);
         zonePharmacies.forEach(p => {
           if (p.location) {
@@ -177,7 +167,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
       } catch (err) { console.error(err); }
     }, 350);
     return () => { clearTimeout(timeout); if (globalMapInstanceRef.current) { globalMapInstanceRef.current.remove(); globalMapInstanceRef.current = null; } };
-  }, [showGlobalMap, filteredPharmacies]);
+  }, [showGlobalMap, pharmacies]);
 
   const openGPS = (lat: number, lng: number) => window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
 
@@ -191,6 +181,11 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
     );
   };
 
+  const filteredPharmacies = pharmacies.filter(p => 
+    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    p.address.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const handleEditClick = (pharmacy: Pharmacy) => {
     setEditingPharmacy(pharmacy);
     setFormData({ name: pharmacy.name, address: pharmacy.address, corporatePhone: pharmacy.corporatePhone || '', zone: pharmacy.zone, location: pharmacy.location || null, photo: pharmacy.photo || null, hasSecurityOfficer: pharmacy.hasSecurityOfficer || false });
@@ -198,7 +193,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
 
   const handleSaveEdit = () => { if (!editingPharmacy) return; onUpdate({ ...editingPharmacy, ...formData, location: formData.location || undefined, photo: formData.photo || undefined, hasSecurityOfficer: formData.hasSecurityOfficer }); setEditingPharmacy(null); };
 
-  const handleSaveNew = () => { if (!newPharmacyData.name || !newPharmacyData.address) { alert("Nombre y dirección obligatorios"); return; } onAdd({ id: `new-${Date.now()}`, ...newPharmacyData, location: newPharmacyData.location || undefined, status: 'Sin auditorías previas', photo: newPharmacyData.photo || undefined, hasSecurityOfficer: newPharmacyData.hasSecurityOfficer }); setShowNewPharmacyModal(false); setNewPharmacyData({ name: '', address: '', corporatePhone: '', zone: (isAdmin ? 'Gran Caracas Llanos' : currentUser?.zone) as Pharmacy['zone'], location: null, photo: null, hasSecurityOfficer: false }); };
+  const handleSaveNew = () => { if (!newPharmacyData.name || !newPharmacyData.address) { alert("Nombre y dirección obligatorios"); return; } onAdd({ id: `new-${Date.now()}`, ...newPharmacyData, location: newPharmacyData.location || undefined, status: 'Sin auditorías previas', photo: newPharmacyData.photo || undefined, hasSecurityOfficer: newPharmacyData.hasSecurityOfficer }); setShowNewPharmacyModal(false); setNewPharmacyData({ name: '', address: '', corporatePhone: '', zone: initialZone as Pharmacy['zone'], location: null, photo: null, hasSecurityOfficer: false }); };
 
   const startImageEditor = (imageData: string, mode: 'create' | 'edit') => { setTempImage(imageData); setEditorMode(mode); setCropScale(1); setCropRotation(0); setCropOffset({ x: 0, y: 0 }); setShowCropModal(true); };
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>, mode: 'create' | 'edit') => { const file = event.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onloadend = () => startImageEditor(reader.result as string, mode); reader.readAsDataURL(file); } event.target.value = ''; };
@@ -216,31 +211,14 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
       <div className="flex justify-between items-center mb-10">
         <div>
           <h2 className="text-4xl font-black text-white tracking-tight drop-shadow-md">Sedes</h2>
-          <p className="text-slate-300 mt-1 font-medium">{isAdmin ? 'Administración Global' : `Zona: ${currentUser?.zone}`}</p>
+          <p className="text-slate-300 mt-1 font-medium">
+            {isAdmin ? 'Administración Global' : (isTravelMode ? 'Directorio Nacional' : `Zona: ${currentUser?.zone}`)}
+          </p>
         </div>
         <div className="flex gap-4">
           <button onClick={() => setShowGlobalMap(true)} className="bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-sm transition-all">
             <Globe className="w-5 h-5 text-orange-400" /> Ver Mapa
           </button>
-          
-          {/* BOTÓN NUEVO: SELECTOR DE MODO VIAJE */}
-          {!isAdmin && (
-            <div className="bg-white rounded-xl flex p-1 shadow-lg">
-              <button 
-                onClick={() => setViewMode('mine')}
-                className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all ${viewMode === 'mine' ? 'bg-orange-500 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
-              >
-                Mi Zona
-              </button>
-              <button 
-                onClick={() => setViewMode('all')}
-                className={`px-4 py-2 rounded-lg text-xs font-black uppercase flex items-center gap-2 transition-all ${viewMode === 'all' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
-              >
-                <Plane className="w-3 h-3" /> Modo Viaje
-              </button>
-            </div>
-          )}
-
           <button onClick={() => setShowNewPharmacyModal(true)} className="bg-orange-600 hover:bg-orange-500 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all transform hover:-translate-y-0.5"><Plus className="w-5 h-5" /> Registrar</button>
         </div>
       </div>
@@ -283,14 +261,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
               <Store className="w-10 h-10 text-white/50" />
             </div>
             <h3 className="text-xl font-bold text-white mb-2">No se encontraron farmacias</h3>
-            <p className="text-slate-300 text-sm">
-              {viewMode === 'mine' ? 'No tienes sedes asignadas en tu zona.' : 'No hay resultados en el directorio nacional.'}
-            </p>
-            {viewMode === 'mine' && (
-              <button onClick={() => setViewMode('all')} className="mt-6 text-orange-400 font-bold text-sm hover:text-orange-300 transition-colors uppercase tracking-widest flex items-center gap-2 mx-auto">
-                <Plane className="w-4 h-4" /> Buscar en otras zonas
-              </button>
-            )}
+            <p className="text-slate-300 text-sm">Activa el "Modo Viaje" en el menú lateral si buscas una sede de otra zona.</p>
           </div>
         )}
       </div>
@@ -305,7 +276,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
                 </div>
                 <div>
                    <h3 className="text-2xl font-black tracking-tighter uppercase">Mapa de Cobertura</h3>
-                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{isAdmin ? 'Red Nacional de Sedes' : (viewMode === 'all' ? 'Cobertura Nacional (Modo Viaje)' : `Sedes de Zona: ${currentUser?.zone}`)}</p>
+                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{isAdmin ? 'Red Nacional de Sedes' : (isTravelMode ? 'Directorio Nacional (Modo Viaje)' : `Sedes de Zona: ${currentUser?.zone}`)}</p>
                 </div>
               </div>
               <button onClick={() => setShowGlobalMap(false)} className="p-4 hover:bg-white/10 rounded-full transition-all"><X className="w-8 h-8" /></button>
@@ -326,7 +297,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
         </div>
       )}
 
-      {/* MODAL: NEW PHARMACY (Contenido original + Switch Seguridad) */}
+      {/* MODAL: NEW PHARMACY */}
       {showNewPharmacyModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl animate-in fade-in zoom-in duration-200 overflow-hidden border border-white/20">
@@ -337,8 +308,10 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
             <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-sm font-bold text-slate-700 mb-2">Nombre</label><input type="text" className="w-full p-3 border border-slate-200 rounded-xl outline-none" value={newPharmacyData.name} onChange={e => setNewPharmacyData({...newPharmacyData, name: e.target.value})} /></div>
+                
+                {/* --- LÓGICA DE ZONA MEJORADA (ADMIN O MODO VIAJE = SELECTOR LIBRE) --- */}
                 <div><label className="block text-sm font-bold text-slate-700 mb-2">Zona</label>
-                  {isAdmin ? (
+                  {isAdmin || isTravelMode ? (
                     <select className="w-full p-3 border border-slate-200 rounded-xl outline-none" value={newPharmacyData.zone} onChange={e => setNewPharmacyData({...newPharmacyData, zone: e.target.value as any})}>
                       {ZONES.map(z => <option key={z} value={z}>{z}</option>)}
                     </select>
@@ -347,6 +320,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
                   )}
                 </div>
               </div>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-sm font-bold text-slate-700 mb-2">Teléfono Corporativo</label><input type="tel" placeholder="Ej. 0412-0000000" className="w-full p-3 border border-slate-200 rounded-xl outline-none" value={newPharmacyData.corporatePhone} onChange={e => setNewPharmacyData({...newPharmacyData, corporatePhone: e.target.value})} /></div>
                 <div>
@@ -399,7 +373,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
         </div>
       )}
 
-      {/* MODAL: EDIT PHARMACY (Contenido original + Switch Seguridad) */}
+      {/* MODAL: EDIT PHARMACY (Contenido original + Switch Seguridad + Lógica de Zona) */}
       {editingPharmacy && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl animate-in fade-in zoom-in duration-200 overflow-hidden border border-white/20">
@@ -411,7 +385,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-sm font-bold text-slate-700 mb-2">Nombre</label><input type="text" className="w-full p-3 border border-slate-200 rounded-xl outline-none" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
                 <div><label className="block text-sm font-bold text-slate-700 mb-2">Zona</label>
-                  {isAdmin ? (
+                  {isAdmin || isTravelMode ? (
                     <select className="w-full p-3 border border-slate-200 rounded-xl outline-none" value={formData.zone} onChange={e => setFormData({...formData, zone: e.target.value as any})}>
                       {ZONES.map(z => <option key={z} value={z}>{z}</option>)}
                     </select>
@@ -474,7 +448,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
         </div>
       )}
 
-      {/* MODAL: VIEW DETAILS (Original) */}
+      {/* MODAL: VIEW DETAILS (Resto sin cambios...) */}
       {viewingPharmacy && (() => {
         const pharmacyStaff = staffRecords.filter(s => s.pharmacyId === viewingPharmacy.id);
         const manager = pharmacyStaff.find(s => s.role === 'Gerente') || pharmacyStaff.find(s => s.role === 'Gerente/Regente');
