@@ -25,7 +25,6 @@ import {
   CaseRecord 
 } from '../types';
 
-// --- DICCIONARIO ---
 const QUESTION_MAP: Record<string, string> = {
   'p1.1': 'Uniforme y Presencia',
   'p1.2': 'Libro de Novedades',
@@ -40,33 +39,50 @@ const QUESTION_MAP: Record<string, string> = {
   'radio': 'Equipos de Radio'
 };
 
-// --- HELPERS ---
-const safeInt = (val: any): number => {
-  if (val === null || val === undefined) return 0;
+// --- HELPER DE FUERZA BRUTA PARA NÚMEROS ---
+const forceNumber = (val: any): number => {
   if (typeof val === 'number') return val;
-  const parsed = parseInt(String(val), 10);
-  return isNaN(parsed) ? 0 : parsed;
+  if (typeof val === 'string') {
+    // Eliminar cualquier caracter no numérico y parsear
+    const clean = val.replace(/[^0-9.]/g, '');
+    const num = parseFloat(clean);
+    return isNaN(num) ? 0 : num;
+  }
+  return 0;
 };
 
-// Función RECURSIVA para encontrar totales en cualquier estructura de objeto
-const recursiveSum = (obj: any, targetKeys: string[]): number => {
-  let sum = 0;
-  if (!obj || typeof obj !== 'object') return 0;
+// --- ESCÁNER DE PATRONES (SHAPE DETECTION) ---
+// Busca objetos que tengan estructura de conteo { total: X, bueno: Y }
+const scanForCounts = (obj: any): { total: number, ok: number } => {
+  let result = { total: 0, ok: 0 };
+  
+  if (!obj || typeof obj !== 'object') return result;
 
-  for (const key in obj) {
-    if (Object.prototype.hasOwnProperty.call(obj, key)) {
-      const value = obj[key];
-      // Si la llave actual está en nuestros objetivos, sumamos su valor
-      if (targetKeys.includes(key.toLowerCase())) {
-        sum += safeInt(value);
-      } 
-      // Si el valor es otro objeto, profundizamos (excepto si es fecha o null)
-      else if (typeof value === 'object' && value !== null) {
-        sum += recursiveSum(value, targetKeys);
-      }
+  // 1. Verificar si el objeto actual ES un conteo en sí mismo
+  // Buscamos llaves comunes para "Total"
+  const totalKey = Object.keys(obj).find(k => /^(total|installed|quantity|cantidad|instalados)$/i.test(k));
+  // Buscamos llaves comunes para "Operativo"
+  const okKey = Object.keys(obj).find(k => /^(ok|working|operative|good|operativos|buenos|funcional)$/i.test(k));
+
+  if (totalKey && okKey) {
+    const totalVal = forceNumber(obj[totalKey]);
+    const okVal = forceNumber(obj[okKey]);
+    if (totalVal > 0) {
+      result.total += totalVal;
+      result.ok += okVal;
     }
   }
-  return sum;
+
+  // 2. Profundizar (Recursión) para buscar dentro de hijos
+  Object.values(obj).forEach(value => {
+    if (typeof value === 'object' && value !== null) {
+      const childResult = scanForCounts(value);
+      result.total += childResult.total;
+      result.ok += childResult.ok;
+    }
+  });
+
+  return result;
 };
 
 interface MonthlySummaryProps {
@@ -95,29 +111,26 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const [selectedZone, setSelectedZone] = useState<string>('Todas');
 
-  // Obtener zonas únicas
   const zones = useMemo(() => {
     const uniqueZones = new Set(pharmacies.map(p => p.zone).filter(Boolean));
     return ['Todas', ...Array.from(uniqueZones)];
   }, [pharmacies]);
 
-  // --- FILTRADO DE DATA (CORREGIDO ID STRING VS NUMBER) ---
   const filteredData = useMemo(() => {
     const filteredPharmacies = selectedZone === 'Todas' 
       ? pharmacies 
       : pharmacies.filter(p => p.zone === selectedZone);
     
-    // Usamos Set de Strings para evitar errores de tipo (1 vs "1")
+    // Convertimos IDs a String para evitar errores de comparación
     const pharmacyIds = new Set(filteredPharmacies.map(p => String(p.id)));
 
     return {
       pharmacies: filteredPharmacies,
       audits: audits.filter(a => a.pharmacy?.id && pharmacyIds.has(String(a.pharmacy.id))),
-      // Aquí estaba el error probable: Comparación estricta fallaba
       cctv: cctvRecords.filter(r => pharmacyIds.has(String(r.pharmacyId))),
       physical: physicalRecords.filter(r => pharmacyIds.has(String(r.pharmacyId))),
       management: managementRecords.filter(r => pharmacyIds.has(String(r.pharmacyId))),
-      cases: cases // Mantenemos todos los casos visibles por ahora para no perder data
+      cases: cases // Mantenemos casos
     };
   }, [selectedZone, pharmacies, audits, cctvRecords, physicalRecords, managementRecords, cases]);
 
@@ -137,15 +150,12 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     : 0;
 
   const totalPharmaciesCount = currentPharmacies.length;
-  // Calculamos cobertura única
   const visitedPharmacies = new Set([
     ...currentAudits.map(a => String(a.pharmacy?.id)),
     ...currentCCTV.map(r => String(r.pharmacyId)),
     ...currentPhysical.map(r => String(r.pharmacyId)),
     ...currentManagement.map(r => String(r.pharmacyId))
   ]).size;
-  
-  // Evitamos dividir por cero
   const coverage = totalPharmaciesCount > 0 ? Math.round((visitedPharmacies / totalPharmaciesCount) * 100) : 0;
 
   const totalCases = currentCases.length;
@@ -155,45 +165,37 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   const totalActivities = currentAudits.length + currentCCTV.length + currentPhysical.length + currentManagement.length;
 
   // =========================================================================
-  // CÁLCULO DE INVENTARIOS CON ESCÁNER RECURSIVO
+  // CÁLCULO DE INVENTARIOS CON ESCÁNER DE PATRONES (SHAPE DETECTION)
   // =========================================================================
 
   // 1. CCTV
-  let totalCamerasSum = 0;
-  let activeCamerasSum = 0;
+  let cctvTotal = 0;
+  let cctvOk = 0;
 
   currentCCTV.forEach((record: any) => {
-    // Buscamos cualquier llave que suene a total de cámaras
-    const totalInRecord = recursiveSum(record, ['total', 'totalcameras', 'installed']);
-    // Buscamos cualquier llave que suene a cámara funcionando
-    const activeInRecord = recursiveSum(record, ['ok', 'working', 'operative', 'good', 'operativecameras', 'activecameras']);
-    
-    totalCamerasSum += totalInRecord;
-    activeCamerasSum += activeInRecord;
+    // Escaneamos todo el registro buscando patrones { total: X, ok: Y }
+    const counts = scanForCounts(record);
+    cctvTotal += counts.total;
+    cctvOk += counts.ok;
   });
 
-  // Cálculo de porcentaje CCTV
-  const cctvHealth = totalCamerasSum > 0 
-    ? Math.round((activeCamerasSum / totalCamerasSum) * 100) 
+  const cctvHealth = cctvTotal > 0 
+    ? Math.round((cctvOk / cctvTotal) * 100) 
     : 0;
 
   // 2. INFRAESTRUCTURA
-  let totalInfraSum = 0;
-  let goodInfraSum = 0;
+  let infraTotal = 0;
+  let infraOk = 0;
 
   currentPhysical.forEach((record: any) => {
-    // Buscamos totales instalados
-    const totalInRecord = recursiveSum(record, ['total', 'installed', 'quantity', 'cantidad']);
-    // Buscamos operativos
-    const activeInRecord = recursiveSum(record, ['ok', 'working', 'operative', 'good', 'operativos', 'buenos']);
-    
-    totalInfraSum += totalInRecord;
-    goodInfraSum += activeInRecord;
+    // Escaneamos todo el registro buscando patrones { installed: X, operative: Y }
+    const counts = scanForCounts(record);
+    infraTotal += counts.total;
+    infraOk += counts.ok;
   });
 
-  // Cálculo de porcentaje Infraestructura
-  const infraHealth = totalInfraSum > 0 
-    ? Math.round((goodInfraSum / totalInfraSum) * 100) 
+  const infraHealth = infraTotal > 0 
+    ? Math.round((infraOk / infraTotal) * 100) 
     : 0;
 
   // =========================================================================
@@ -249,7 +251,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   return (
     <div className="max-w-[1600px] mx-auto p-6 md:p-10 pb-20 animate-in fade-in duration-500">
       
-      {/* HEADER */}
+      {/* HEADER CON FILTRO */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center shadow-2xl shrink-0 border border-slate-700">
@@ -283,7 +285,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       {/* KPI CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         
-        {/* KPI 1 */}
+        {/* Auditoría */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-blue-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Promedio Auditoría</p>
@@ -296,7 +298,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* KPI 2 */}
+        {/* Cobertura */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-emerald-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Cobertura Mensual</p>
@@ -309,7 +311,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* KPI 3 */}
+        {/* Eficiencia */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-purple-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Eficiencia Resolución</p>
@@ -322,7 +324,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* KPI 4 */}
+        {/* Actividad */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-orange-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Actividad Total</p>
@@ -338,7 +340,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       {/* ESTADO DE FUERZA (CCTV + INFRAESTRUCTURA) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
         
-        {/* CCTV */}
+        {/* Blindaje CCTV */}
         <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-400">
@@ -353,7 +355,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
              <span className={`text-3xl font-black ${cctvHealth >= 90 ? 'text-emerald-400' : cctvHealth >= 70 ? 'text-orange-400' : 'text-red-400'}`}>
                {cctvHealth}%
              </span>
-             <p className="text-[10px] text-slate-500 font-bold uppercase">{totalCamerasSum} Cámaras Totales</p>
+             <p className="text-[10px] text-slate-500 font-bold uppercase">{cctvTotal} Cámaras Totales</p>
           </div>
         </div>
 
@@ -372,7 +374,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
              <span className={`text-3xl font-black ${infraHealth >= 90 ? 'text-emerald-400' : infraHealth >= 70 ? 'text-orange-400' : 'text-red-400'}`}>
                {infraHealth}%
              </span>
-             <p className="text-[10px] text-slate-500 font-bold uppercase">{totalInfraSum} Elementos Rev.</p>
+             <p className="text-[10px] text-slate-500 font-bold uppercase">{infraTotal} Elementos Rev.</p>
           </div>
         </div>
 
@@ -381,7 +383,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       {/* SECCIÓN INFERIOR */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Focos de Riesgo */}
         <div className="bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-800 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
           
@@ -439,7 +440,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* Listas */}
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
           
           <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
