@@ -39,60 +39,15 @@ const QUESTION_MAP: Record<string, string> = {
   'radio': 'Equipos de Radio'
 };
 
-// --- UTILIDAD DE LIMPIEZA DE NÚMEROS ---
-// Convierte "2 unidades", "2", 2, "02" a el número 2.
-const cleanNumber = (val: any): number => {
-  if (val === null || val === undefined) return 0;
-  if (typeof val === 'number') return val;
-  const str = String(val).replace(/[^0-9.]/g, ''); // Elimina letras
-  const num = parseFloat(str);
-  return isNaN(num) ? 0 : num;
-};
-
-// --- ESCÁNER DE PATRONES RECURSIVO ---
-// Busca en las profundidades del objeto cualquier cosa que parezca un conteo
-const deepScanForStats = (obj: any): { total: number, ok: number } => {
-  let accTotal = 0;
-  let accOk = 0;
-
-  if (!obj || typeof obj !== 'object') return { total: 0, ok: 0 };
-
-  // 1. REVISAR SI EL OBJETO ACTUAL ES UN DATO DE INTERÉS
-  const keys = Object.keys(obj).map(k => k.toLowerCase());
-  
-  // Palabras clave para "Total" o "Instalados"
-  const totalKey = keys.find(k => ['total', 'installed', 'cantidad', 'instalados', 'totalcameras'].includes(k));
-  // Palabras clave para "Bien", "Operativo" u "OK"
-  const okKey = keys.find(k => ['ok', 'working', 'operative', 'good', 'operativos', 'buenos', 'funcional', 'operativecameras'].includes(k));
-
-  // Si encontramos el par (Total + OK) en este nivel, sumamos
-  if (totalKey && okKey) {
-    // Recuperar las llaves originales (sensitive case)
-    const originalTotalKey = Object.keys(obj).find(k => k.toLowerCase() === totalKey);
-    const originalOkKey = Object.keys(obj).find(k => k.toLowerCase() === okKey);
-    
-    if (originalTotalKey && originalOkKey) {
-      const t = cleanNumber(obj[originalTotalKey]);
-      const o = cleanNumber(obj[originalOkKey]);
-      if (t > 0) {
-        accTotal += t;
-        accOk += o;
-      }
-    }
+// --- HELPER PARA FORZAR NÚMEROS ---
+// Convierte cualquier cosa ("2", "2.0", 2) en un entero seguro.
+const getInt = (value: any): number => {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const parsed = parseInt(value, 10);
+    return isNaN(parsed) ? 0 : parsed;
   }
-
-  // 2. SEGUIR BUSCANDO EN LOS HIJOS (RECURSIÓN)
-  // Independientemente de si encontramos algo aquí, revisamos si hay objetos hijos con más datos
-  // (Ej: Un objeto 'camaras' puede tener 'total', pero adentro tener 'analogas' con su propio 'total')
-  Object.values(obj).forEach(val => {
-    if (typeof val === 'object' && val !== null) {
-      const childStats = deepScanForStats(val);
-      accTotal += childStats.total;
-      accOk += childStats.ok;
-    }
-  });
-
-  return { total: accTotal, ok: accOk };
+  return 0;
 };
 
 interface MonthlySummaryProps {
@@ -131,6 +86,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       ? pharmacies 
       : pharmacies.filter(p => p.zone === selectedZone);
     
+    // Convertimos IDs a String para máxima compatibilidad
     const pharmacyIds = new Set(filteredPharmacies.map(p => String(p.id)));
 
     return {
@@ -174,58 +130,72 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   const totalActivities = currentAudits.length + currentCCTV.length + currentPhysical.length + currentManagement.length;
 
   // =========================================================================
-  // CÁLCULO DE INVENTARIOS CON ESCÁNER PROFUNDO
+  // CÁLCULO DE INVENTARIOS (LÓGICA EXPLÍCITA BASADA EN FOTOS)
   // =========================================================================
 
-  // 1. CCTV
+  // 1. CCTV (Basado en Foto 52)
   let cctvTotal = 0;
   let cctvOk = 0;
 
   currentCCTV.forEach((record: any) => {
-    // Escaneo profundo de todo el registro
-    const stats = deepScanForStats(record);
-    cctvTotal += stats.total;
-    cctvOk += stats.ok;
+    // Buscar estructura explícita de cámaras análogas
+    if (record.analogCameras) {
+      cctvTotal += getInt(record.analogCameras.total);
+      // Sumar OKs (intentando variantes comunes)
+      cctvOk += getInt(record.analogCameras.ok || record.analogCameras.working || record.analogCameras.operative);
+    }
+    
+    // Buscar estructura explícita de cámaras IP
+    if (record.ipCameras) {
+      cctvTotal += getInt(record.ipCameras.total);
+      cctvOk += getInt(record.ipCameras.ok || record.ipCameras.working || record.ipCameras.operative);
+    }
+
+    // Si no encontró nada en estructuras anidadas, buscar en raíz (legacy)
+    if (!record.analogCameras && !record.ipCameras) {
+       cctvTotal += getInt(record.totalCameras || record.total);
+       cctvOk += getInt(record.operativeCameras || record.activeCameras || record.ok);
+    }
   });
 
-  // Si después del escaneo profundo sigue en 0 (caso muy raro), intentar fallback manual
-  // para propiedades raíz mal nombradas
-  if (cctvTotal === 0 && currentCCTV.length > 0) {
-      // Fallback a contar registros si no se detectó detalle interno
-      cctvTotal = currentCCTV.length;
-      cctvOk = currentCCTV.filter((r: any) => {
-          const s = (r.status || '').toLowerCase();
-          return s.includes('operativo') || s.includes('buen') || s.includes('ok');
-      }).length;
-  }
+  const cctvHealth = cctvTotal > 0 ? Math.round((cctvOk / cctvTotal) * 100) : 0;
 
-  const cctvHealth = cctvTotal > 0 
-    ? Math.round((cctvOk / cctvTotal) * 100) 
-    : 0;
-
-  // 2. INFRAESTRUCTURA
+  // 2. INFRAESTRUCTURA (Basado en Foto 53 - Lista de items)
   let infraTotal = 0;
   let infraOk = 0;
 
   currentPhysical.forEach((record: any) => {
-    // Escaneo profundo
-    const stats = deepScanForStats(record);
-    infraTotal += stats.total;
-    infraOk += stats.ok;
+    // La foto 53 muestra una lista (Santamarías, Candados, etc.)
+    // Usualmente esto se guarda en un array llamado 'items'
+    if (record.items && Array.isArray(record.items)) {
+      record.items.forEach((item: any) => {
+        const installed = getInt(item.installed || item.total || item.cantidad);
+        const operative = getInt(item.operative || item.good || item.working || item.ok);
+        
+        if (installed > 0) {
+          infraTotal += installed;
+          infraOk += operative;
+        }
+      });
+    } else {
+      // Si no hay 'items', puede que los objetos estén sueltos en el record (estructura plana)
+      // Recorremos las llaves del registro buscando objetos que tengan 'installed'
+      Object.values(record).forEach((val: any) => {
+        if (typeof val === 'object' && val !== null) {
+          if ('installed' in val || 'total' in val) {
+             const installed = getInt(val.installed || val.total);
+             const operative = getInt(val.operative || val.good || val.ok);
+             if (installed > 0) {
+               infraTotal += installed;
+               infraOk += operative;
+             }
+          }
+        }
+      });
+    }
   });
 
-   // Fallback similar para Infraestructura
-   if (infraTotal === 0 && currentPhysical.length > 0) {
-      infraTotal = currentPhysical.length;
-      infraOk = currentPhysical.filter((r: any) => {
-          const s = (r.status || '').toLowerCase();
-          return s.includes('operativo') || s.includes('buen') || s.includes('ok');
-      }).length;
-  }
-
-  const infraHealth = infraTotal > 0 
-    ? Math.round((infraOk / infraTotal) * 100) 
-    : 0;
+  const infraHealth = infraTotal > 0 ? Math.round((infraOk / infraTotal) * 100) : 0;
 
   // =========================================================================
 
@@ -234,7 +204,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   const lowPerforming = sortedAudits.slice(0, 3);
   const topPerforming = [...sortedAudits].reverse().slice(0, 3);
 
-  // --- LÓGICA INTELIGENTE ---
+  // --- LÓGICA INTELIGENTE (FOCOS DE RIESGO) ---
   const failureCounts: Record<string, number> = {};
   currentAudits.forEach(audit => {
     if (audit.processAnswers) {
@@ -314,6 +284,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       {/* KPI CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         
+        {/* Auditoría */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-blue-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Promedio Auditoría</p>
@@ -326,6 +297,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
+        {/* Cobertura */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-emerald-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Cobertura Mensual</p>
@@ -338,6 +310,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
+        {/* Eficiencia */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-purple-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Eficiencia Resolución</p>
@@ -350,6 +323,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
+        {/* Actividad */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-orange-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Actividad Total</p>
@@ -408,6 +382,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       {/* SECCIÓN INFERIOR */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
+        {/* Focos de Riesgo */}
         <div className="bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-800 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
           
@@ -465,6 +440,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
+        {/* Listas */}
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
           
           <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
