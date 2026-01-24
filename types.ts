@@ -13,6 +13,8 @@ export interface Pharmacy {
     lat: number;
     lng: number;
   } | null;
+  // --- NUEVO CAMPO AGREGADO ---
+  hasSecurityOfficer?: boolean;
 }
 
 export interface HardwareItem {
@@ -254,7 +256,7 @@ export interface CaseTimelineEntry {
 
 export interface CaseRecord {
   id: string;
-  officialId?: string; // <--- NUEVO CAMPO AGREGADO (Paso A)
+  officialId?: string;
   status: 'Abierto' | 'En Proceso' | 'Cerrado';
   priority: 'Alta' | 'Media' | 'Baja';
   date: string;
