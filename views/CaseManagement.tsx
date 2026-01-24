@@ -9,7 +9,7 @@ import {
   CheckCircle2, 
   AlertCircle, 
   X, 
-  Building2, 
+  Building2,
   Truck, 
   MoreHorizontal, 
   FileText, 
@@ -17,7 +17,8 @@ import {
   Hash, 
   Pencil, 
   Save, 
-  Trash2 
+  Trash2,
+  Calendar // Icono para la fecha
 } from 'lucide-react';
 import { Pharmacy, CaseRecord, CaseTimelineEntry } from '../types';
 
@@ -48,9 +49,10 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
   // Estados para Modal de Borrado
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  // Formulario Nuevo Caso
-  const [formData, setFormData] = useState<Partial<CaseRecord>>({
+  // Formulario Nuevo Caso (Incluye fecha manual)
+  const [formData, setFormData] = useState<Partial<CaseRecord> & { dateStr: string }>({
     id: '', 
+    dateStr: new Date().toISOString().split('T')[0], // Fecha por defecto: HOY
     priority: 'Media', 
     channel: 'WhatsApp', 
     locationType: 'Farmacia', 
@@ -97,10 +99,15 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
        return alert("Especifique el nombre de la ubicación");
     }
 
+    // Usar la fecha seleccionada manual o la actual
+    const creationDate = formData.dateStr 
+      ? new Date(formData.dateStr).toISOString() 
+      : new Date().toISOString();
+
     const newCase: CaseRecord = {
       id: internalId,
       officialId: initialOfficialId,
-      date: new Date().toISOString(),
+      date: creationDate, // Guardamos la fecha elegida
       status: 'Abierto',
       priority: formData.priority as any,
       channel: formData.channel as any,
@@ -116,10 +123,33 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
 
     onAddCase(newCase);
     setView('list');
-    setFormData({ id: '', priority: 'Media', channel: 'WhatsApp', locationType: 'Farmacia', locationName: '', reporterName: '', title: '', description: '' });
+    
+    // Reset form
+    setFormData({ 
+      id: '', 
+      dateStr: new Date().toISOString().split('T')[0], // Reset a Hoy
+      priority: 'Media', 
+      channel: 'WhatsApp', 
+      locationType: 'Farmacia', 
+      locationName: '', 
+      reporterName: '', 
+      title: '', 
+      description: '' 
+    });
     setSelectedPharmacyId('');
   };
 
+  const confirmDelete = () => {
+    if (!selectedCase) return;
+    // Ejecutar el borrado
+    onDeleteCase(selectedCase.id); 
+    // Cerrar modales y volver a la lista inmediatamente
+    setShowDeleteModal(false);
+    setSelectedCase(null);
+    setView('list');
+  };
+
+  // Resto de manejadores (Update, Close, Timeline) se mantienen igual...
   const handleSaveOfficialId = () => {
     if (!selectedCase) return;
     const updatedCase = { ...selectedCase, officialId: tempOfficialId.trim().toUpperCase() || undefined };
@@ -154,14 +184,6 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
     onUpdateCase(updatedCase);
     setSelectedCase(updatedCase);
     setIsClosing(false);
-  };
-
-  const confirmDelete = () => {
-    if (!selectedCase) return;
-    onDeleteCase(selectedCase.id); // Llama a la función de App.tsx
-    setShowDeleteModal(false);
-    setSelectedCase(null);
-    setView('list');
   };
 
   // --- HELPERS UI ---
@@ -257,11 +279,26 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
               <button onClick={() => setView('list')} className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><X className="w-6 h-6" /></button>
            </div>
            <div className="space-y-6">
+              
+              {/* CAMPO DE FECHA MANUAL */}
+              <div>
+                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fecha del Incidente</label>
+                 <div className="relative">
+                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <input 
+                      type="date" 
+                      className="w-full pl-12 pr-4 py-3 bg-slate-50 rounded-xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500"
+                      value={formData.dateStr}
+                      onChange={(e) => setFormData({...formData, dateStr: e.target.value})}
+                    />
+                 </div>
+              </div>
+
               <div>
                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Número de Expediente (Opcional)</label>
                  <div className="relative">
                     <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input type="text" placeholder="Dejar vacío si es solo una novedad preliminar" className="w-full pl-12 pr-4 py-3 bg-slate-50 rounded-xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500 uppercase placeholder-slate-400" value={formData.id} onChange={(e) => setFormData({...formData, id: e.target.value})} autoFocus />
+                    <input type="text" placeholder="Dejar vacío si es solo una novedad preliminar" className="w-full pl-12 pr-4 py-3 bg-slate-50 rounded-xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500 uppercase placeholder-slate-400" value={formData.id} onChange={(e) => setFormData({...formData, id: e.target.value})} />
                  </div>
                  <p className="text-[10px] text-slate-400 mt-1 ml-2 font-medium">Puede asignar este número más adelante.</p>
               </div>
@@ -387,7 +424,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
          </div>
       )}
 
-      {/* MODAL DE CONFIRMACIÓN DE BORRADO (Diseño Profesional) */}
+      {/* MODAL DE BORRADO SEGURO */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[250] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-[2rem] w-full max-w-md p-8 shadow-2xl text-center transform transition-all scale-100">
@@ -401,12 +438,14 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
              </p>
              <div className="flex gap-4">
                <button 
+                 type="button" // IMPORTANTE PARA EVITAR SUBMIT
                  onClick={() => setShowDeleteModal(false)} 
                  className="flex-1 py-4 rounded-xl border-2 border-slate-100 font-bold text-slate-600 hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest"
                >
                  Cancelar
                </button>
                <button 
+                 type="button" // IMPORTANTE PARA EVITAR SUBMIT
                  onClick={confirmDelete} 
                  className="flex-1 py-4 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-200 uppercase text-xs tracking-widest"
                >
