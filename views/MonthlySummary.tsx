@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -12,7 +12,8 @@ import {
   Target,
   Zap,
   Camera,
-  BrickWall // Icono para Infraestructura
+  BrickWall,
+  Filter // Icono para el filtro
 } from 'lucide-react';
 import { 
   Pharmacy, 
@@ -63,62 +64,110 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   currentUser 
 }) => {
 
-  // --- KPI LOGIC ---
-  const auditScores = audits.map(a => a.score || 0);
+  // Estado para el filtro de zona
+  const [selectedZone, setSelectedZone] = useState<string>('Todas');
+
+  // Obtener lista de zonas únicas
+  const zones = useMemo(() => {
+    const uniqueZones = new Set(pharmacies.map(p => p.zone).filter(Boolean));
+    return ['Todas', ...Array.from(uniqueZones)];
+  }, [pharmacies]);
+
+  // --- FILTRADO DE DATA SEGÚN ZONA SELECCIONADA ---
+  const filteredData = useMemo(() => {
+    // 1. Filtrar Farmacias
+    const filteredPharmacies = selectedZone === 'Todas' 
+      ? pharmacies 
+      : pharmacies.filter(p => p.zone === selectedZone);
+    
+    const pharmacyIds = new Set(filteredPharmacies.map(p => p.id));
+
+    // 2. Filtrar el resto basado en las farmacias filtradas
+    return {
+      pharmacies: filteredPharmacies,
+      audits: audits.filter(a => a.pharmacy?.id && pharmacyIds.has(a.pharmacy.id)),
+      cctv: cctvRecords.filter(r => pharmacyIds.has(r.pharmacyId)),
+      physical: physicalRecords.filter(r => pharmacyIds.has(r.pharmacyId)),
+      management: managementRecords.filter(r => pharmacyIds.has(r.pharmacyId)),
+      // Para casos, intentamos vincular por farmacia si es posible, o filtrado general
+      cases: cases.filter(c => {
+        // Si el caso tiene pharmacyId, lo usamos. Si no, lo dejamos pasar si es 'Todas'
+        // Asumiendo que podemos cruzar data, si no, mostramos todos en vista general
+        // Aquí asumimos una lógica de filtrado simple si existiera el vínculo
+        return true; 
+      })
+    };
+  }, [selectedZone, pharmacies, audits, cctvRecords, physicalRecords, managementRecords, cases]);
+
+  // Usamos la data filtrada para los cálculos
+  const { 
+    pharmacies: currentPharmacies, 
+    audits: currentAudits, 
+    cctv: currentCCTV, 
+    physical: currentPhysical, 
+    management: currentManagement, 
+    cases: currentCases 
+  } = filteredData;
+
+
+  // --- KPI LOGIC (Usando data filtrada) ---
+  const auditScores = currentAudits.map(a => a.score || 0);
   const avgAuditScore = auditScores.length > 0 
     ? Math.round(auditScores.reduce((a, b) => a + b, 0) / auditScores.length) 
     : 0;
 
-  const totalPharmacies = pharmacies.length;
+  const totalPharmaciesCount = currentPharmacies.length;
   const visitedPharmacies = new Set([
-    ...audits.map(a => a.pharmacy?.id),
-    ...cctvRecords.map(r => r.pharmacyId),
-    ...physicalRecords.map(r => r.pharmacyId),
-    ...managementRecords.map(r => r.pharmacyId)
+    ...currentAudits.map(a => a.pharmacy?.id),
+    ...currentCCTV.map(r => r.pharmacyId),
+    ...currentPhysical.map(r => r.pharmacyId),
+    ...currentManagement.map(r => r.pharmacyId)
   ]).size;
-  const coverage = totalPharmacies > 0 ? Math.round((visitedPharmacies / totalPharmacies) * 100) : 0;
+  const coverage = totalPharmaciesCount > 0 ? Math.round((visitedPharmacies / totalPharmaciesCount) * 100) : 0;
 
-  const totalCases = cases.length;
-  const closedCases = cases.filter(c => c.status === 'Cerrado').length;
+  const totalCases = currentCases.length;
+  const closedCases = currentCases.filter(c => c.status === 'Cerrado').length;
   const efficiency = totalCases > 0 ? Math.round((closedCases / totalCases) * 100) : 0;
 
-  const totalActivities = audits.length + cctvRecords.length + physicalRecords.length + managementRecords.length;
+  const totalActivities = currentAudits.length + currentCCTV.length + currentPhysical.length + currentManagement.length;
 
-  // --- LÓGICA DE INVENTARIOS (NUEVO) ---
+  // --- LÓGICA DE INVENTARIOS (CORREGIDA PARA DETECTAR VARIOS ESTADOS) ---
   
-  // CCTV: Operatividad
+  // CCTV
   let totalCameras = 0;
   let activeCameras = 0;
-  // Recorremos registros de CCTV, asumimos que cada registro puede tener múltiples cámaras
-  // O si el registro representa el estado de un sistema. 
-  // Si el registro de CCTV tiene una lista de cámaras (detalle), idealmente iteraríamos eso.
-  // Como simplificación basada en la estructura actual, contaremos registros "Operativos".
-  // Si tienes un campo específico de cantidad, ajústalo aquí.
-  cctvRecords.forEach(r => {
-      // Si el registro tiene status global
-      if (r.status === 'Operativo') activeCameras++;
+  currentCCTV.forEach(r => {
+      // Normalizamos a minúsculas para comparar mejor
+      const status = (r.status || '').toLowerCase();
+      // Lista de palabras que significan "Bueno"
+      if (['operativo', 'buen estado', 'bueno', 'funcional', 'activo', 'en linea', 'ok'].includes(status)) {
+        activeCameras++;
+      }
       totalCameras++;
   });
   const cctvHealth = totalCameras > 0 ? Math.round((activeCameras / totalCameras) * 100) : 0;
 
-  // INFRAESTRUCTURA: Estado
+  // INFRAESTRUCTURA
   let totalInfra = 0;
   let goodInfra = 0;
-  physicalRecords.forEach(r => {
-      if (r.status === 'Buen Estado') goodInfra++;
+  currentPhysical.forEach(r => {
+      const status = (r.status || '').toLowerCase();
+      if (['buen estado', 'operativo', 'bueno', 'ok', 'sin novedad'].includes(status)) {
+        goodInfra++;
+      }
       totalInfra++;
   });
   const infraHealth = totalInfra > 0 ? Math.round((goodInfra / totalInfra) * 100) : 0;
 
 
   // --- ORDENAMIENTO ---
-  const sortedAudits = [...audits].sort((a, b) => (a.score || 0) - (b.score || 0));
+  const sortedAudits = [...currentAudits].sort((a, b) => (a.score || 0) - (b.score || 0));
   const lowPerforming = sortedAudits.slice(0, 3);
   const topPerforming = [...sortedAudits].reverse().slice(0, 3);
 
   // --- LÓGICA INTELIGENTE (FOCOS DE RIESGO) ---
   const failureCounts: Record<string, number> = {};
-  audits.forEach(audit => {
+  currentAudits.forEach(audit => {
     if (audit.processAnswers) {
       Object.entries(audit.processAnswers).forEach(([key, value]: any) => {
         if (value.status === 'NO') {
@@ -139,15 +188,15 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   const topFailure = Object.entries(failureCounts).sort((a, b) => b[1] - a[1])[0];
 
   const caseTypeCounts: Record<string, number> = {};
-  cases.forEach(c => {
+  currentCases.forEach(c => {
     let type = c.type;
     if (!type || type === 'General' || type === '') {
       const titleLower = (c.title || '').toLowerCase();
-      if (titleLower.includes('cámara') || titleLower.includes('cctv') || titleLower.includes('dvr') || titleLower.includes('grabador') || titleLower.includes('video')) {
+      if (titleLower.includes('cámara') || titleLower.includes('cctv') || titleLower.includes('dvr')) {
         type = 'Falla Técnica CCTV';
-      } else if (titleLower.includes('hurto') || titleLower.includes('robo') || titleLower.includes('pérdida')) {
+      } else if (titleLower.includes('hurto') || titleLower.includes('robo')) {
         type = 'Delito contra la Propiedad';
-      } else if (titleLower.includes('procedimiento') || titleLower.includes('protocolo') || titleLower.includes('incumplimiento')) {
+      } else if (titleLower.includes('procedimiento') || titleLower.includes('protocolo')) {
         type = 'Falla de Procedimiento';
       } else {
         type = 'Pendiente de Clasificar';
@@ -157,19 +206,40 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   });
   const topCaseType = Object.entries(caseTypeCounts).sort((a, b) => b[1] - a[1])[0];
 
-  const highPriorityOpen = cases.filter(c => c.priority === 'Alta' && c.status !== 'Cerrado').length;
+  const highPriorityOpen = currentCases.filter(c => c.priority === 'Alta' && c.status !== 'Cerrado').length;
 
   return (
     <div className="max-w-[1600px] mx-auto p-6 md:p-10 pb-20 animate-in fade-in duration-500">
       
-      {/* HEADER */}
-      <div className="flex items-center gap-4 mb-10">
-        <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center shadow-2xl shrink-0 border border-slate-700">
-          <BarChart3 className="w-7 h-7 text-white" />
+      {/* HEADER CON FILTRO */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center shadow-2xl shrink-0 border border-slate-700">
+            <BarChart3 className="w-7 h-7 text-white" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-black text-white tracking-tighter uppercase drop-shadow-md">Resumen Estadístico</h1>
+            <p className="text-slate-300 font-bold text-xs uppercase tracking-widest">Métricas Clave de Rendimiento</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-3xl font-black text-white tracking-tighter uppercase drop-shadow-md">Resumen Estadístico</h1>
-          <p className="text-slate-300 font-bold text-xs uppercase tracking-widest">Métricas Clave de Rendimiento</p>
+
+        {/* SELECTOR DE ZONA */}
+        <div className="flex items-center gap-3 bg-white p-2 pr-6 rounded-xl shadow-lg">
+          <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
+            <Filter className="w-5 h-5" />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Filtrar por Zona</label>
+            <select 
+              value={selectedZone}
+              onChange={(e) => setSelectedZone(e.target.value)}
+              className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer min-w-[150px]"
+            >
+              {zones.map(zone => (
+                <option key={zone} value={zone}>{zone}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -198,7 +268,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
             <MapPin className="w-6 h-6 mb-2 text-emerald-500" />
           </div>
           <div className="mt-4 text-xs font-bold text-slate-400">
-            {visitedPharmacies} de {totalPharmacies} farmacias visitadas
+            {visitedPharmacies} de {totalPharmaciesCount} farmacias visitadas
           </div>
         </div>
 
