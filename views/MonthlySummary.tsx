@@ -4,7 +4,7 @@ import {
   TrendingUp, 
   MapPin, 
   Calendar, 
-  Briefcase, // Icono para Casos
+  Briefcase,
   AlertTriangle,
   CheckCircle2,
   Building2
@@ -16,7 +16,7 @@ import {
   PhysicalInventoryRecord, 
   ManagementVisitRecord, 
   PendingRecord,
-  CaseRecord // Importamos el tipo de Casos
+  CaseRecord 
 } from '../types';
 
 interface MonthlySummaryProps {
@@ -26,7 +26,7 @@ interface MonthlySummaryProps {
   physicalRecords: PhysicalInventoryRecord[];
   managementRecords: ManagementVisitRecord[];
   pendingRecords: PendingRecord[];
-  cases: CaseRecord[]; // Recibimos los casos
+  cases: CaseRecord[];
   users: any[];
   currentUser: any;
 }
@@ -38,18 +38,17 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   physicalRecords, 
   managementRecords, 
   pendingRecords,
-  cases = [], // Valor por defecto
+  cases = [], 
   users,
   currentUser 
 }) => {
 
-  // --- KPI 1: CALIFICACIÓN PROMEDIO (Auditorías) ---
+  // --- KPI LOGIC ---
   const auditScores = audits.map(a => a.score || 0);
   const avgAuditScore = auditScores.length > 0 
     ? Math.round(auditScores.reduce((a, b) => a + b, 0) / auditScores.length) 
     : 0;
 
-  // --- KPI 2: COBERTURA VISITAS ---
   const totalPharmacies = pharmacies.length;
   const visitedPharmacies = new Set([
     ...audits.map(a => a.pharmacy?.id),
@@ -59,22 +58,17 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   ]).size;
   const coverage = totalPharmacies > 0 ? Math.round((visitedPharmacies / totalPharmacies) * 100) : 0;
 
-  // --- KPI 3: EFICIENCIA DE RESOLUCIÓN (MODIFICADO: USA CASOS) ---
+  // EFICIENCIA BASADA EN CASOS
   const totalCases = cases.length;
   const closedCases = cases.filter(c => c.status === 'Cerrado').length;
   const efficiency = totalCases > 0 ? Math.round((closedCases / totalCases) * 100) : 0;
 
-  // --- KPI 4: ACTIVIDAD TOTAL ---
   const totalActivities = audits.length + cctvRecords.length + physicalRecords.length + managementRecords.length;
 
-  // --- DATOS PARA TABLAS INFERIORES ---
-  
-  // Farmacias con menor rendimiento (Bottom 3)
   const lowPerformingPharmacies = [...audits]
     .sort((a, b) => (a.score || 0) - (b.score || 0))
     .slice(0, 3);
 
-  // Distribución de CASOS (Antes era pendientes)
   const casesByPriority = {
     Alta: cases.filter(c => c.priority === 'Alta').length,
     Media: cases.filter(c => c.priority === 'Media').length,
@@ -84,21 +78,20 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   return (
     <div className="max-w-[1600px] mx-auto p-6 md:p-10 pb-20 animate-in fade-in duration-500">
       
-      {/* HEADER (Color Oscuro Correcto) */}
+      {/* HEADER (CON TEXTO BLANCO COMO PEDISTE) */}
       <div className="flex items-center gap-4 mb-10">
-        <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center shadow-2xl shrink-0">
+        <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center shadow-2xl shrink-0 border border-slate-700">
           <BarChart3 className="w-7 h-7 text-white" />
         </div>
         <div>
-          <h1 className="text-3xl font-black text-slate-800 tracking-tighter uppercase">Resumen Estadístico</h1>
-          <p className="text-slate-500 font-bold text-xs uppercase tracking-widest">Métricas Clave de Rendimiento</p>
+          <h1 className="text-3xl font-black text-white tracking-tighter uppercase drop-shadow-md">Resumen Estadístico</h1>
+          <p className="text-slate-300 font-bold text-xs uppercase tracking-widest">Métricas Clave de Rendimiento</p>
         </div>
       </div>
 
-      {/* KPI CARDS (4 Tarjetas Completas) */}
+      {/* KPI CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         
-        {/* KPI 1 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-blue-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Promedio Auditoría</p>
@@ -111,7 +104,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* KPI 2 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-emerald-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Cobertura Mensual</p>
@@ -124,7 +116,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* KPI 3: CONECTADO A CASOS */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-purple-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Eficiencia Resolución</p>
@@ -137,7 +128,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* KPI 4 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-orange-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Actividad Total</p>
@@ -150,10 +140,8 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
       </div>
 
-      {/* SECCIÓN INFERIOR (TABLAS Y GRÁFICOS) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Columna 1: Distribución de Casos (Antes Pendientes) */}
         <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
           <h3 className="text-lg font-black text-slate-800 uppercase mb-6 flex items-center gap-2">
             <Briefcase className="w-5 h-5 text-purple-500" /> Distribución de Casos
@@ -193,7 +181,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* Columna 2: Puntos Críticos (Audit Score bajo) */}
         <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
           <h3 className="text-lg font-black text-slate-800 uppercase mb-6 flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-red-500" /> Puntos de Atención (Bajo Score)
