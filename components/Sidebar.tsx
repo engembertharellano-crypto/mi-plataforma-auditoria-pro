@@ -15,8 +15,9 @@ import {
   ShieldCheck, 
   Key,
   Briefcase,
-  Camera, // Icono para CCTV
-  BrickWall // Icono para Infraestructura
+  Camera,
+  BrickWall,
+  ClipboardCheck // Icono para Auditoría
 } from 'lucide-react';
 import { ViewName } from '../types';
 
@@ -98,6 +99,11 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div>
             <p className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Gestión</p>
             <div className="space-y-2">
+              {/* RESTAURADO: Botón de Nueva Auditoría */}
+              <button onClick={() => handleNav('audit-wizard')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('audit-wizard')}`}>
+                <ClipboardCheck className="w-5 h-5" /> Nueva Auditoría
+              </button>
+              
               <button onClick={() => handleNav('visit-log')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('visit-log')}`}>
                 <FileText className="w-5 h-5" /> Bitácora
               </button>
@@ -110,7 +116,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          {/* SECCIÓN RESTAURADA: INVENTARIOS */}
           <div>
             <p className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Inventarios</p>
             <div className="space-y-2">
