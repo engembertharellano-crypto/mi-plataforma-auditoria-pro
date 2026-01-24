@@ -14,7 +14,9 @@ import {
   Truck, 
   ShieldCheck, 
   Key,
-  Briefcase
+  Briefcase,
+  Camera, // Icono para CCTV
+  BrickWall // Icono para Infraestructura
 } from 'lucide-react';
 import { ViewName } from '../types';
 
@@ -51,12 +53,10 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const isReadOnlyUser = user?.email === 'directiva@xana.com';
 
-  // CORRECCIÓN: Lista estricta de roles que pueden ver "Accesos"
   const isAdmin = () => {
     if (!user) return false;
     const role = (user.role || '').toLowerCase();
     const email = (user.email || '').toLowerCase();
-    // Solo Gerentes y Super Usuario. Se eliminaron coordinadores y líderes.
     return ['super usuario', 'gerente corporativo de seguridad', 'gerente de seguridad'].includes(role) || email === 'directiva@xana.com';
   };
 
@@ -110,6 +110,19 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
+          {/* SECCIÓN RESTAURADA: INVENTARIOS */}
+          <div>
+            <p className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Inventarios</p>
+            <div className="space-y-2">
+              <button onClick={() => handleNav('cctv-inventory')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('cctv-inventory')}`}>
+                <Camera className="w-5 h-5" /> Inventario CCTV
+              </button>
+              <button onClick={() => handleNav('physical-inventory')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('physical-inventory')}`}>
+                <BrickWall className="w-5 h-5" /> Infraestructura
+              </button>
+            </div>
+          </div>
+
           <div>
             <p className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Activos</p>
             <div className="space-y-2">
@@ -154,7 +167,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div>
             <p className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Sistema</p>
             <div className="space-y-2">
-              {/* SOLO SI ES ADMIN REAL (Gerente o Super Usuario) */}
               {!isReadOnlyUser && isAdmin() && (
                 <button onClick={() => handleNav('access-management')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${isActive('access-management')}`}>
                   <ShieldCheck className="w-5 h-5" /> Accesos
