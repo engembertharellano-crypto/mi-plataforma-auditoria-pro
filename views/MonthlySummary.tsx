@@ -13,7 +13,7 @@ import {
   Zap,
   Camera,
   BrickWall,
-  Filter // Icono para el filtro
+  Filter
 } from 'lucide-react';
 import { 
   Pharmacy, 
@@ -64,42 +64,33 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   currentUser 
 }) => {
 
-  // Estado para el filtro de zona
   const [selectedZone, setSelectedZone] = useState<string>('Todas');
 
-  // Obtener lista de zonas únicas
   const zones = useMemo(() => {
     const uniqueZones = new Set(pharmacies.map(p => p.zone).filter(Boolean));
     return ['Todas', ...Array.from(uniqueZones)];
   }, [pharmacies]);
 
-  // --- FILTRADO DE DATA SEGÚN ZONA SELECCIONADA ---
   const filteredData = useMemo(() => {
-    // 1. Filtrar Farmacias
     const filteredPharmacies = selectedZone === 'Todas' 
       ? pharmacies 
       : pharmacies.filter(p => p.zone === selectedZone);
     
     const pharmacyIds = new Set(filteredPharmacies.map(p => p.id));
 
-    // 2. Filtrar el resto basado en las farmacias filtradas
     return {
       pharmacies: filteredPharmacies,
       audits: audits.filter(a => a.pharmacy?.id && pharmacyIds.has(a.pharmacy.id)),
       cctv: cctvRecords.filter(r => pharmacyIds.has(r.pharmacyId)),
       physical: physicalRecords.filter(r => pharmacyIds.has(r.pharmacyId)),
       management: managementRecords.filter(r => pharmacyIds.has(r.pharmacyId)),
-      // Para casos, intentamos vincular por farmacia si es posible, o filtrado general
       cases: cases.filter(c => {
-        // Si el caso tiene pharmacyId, lo usamos. Si no, lo dejamos pasar si es 'Todas'
-        // Asumiendo que podemos cruzar data, si no, mostramos todos en vista general
-        // Aquí asumimos una lógica de filtrado simple si existiera el vínculo
+        // Lógica simplificada de filtrado de casos por zona
         return true; 
       })
     };
   }, [selectedZone, pharmacies, audits, cctvRecords, physicalRecords, managementRecords, cases]);
 
-  // Usamos la data filtrada para los cálculos
   const { 
     pharmacies: currentPharmacies, 
     audits: currentAudits, 
@@ -109,8 +100,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     cases: currentCases 
   } = filteredData;
 
-
-  // --- KPI LOGIC (Usando data filtrada) ---
+  // --- KPI LOGIC ---
   const auditScores = currentAudits.map(a => a.score || 0);
   const avgAuditScore = auditScores.length > 0 
     ? Math.round(auditScores.reduce((a, b) => a + b, 0) / auditScores.length) 
@@ -131,41 +121,90 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const totalActivities = currentAudits.length + currentCCTV.length + currentPhysical.length + currentManagement.length;
 
-  // --- LÓGICA DE INVENTARIOS (CORREGIDA PARA DETECTAR VARIOS ESTADOS) ---
+  // --- LÓGICA DE INVENTARIOS (CORREGIDA: SUMA DE ELEMENTOS) ---
   
-  // CCTV
-  let totalCameras = 0;
-  let activeCameras = 0;
-  currentCCTV.forEach(r => {
-      // Normalizamos a minúsculas para comparar mejor
+  // CCTV: Operatividad
+  let totalCamerasSum = 0;
+  let activeCamerasSum = 0;
+  let totalCCTVRecords = 0;
+  let activeCCTVRecords = 0;
+
+  currentCCTV.forEach((r: any) => {
+      totalCCTVRecords++;
+      
+      // Intentar leer totales de cámaras del registro
+      let recordTotal = r.cameraCounts?.total || r.totalCameras || 0;
+      let recordActive = r.cameraCounts?.ok || r.operativeCameras || 0;
+
+      if (recordTotal > 0) {
+          totalCamerasSum += recordTotal;
+          activeCamerasSum += recordActive;
+      }
+
+      // Fallback: Evaluar estatus del registro
       const status = (r.status || '').toLowerCase();
-      // Lista de palabras que significan "Bueno"
       if (['operativo', 'buen estado', 'bueno', 'funcional', 'activo', 'en linea', 'ok'].includes(status)) {
-        activeCameras++;
+        activeCCTVRecords++;
       }
-      totalCameras++;
   });
-  const cctvHealth = totalCameras > 0 ? Math.round((activeCameras / totalCameras) * 100) : 0;
 
-  // INFRAESTRUCTURA
-  let totalInfra = 0;
-  let goodInfra = 0;
-  currentPhysical.forEach(r => {
+  let cctvHealth = 0;
+  let cctvSubtitle = "Sin datos";
+
+  if (totalCamerasSum > 0) {
+      // Prioridad: Cálculo basado en suma de cámaras
+      cctvHealth = Math.round((activeCamerasSum / totalCamerasSum) * 100);
+      cctvSubtitle = `${totalCamerasSum} Cámaras Auditadas`;
+  } else if (totalCCTVRecords > 0) {
+      // Fallback: Cálculo basado en registros
+      cctvHealth = Math.round((activeCCTVRecords / totalCCTVRecords) * 100);
+      cctvSubtitle = `${totalCCTVRecords} Sistemas Auditados`;
+  }
+
+  // INFRAESTRUCTURA: Estado
+  let totalInfraElementsSum = 0;
+  let goodInfraElementsSum = 0;
+  let totalInfraRecords = 0;
+  let goodInfraRecords = 0;
+
+  currentPhysical.forEach((r: any) => {
+      totalInfraRecords++;
+
+      // Intentar leer totales de elementos del registro
+      let recordTotal = r.counts?.installed || r.installed || 0;
+      let recordGood = r.counts?.operative || r.operative || 0;
+      
+      if (recordTotal > 0) {
+          totalInfraElementsSum += recordTotal;
+          goodInfraElementsSum += recordGood;
+      }
+
+      // Fallback: Evaluar estatus del registro
       const status = (r.status || '').toLowerCase();
-      if (['buen estado', 'operativo', 'bueno', 'ok', 'sin novedad'].includes(status)) {
-        goodInfra++;
+      if (['buen estado', 'operativo', 'bueno', 'ok', 'sin novedad', 'completo'].includes(status)) {
+        goodInfraRecords++;
       }
-      totalInfra++;
   });
-  const infraHealth = totalInfra > 0 ? Math.round((goodInfra / totalInfra) * 100) : 0;
 
+  let infraHealth = 0;
+  let infraSubtitle = "Sin datos";
+
+  if (totalInfraElementsSum > 0) {
+      // Prioridad: Cálculo basado en suma de elementos
+      infraHealth = Math.round((goodInfraElementsSum / totalInfraElementsSum) * 100);
+      infraSubtitle = `${totalInfraElementsSum} Elementos Rev.`;
+  } else if (totalInfraRecords > 0) {
+      // Fallback: Cálculo basado en registros
+      infraHealth = Math.round((goodInfraRecords / totalInfraRecords) * 100);
+      infraSubtitle = `${totalInfraRecords} Registros Rev.`;
+  }
 
   // --- ORDENAMIENTO ---
   const sortedAudits = [...currentAudits].sort((a, b) => (a.score || 0) - (b.score || 0));
   const lowPerforming = sortedAudits.slice(0, 3);
   const topPerforming = [...sortedAudits].reverse().slice(0, 3);
 
-  // --- LÓGICA INTELIGENTE (FOCOS DE RIESGO) ---
+  // --- LÓGICA INTELIGENTE ---
   const failureCounts: Record<string, number> = {};
   currentAudits.forEach(audit => {
     if (audit.processAnswers) {
@@ -223,7 +262,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* SELECTOR DE ZONA */}
         <div className="flex items-center gap-3 bg-white p-2 pr-6 rounded-xl shadow-lg">
           <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
             <Filter className="w-5 h-5" />
@@ -246,7 +284,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       {/* KPI CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         
-        {/* Auditoría */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-blue-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Promedio Auditoría</p>
@@ -259,7 +296,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* Cobertura */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-emerald-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Cobertura Mensual</p>
@@ -272,7 +308,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* Eficiencia */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-purple-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Eficiencia Resolución</p>
@@ -285,7 +320,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* Actividad */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-orange-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Actividad Total</p>
@@ -298,10 +332,9 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
       </div>
 
-      {/* NUEVA SECCIÓN: ESTADO DE FUERZA (CCTV + INFRAESTRUCTURA) */}
+      {/* ESTADO DE FUERZA (CCTV + INFRAESTRUCTURA) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
         
-        {/* Blindaje CCTV */}
         <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-400">
@@ -316,11 +349,10 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
              <span className={`text-3xl font-black ${cctvHealth >= 90 ? 'text-emerald-400' : cctvHealth >= 70 ? 'text-orange-400' : 'text-red-400'}`}>
                {cctvHealth}%
              </span>
-             <p className="text-[10px] text-slate-500 font-bold uppercase">{totalCameras} Equipos Auditados</p>
+             <p className="text-[10px] text-slate-500 font-bold uppercase">{cctvSubtitle}</p>
           </div>
         </div>
 
-        {/* Infraestructura */}
         <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-teal-500/20 rounded-2xl flex items-center justify-center text-teal-400">
@@ -335,7 +367,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
              <span className={`text-3xl font-black ${infraHealth >= 90 ? 'text-emerald-400' : infraHealth >= 70 ? 'text-orange-400' : 'text-red-400'}`}>
                {infraHealth}%
              </span>
-             <p className="text-[10px] text-slate-500 font-bold uppercase">{totalInfra} Elementos Rev.</p>
+             <p className="text-[10px] text-slate-500 font-bold uppercase">{infraSubtitle}</p>
           </div>
         </div>
 
@@ -344,7 +376,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       {/* SECCIÓN INFERIOR */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* COLUMNA 1: FOCOS DE RIESGO */}
         <div className="bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-800 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
           
@@ -402,7 +433,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* COLUMNA 2 Y 3: LISTAS DE DESEMPEÑO */}
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
           
           <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
