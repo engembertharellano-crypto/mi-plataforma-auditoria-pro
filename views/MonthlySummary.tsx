@@ -13,7 +13,9 @@ import {
   Zap,
   Camera,
   BrickWall,
-  Filter
+  Filter,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 import { 
   Pharmacy, 
@@ -37,6 +39,23 @@ const QUESTION_MAP: Record<string, string> = {
   'alarma': 'Sistema de Alarma',
   'control_acceso': 'Biométrico/Control',
   'radio': 'Equipos de Radio'
+};
+
+// --- HELPER PARA FORZAR NÚMEROS ---
+const getNum = (val: any): number => {
+  if (typeof val === 'number') return val;
+  if (typeof val === 'string') return parseFloat(val) || 0;
+  return 0;
+};
+
+// --- HELPER PARA PARSEAR DATA ---
+const parseData = (data: any): any => {
+  if (!data) return {};
+  if (typeof data === 'object') return data;
+  if (typeof data === 'string') {
+    try { return JSON.parse(data); } catch (e) { return {}; }
+  }
+  return {};
 };
 
 interface MonthlySummaryProps {
@@ -76,7 +95,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       ? pharmacies 
       : pharmacies.filter(p => p.zone === selectedZone);
     
-    // Usamos Strings para garantizar coincidencia de IDs
     const pharmacyIds = new Set(filteredPharmacies.map(p => String(p.id)));
 
     return {
@@ -120,41 +138,68 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   const totalActivities = currentAudits.length + currentCCTV.length + currentPhysical.length + currentManagement.length;
 
   // =========================================================================
-  // CÁLCULO DE INVENTARIOS (COPIADO EXACTO DEL REPORTE GERENCIAL)
+  // CÁLCULO DE DETALLES (QUÉ FALLÓ)
   // =========================================================================
 
-  // 1. CCTV (Lógica IDÉNTICA al ManagementReport)
-  let totalCams = 0; 
-  let operativeCams = 0;
+  // 1. CCTV
+  let cctvTotal = 0; 
+  let cctvOk = 0;
+  let cctvBad = 0; // Contador de malas
   
-  currentCCTV.forEach((r: any) => {
-    // Protección: Si r.cameras no existe, usamos objeto vacío para no romper
+  currentCCTV.forEach((rawRecord: any) => {
+    const r = parseData(rawRecord);
     const cams = r.cameras || {};
     
-    // Suma exacta del reporte gerencial
-    totalCams += ((cams.analogTotal || 0) + (cams.ipTotal || 0));
-    operativeCams += ((cams.analogOperative || 0) + (cams.ipOperative || 0));
+    const totalLocal = (cams.analogTotal || 0) + (cams.ipTotal || 0);
+    const okLocal = (cams.analogOperative || 0) + (cams.ipOperative || 0);
+    
+    cctvTotal += totalLocal;
+    cctvOk += okLocal;
+    cctvBad += (totalLocal - okLocal); // Calculamos las malas
   });
 
-  const cctvHealth = totalCams > 0 ? Math.round((operativeCams / totalCams) * 100) : 0;
+  const cctvHealth = cctvTotal > 0 ? Math.round((cctvOk / cctvTotal) * 100) : 0;
 
-  // 2. INFRAESTRUCTURA (Lógica IDÉNTICA al ManagementReport)
-  let totalPhys = 0; 
-  let operativePhys = 0;
+  // 2. INFRAESTRUCTURA (Con Nombres de Fallas)
+  let infraTotal = 0; 
+  let infraOk = 0;
   
-  currentPhysical.forEach((r: any) => {
-    // Protección: Si los objetos no existen, usamos vacíos
-    const santamarias = r.santamarias || {};
-    const candados = r.candados || {};
-    const espejos = r.espejos || {};
-    const iluminacion = r.iluminacion || {};
+  // Acumulador de fallas por tipo
+  const infraFailures: Record<string, number> = {
+    'Santamaría': 0,
+    'Candado': 0,
+    'Espejo': 0,
+    'Iluminación': 0
+  };
+  
+  currentPhysical.forEach((rawRecord: any) => {
+    const r = parseData(rawRecord);
+    const s = r.santamarias || {};
+    const c = r.candados || {};
+    const e = r.espejos || {};
+    const i = r.iluminacion || {};
 
-    // Suma exacta del reporte gerencial
-    totalPhys += ((santamarias.required || 0) + (candados.required || 0) + (espejos.required || 0) + (iluminacion.required || 0));
-    operativePhys += ((santamarias.good || 0) + (candados.good || 0) + (espejos.good || 0) + (iluminacion.good || 0));
+    const reqS = s.required || 0; const goodS = s.good || 0;
+    const reqC = c.required || 0; const goodC = c.good || 0;
+    const reqE = e.required || 0; const goodE = e.good || 0;
+    const reqI = i.required || 0; const goodI = i.good || 0;
+
+    infraTotal += (reqS + reqC + reqE + reqI);
+    infraOk += (goodS + goodC + goodE + goodI);
+
+    // Sumar fallas específicas
+    if (reqS > goodS) infraFailures['Santamaría'] += (reqS - goodS);
+    if (reqC > goodC) infraFailures['Candado'] += (reqC - goodC);
+    if (reqE > goodE) infraFailures['Espejo'] += (reqE - goodE);
+    if (reqI > goodI) infraFailures['Iluminación'] += (reqI - goodI);
   });
 
-  const physicalHealth = totalPhys > 0 ? Math.round((operativePhys / totalPhys) * 100) : 0;
+  const infraHealth = infraTotal > 0 ? Math.round((infraOk / infraTotal) * 100) : 0;
+
+  // Convertir objeto de fallas a lista de texto
+  const infraFailureList = Object.entries(infraFailures)
+    .filter(([_, count]) => count > 0)
+    .map(([name, count]) => `${count} ${name}${count > 1 ? 's' : ''}`);
 
   // =========================================================================
 
@@ -299,8 +344,8 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
         
         {/* Blindaje CCTV */}
-        <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between relative overflow-hidden">
+          <div className="flex items-center gap-4 relative z-10">
             <div className="w-12 h-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-400">
               <Camera className="w-6 h-6" />
             </div>
@@ -309,17 +354,26 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
               <p className="text-slate-400 text-xs font-bold">Operatividad Tecnológica</p>
             </div>
           </div>
-          <div className="text-right">
+          <div className="text-right relative z-10">
              <span className={`text-3xl font-black ${cctvHealth >= 90 ? 'text-emerald-400' : cctvHealth >= 70 ? 'text-orange-400' : 'text-red-400'}`}>
                {cctvHealth}%
              </span>
-             <p className="text-[10px] text-slate-500 font-bold uppercase">{totalCams} Cámaras Totales</p>
+             {/* DETALLE DE FALLAS CCTV */}
+             {cctvBad > 0 ? (
+               <p className="text-[10px] text-red-400 font-bold uppercase flex items-center justify-end gap-1 mt-1">
+                 <XCircle className="w-3 h-3" /> {cctvBad} Cámaras Inactivas
+               </p>
+             ) : (
+               <p className="text-[10px] text-emerald-400 font-bold uppercase flex items-center justify-end gap-1 mt-1">
+                 <CheckCircle2 className="w-3 h-3" /> 100% Operativo
+               </p>
+             )}
           </div>
         </div>
 
         {/* Infraestructura */}
-        <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between relative overflow-hidden">
+          <div className="flex items-center gap-4 relative z-10">
             <div className="w-12 h-12 bg-teal-500/20 rounded-2xl flex items-center justify-center text-teal-400">
               <BrickWall className="w-6 h-6" />
             </div>
@@ -328,11 +382,27 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
               <p className="text-slate-400 text-xs font-bold">Condiciones Físicas</p>
             </div>
           </div>
-          <div className="text-right">
-             <span className={`text-3xl font-black ${physicalHealth >= 90 ? 'text-emerald-400' : physicalHealth >= 70 ? 'text-orange-400' : 'text-red-400'}`}>
-               {physicalHealth}%
+          <div className="text-right relative z-10">
+             <span className={`text-3xl font-black ${infraHealth >= 90 ? 'text-emerald-400' : infraHealth >= 70 ? 'text-orange-400' : 'text-red-400'}`}>
+               {infraHealth}%
              </span>
-             <p className="text-[10px] text-slate-500 font-bold uppercase">{totalPhys} Elementos Rev.</p>
+             {/* DETALLE DE FALLAS INFRAESTRUCTURA */}
+             {infraFailureList.length > 0 ? (
+               <div className="flex flex-col items-end mt-1">
+                 {infraFailureList.slice(0, 2).map((fail, i) => (
+                   <p key={i} className="text-[9px] text-red-400 font-bold uppercase flex items-center gap-1">
+                     <AlertTriangle className="w-3 h-3" /> {fail}
+                   </p>
+                 ))}
+                 {infraFailureList.length > 2 && (
+                   <p className="text-[9px] text-red-400 font-bold uppercase">... y {infraFailureList.length - 2} más</p>
+                 )}
+               </div>
+             ) : (
+               <p className="text-[10px] text-emerald-400 font-bold uppercase flex items-center justify-end gap-1 mt-1">
+                 <CheckCircle2 className="w-3 h-3" /> Sin Novedades
+               </p>
+             )}
           </div>
         </div>
 
