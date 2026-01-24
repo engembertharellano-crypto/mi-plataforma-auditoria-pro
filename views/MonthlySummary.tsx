@@ -1,19 +1,22 @@
-import React, { useState, useMemo } from 'react';
+import React from 'react';
 import { 
+  BarChart3, 
   TrendingUp, 
-  TrendingDown,
-  AlertTriangle,
-  Target,
-  BarChart3,
-  Calendar, 
-  Globe,
-  Award,
-  CheckCircle2,
-  ArrowRight,
-  Store,
-  ListTodo
+  AlertCircle, 
+  CheckCircle2, 
+  MapPin,
+  Calendar,
+  Briefcase // Icono para Casos
 } from 'lucide-react';
-import { Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, PendingRecord } from '../types';
+import { 
+  Pharmacy, 
+  AuditState, 
+  CCTVInventoryRecord, 
+  PhysicalInventoryRecord, 
+  ManagementVisitRecord, 
+  PendingRecord,
+  CaseRecord // IMPORTANTE: Importamos el tipo de casos
+} from '../types';
 
 interface MonthlySummaryProps {
   pharmacies: Pharmacy[];
@@ -21,417 +24,122 @@ interface MonthlySummaryProps {
   cctvRecords: CCTVInventoryRecord[];
   physicalRecords: PhysicalInventoryRecord[];
   managementRecords: ManagementVisitRecord[];
-  pendingRecords?: PendingRecord[];
+  pendingRecords: PendingRecord[];
+  cases: CaseRecord[]; // NUEVO: Recibimos los casos
+  users: any[];
   currentUser: any;
 }
 
-const ZONES = ['Gran Caracas Llanos', 'Gran Caracas Oriente', 'Centro Occidente'];
-
-const MonthlySummary: React.FC<MonthlySummaryProps> = ({
-  pharmacies = [],
-  audits = [],
-  cctvRecords = [],
-  physicalRecords = [],
-  managementRecords = [],
-  pendingRecords = [],
-  currentUser
+const MonthlySummary: React.FC<MonthlySummaryProps> = ({ 
+  pharmacies, 
+  audits, 
+  cctvRecords, 
+  physicalRecords, 
+  managementRecords, 
+  pendingRecords,
+  cases = [], // Default vacío por seguridad
+  users,
+  currentUser 
 }) => {
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
-  const [selectedZone, setSelectedZone] = useState('Todas');
 
-  const isGlobalView = useMemo(() => {
-    if (!currentUser) return false;
-    const role = (currentUser.role || '').toLowerCase();
-    const email = (currentUser.email || '').toLowerCase();
-    return role.includes('gerente') || role.includes('lider') || role === 'super usuario' || email === 'directiva@xana.com';
-  }, [currentUser]);
+  // --- KPI 1: CALIFICACIÓN PROMEDIO (Auditorías) ---
+  const auditScores = audits.map(a => a.score || 0);
+  const avgAuditScore = auditScores.length > 0 
+    ? Math.round(auditScores.reduce((a, b) => a + b, 0) / auditScores.length) 
+    : 0;
 
-  // HELPER SEGURO: Obtener datos de farmacia sin romper el ciclo
-  const getPharmacyData = (record: any) => {
-    if (!record) return { id: 'unknown', name: 'Sede Desconocida', zone: 'Sin Zona', risk: 'Bajo' };
-    
-    // Intenta obtener ID de varias formas posibles
-    const pId = record.pharmacyId || (record.pharmacy && typeof record.pharmacy === 'object' ? record.pharmacy.id : null);
-    
-    if (!pId) return { id: 'unknown', name: 'Sede Desconocida', zone: 'Sin Zona', risk: 'Bajo' };
+  // --- KPI 2: COBERTURA VISITAS ---
+  const totalPharmacies = pharmacies.length;
+  const visitedPharmacies = new Set([
+    ...audits.map(a => a.pharmacy?.id),
+    ...cctvRecords.map(r => r.pharmacyId),
+    ...physicalRecords.map(r => r.pharmacyId),
+    ...managementRecords.map(r => r.pharmacyId)
+  ]).size;
+  const coverage = totalPharmacies > 0 ? Math.round((visitedPharmacies / totalPharmacies) * 100) : 0;
 
-    const pharmacy = pharmacies.find(p => p.id === pId);
-    return {
-      id: pId,
-      name: pharmacy ? pharmacy.name : (record.pharmacy?.name || 'Sede Desconocida'),
-      zone: pharmacy ? pharmacy.zone : (record.pharmacy?.zone || 'Zona General'),
-      risk: pharmacy ? pharmacy.risk : 'Bajo'
-    };
-  };
+  // --- KPI 3: EFICIENCIA DE RESOLUCIÓN (AHORA CON CASOS) ---
+  const totalCases = cases.length;
+  const closedCases = cases.filter(c => c.status === 'Cerrado').length;
+  const efficiency = totalCases > 0 ? Math.round((closedCases / totalCases) * 100) : 0;
 
-  // HELPER SEGURO DE FECHAS
-  const checkDateInMonth = (dateStr: string | undefined, targetMonth: number) => {
-    if (!dateStr || typeof dateStr !== 'string') return false;
-    try {
-      let d: Date;
-      if (dateStr.includes('/')) {
-        const [day, month, year] = dateStr.split('/');
-        d = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-      } else {
-        d = new Date(dateStr);
-      }
-      
-      if (isNaN(d.getTime())) return false;
-      return d.getMonth() === targetMonth;
-    } catch (e) {
-      return false;
-    }
-  };
-
-  // 1. TOTAL FARMACIAS EN LA ZONA
-  const pharmacyCount = useMemo(() => {
-    return pharmacies.filter(p => {
-      if (!p) return false;
-      const matchesZone = !isGlobalView || (selectedZone === 'Todas' || p.zone === selectedZone);
-      return matchesZone;
-    }).length;
-  }, [pharmacies, selectedZone, isGlobalView]);
-
-  // 2. FILTRADO GENERAL SEGURO
-  const filterData = (items: any[], month: number) => {
-    if (!Array.isArray(items)) return [];
-    return items.filter(item => {
-      if (!item) return false;
-      // Validación de fecha segura
-      const matchesMonth = checkDateInMonth(item.date, month);
-      const { zone } = getPharmacyData(item);
-      const matchesZone = !isGlobalView || (selectedZone === 'Todas' || zone === selectedZone);
-      return matchesMonth && matchesZone;
-    });
-  };
-
-  // 3. FILTRO SEGURO PARA PENDIENTES
-  const currentPendings = useMemo(() => {
-    if (!Array.isArray(pendingRecords)) return [];
-    
-    return pendingRecords.filter(p => {
-      if (!p) return false;
-      // Usamos el helper de fecha seguro
-      const matchesMonth = checkDateInMonth(p.date, selectedMonth);
-      
-      // Búsqueda de zona segura
-      let pZone = '';
-      if (p.pharmacyId) {
-        const ph = pharmacies.find(pharm => pharm.id === p.pharmacyId);
-        if (ph) pZone = ph.zone;
-      }
-      
-      const matchesZone = !isGlobalView || (selectedZone === 'Todas' || pZone === selectedZone);
-      return matchesMonth && matchesZone;
-    });
-  }, [pendingRecords, selectedMonth, selectedZone, isGlobalView, pharmacies]);
-
-  // CARGA DE DATOS
-  const currentAudits = filterData(audits, selectedMonth);
-  const currentCCTV = filterData(cctvRecords, selectedMonth);
-  const currentPhysical = filterData(physicalRecords, selectedMonth);
-  
-  // Mes anterior para tendencias
-  const prevMonthIndex = selectedMonth === 0 ? 11 : selectedMonth - 1;
-  const prevAudits = filterData(audits, prevMonthIndex);
-
-  // --- CÁLCULOS ESTADÍSTICOS ---
-  const stats = useMemo(() => {
-    // A. Promedio General
-    const currentAvg = currentAudits.length > 0 
-      ? currentAudits.reduce((acc, curr) => acc + (typeof curr.score === 'number' ? curr.score : 0), 0) / currentAudits.length 
-      : 0;
-    
-    const prevAvg = prevAudits.length > 0 
-      ? prevAudits.reduce((acc, curr) => acc + (typeof curr.score === 'number' ? curr.score : 0), 0) / prevAudits.length 
-      : 0;
-
-    const trend = currentAvg - prevAvg;
-    const hasPreviousData = prevAudits.length > 0;
-
-    // B. Eficiencia de Resolución
-    const solvedCount = currentPendings.filter(p => p.status === 'Solventado').length;
-    const totalPendingsCount = currentPendings.length;
-    
-    // Null si no hay pendientes (para mostrar N/A), o % real si existen
-    const efficiencyRate = totalPendingsCount > 0 
-      ? (solvedCount / totalPendingsCount) * 100 
-      : null;
-
-    // C. Cobertura de Zona
-    const uniqueVisitedIds = new Set(currentAudits.map(a => getPharmacyData(a).id));
-    const coveragePercentage = pharmacyCount > 0 
-      ? (uniqueVisitedIds.size / pharmacyCount) * 100 
-      : 0;
-
-    // D. Ranking
-    const pharmacyScores: Record<string, { total: number, count: number, name: string }> = {};
-    currentAudits.forEach(a => {
-        const { name } = getPharmacyData(a);
-        if (!pharmacyScores[name]) pharmacyScores[name] = { total: 0, count: 0, name };
-        pharmacyScores[name].total += (typeof a.score === 'number' ? a.score : 0);
-        pharmacyScores[name].count += 1;
-    });
-    
-    const leaderboard = Object.values(pharmacyScores)
-        .map(p => ({ name: p.name, avg: p.total / p.count }))
-        .sort((a, b) => a.avg - b.avg); 
-
-    const worstPerformers = leaderboard.slice(0, 3);
-    const bestPerformers = [...leaderboard].reverse().slice(0, 3);
-
-    // E. Críticos
-    const criticalAudits = currentAudits.filter(a => (typeof a.score === 'number' ? a.score : 0) < 70).length;
-
-    return {
-      currentAvg,
-      prevAvg,
-      trend,
-      hasPreviousData,
-      totalActivity: currentAudits.length + currentCCTV.length + currentPhysical.length,
-      efficiencyRate,
-      worstPerformers,
-      bestPerformers,
-      criticalAudits,
-      totalPendingsCount,
-      solvedCount,
-      coveragePercentage,
-      uniqueVisitedCount: uniqueVisitedIds.size
-    };
-  }, [currentAudits, prevAudits, currentCCTV, currentPhysical, currentPendings, pharmacyCount]);
-
-  const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-
-  const getInsightMessage = () => {
-    if (!stats.hasPreviousData) {
-      if (stats.currentAvg === 0) return "Sin actividad de auditoría registrada en el mes actual.";
-      if (stats.currentAvg >= 90) return "Desempeño actual sobresaliente. Mantener estándares de supervisión.";
-      if (stats.currentAvg >= 75) return "Desempeño operativo estable con margen de mejora.";
-      return "Nivel de cumplimiento bajo. Se requiere intervención inmediata en sedes críticas.";
-    }
-    if (stats.trend > 0) return `TENDENCIA POSITIVA: Mejora del ${stats.trend.toFixed(1)}% respecto al mes anterior.`;
-    if (stats.trend < 0) return `ALERTA DE TENDENCIA: Caída del ${Math.abs(stats.trend).toFixed(1)}% en el cumplimiento.`;
-    return "Rendimiento estable respecto al mes anterior.";
-  };
+  // --- KPI 4: ACTIVIDAD TOTAL ---
+  const totalActivities = audits.length + cctvRecords.length + physicalRecords.length + managementRecords.length;
 
   return (
-    <div className="max-w-[1600px] mx-auto p-8 animate-in fade-in duration-500 pb-20">
+    <div className="max-w-[1600px] mx-auto p-6 md:p-10 pb-20 animate-in fade-in duration-500">
       
-      {/* HEADER: BLANCO SOBRE FONDO OSCURO */}
-      <div className="flex flex-col md:flex-row justify-between items-center mb-12 gap-6">
-        <div>
-          <h2 className="text-5xl font-black text-white tracking-tighter uppercase mb-2">INTELIGENCIA DE ZONA</h2>
-          <p className="text-slate-300 font-bold text-sm uppercase tracking-widest">Análisis de Desempeño y Cumplimiento</p>
+      {/* HEADER */}
+      <div className="flex items-center gap-4 mb-10">
+        <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center shadow-2xl shrink-0">
+          <BarChart3 className="w-7 h-7 text-white" />
         </div>
-        
-        <div className="flex gap-4">
-          {isGlobalView && (
-            <div className="relative group">
-              <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-orange-500 transition-colors" />
-              <select 
-                value={selectedZone}
-                onChange={(e) => setSelectedZone(e.target.value)}
-                className="pl-12 pr-10 py-4 bg-white border-none rounded-2xl outline-none ring-4 ring-transparent focus:ring-orange-500/20 text-slate-800 font-black uppercase text-xs tracking-widest shadow-xl cursor-pointer min-w-[220px]"
-              >
-                <option value="Todas">Todas las Zonas</option>
-                {ZONES.map(z => <option key={z} value={z}>{z}</option>)}
-              </select>
-            </div>
-          )}
+        <div>
+          <h1 className="text-3xl font-black text-slate-800 tracking-tighter uppercase">Resumen Estadístico</h1>
+          <p className="text-slate-500 font-bold text-xs uppercase tracking-widest">Métricas Clave de Rendimiento</p>
+        </div>
+      </div>
 
-          <div className="relative group">
-            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-orange-500 transition-colors" />
-            <select 
-              value={selectedMonth} 
-              onChange={(e) => setSelectedMonth(Number(e.target.value))}
-              className="pl-12 pr-10 py-4 bg-white border-none rounded-2xl outline-none ring-4 ring-transparent focus:ring-orange-500/20 text-slate-800 font-black uppercase text-xs tracking-widest shadow-xl cursor-pointer min-w-[180px]"
-            >
-              {months.map((m, i) => <option key={i} value={i}>{m}</option>)}
-            </select>
+      {/* KPI CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+        
+        {/* KPI 1 */}
+        <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-blue-100"></div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Promedio Auditoría</p>
+          <div className="flex items-end gap-3 relative z-10">
+            <span className="text-5xl font-black text-slate-800 tracking-tighter">{avgAuditScore}%</span>
+            <TrendingUp className={`w-6 h-6 mb-2 ${avgAuditScore >= 80 ? 'text-emerald-500' : 'text-orange-500'}`} />
+          </div>
+          <div className="w-full bg-slate-100 h-1.5 rounded-full mt-4 overflow-hidden">
+            <div className="h-full bg-blue-500 rounded-full" style={{ width: `${avgAuditScore}%` }}></div>
           </div>
         </div>
-      </div>
 
-      {/* KPI STRIP */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-        
-        {/* SCORE CARD */}
-        <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 flex flex-col justify-between h-48 relative overflow-hidden">
-           <div className="absolute -right-4 -top-4 w-24 h-24 bg-indigo-50 rounded-full blur-2xl"></div>
-           <div className="relative z-10">
-             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Cumplimiento Promedio</span>
-             <div className="flex items-baseline gap-2 mt-2">
-               <span className="text-5xl font-black text-slate-800 tracking-tighter">{stats.currentAvg.toFixed(0)}%</span>
-               {stats.hasPreviousData && stats.trend !== 0 && (
-                 <span className={`text-xs font-black px-2 py-1 rounded-lg flex items-center ${stats.trend > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                   {stats.trend > 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
-                   {Math.abs(stats.trend).toFixed(1)}%
-                 </span>
-               )}
-             </div>
-           </div>
-           <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full transition-all duration-1000 ${stats.currentAvg >= 80 ? 'bg-indigo-500' : stats.currentAvg >= 60 ? 'bg-orange-500' : 'bg-red-500'}`} style={{ width: `${stats.currentAvg}%` }}></div>
-           </div>
+        {/* KPI 2 */}
+        <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-emerald-100"></div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Cobertura Mensual</p>
+          <div className="flex items-end gap-3 relative z-10">
+            <span className="text-5xl font-black text-slate-800 tracking-tighter">{coverage}%</span>
+            <MapPin className="w-6 h-6 mb-2 text-emerald-500" />
+          </div>
+          <div className="mt-4 text-xs font-bold text-slate-400">
+            {visitedPharmacies} de {totalPharmacies} farmacias visitadas
+          </div>
         </div>
 
-        {/* RISK CARD */}
-        <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 flex flex-col justify-between h-48 relative overflow-hidden">
-           <div className="absolute -right-4 -top-4 w-24 h-24 bg-red-50 rounded-full blur-2xl"></div>
-           <div className="relative z-10">
-             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Auditorías Críticas</span>
-             <div className="flex items-baseline gap-2 mt-2">
-               <span className={`text-5xl font-black tracking-tighter ${stats.criticalAudits > 0 ? 'text-red-500' : 'text-slate-800'}`}>{stats.criticalAudits}</span>
-               <span className="text-xs font-bold text-slate-400 uppercase">Sedes &lt; 70%</span>
-             </div>
-           </div>
-           <div>
-             {stats.criticalAudits === 0 ? (
-               <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs bg-emerald-50 px-3 py-2 rounded-xl w-fit">
-                 <CheckCircle2 className="w-4 h-4" /> Zona Estable
-               </div>
-             ) : (
-               <div className="flex items-center gap-2 text-red-600 font-bold text-xs bg-red-50 px-3 py-2 rounded-xl w-fit">
-                 <AlertTriangle className="w-4 h-4" /> Atención Requerida
-               </div>
-             )}
-           </div>
+        {/* KPI 3: AHORA BASADO EN CASOS */}
+        <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-purple-100"></div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Eficiencia Resolución</p>
+          <div className="flex items-end gap-3 relative z-10">
+            <span className="text-5xl font-black text-slate-800 tracking-tighter">{efficiency}%</span>
+            <Briefcase className="w-6 h-6 mb-2 text-purple-500" />
+          </div>
+          <div className="mt-4 text-xs font-bold text-slate-400">
+            {closedCases} de {totalCases} Casos Cerrados
+          </div>
         </div>
 
-        {/* EFFICIENCY CARD (REAL) */}
-        <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 flex flex-col justify-between h-48 relative overflow-hidden">
-           <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-50 rounded-full blur-2xl"></div>
-           <div className="relative z-10">
-             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Eficiencia Resolución</span>
-             <div className="flex items-baseline gap-2 mt-2">
-               <span className="text-5xl font-black text-slate-800 tracking-tighter">
-                 {stats.efficiencyRate !== null ? `${stats.efficiencyRate.toFixed(0)}%` : 'S/D'}
-               </span>
-             </div>
-             <p className="text-[10px] font-bold text-slate-400 mt-1">
-                {stats.solvedCount} de {stats.totalPendingsCount} casos cerrados
-             </p>
-           </div>
-           <div className="flex gap-1">
-              {[1,2,3,4,5].map(bar => (
-                <div key={bar} className={`h-2 flex-1 rounded-full ${stats.efficiencyRate !== null && stats.efficiencyRate >= bar * 20 ? 'bg-emerald-500' : 'bg-slate-100'}`}></div>
-              ))}
-           </div>
-        </div>
-
-        {/* TOTAL SEDES / COBERTURA */}
-        <div className="bg-slate-900 p-6 rounded-[2.5rem] shadow-xl shadow-slate-900/20 flex flex-col justify-between h-48 relative overflow-hidden text-white">
-           <div className="relative z-10">
-             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Total Sedes</span>
-             <div className="flex items-baseline gap-2 mt-2">
-               <span className="text-5xl font-black tracking-tighter text-white">{pharmacyCount}</span>
-               <span className="text-xs font-bold text-orange-500 uppercase">Farmacias</span>
-             </div>
-           </div>
-           <div className="text-[10px] font-bold text-slate-400 flex items-center gap-2">
-              <Store className="w-4 h-4 text-orange-500" />
-              {isGlobalView && selectedZone !== 'Todas' ? selectedZone : 'En la Red'}
-           </div>
-        </div>
-      </div>
-
-      {/* DETAILED INSIGHTS */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
-        {/* TOP & BOTTOM PERFORMERS */}
-        <div className="bg-white p-8 rounded-[3rem] shadow-2xl border border-slate-100">
-           <div className="flex items-center gap-3 mb-8">
-              <div className="p-3 bg-slate-50 rounded-2xl text-slate-800">
-                 <Target className="w-6 h-6" />
-              </div>
-              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Ranking de Desempeño</h3>
-           </div>
-
-           <div className="space-y-8">
-              {/* Worst Performers */}
-              <div>
-                 <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <TrendingDown className="w-4 h-4" /> Sedes Críticas (Prioridad)
-                 </p>
-                 <div className="space-y-3">
-                    {stats.worstPerformers.length > 0 && stats.worstPerformers[0].avg > 0 ? stats.worstPerformers.map((p, i) => (
-                       <div key={i} className="flex justify-between items-center p-4 bg-red-50/50 rounded-2xl border border-red-50">
-                          <span className="font-bold text-slate-700 text-xs uppercase">{p.name}</span>
-                          <span className="font-black text-red-600 text-sm">{p.avg.toFixed(1)}%</span>
-                       </div>
-                    )) : (
-                       <div className="text-center py-4 text-slate-400 text-xs font-medium italic">Sin datos suficientes para determinar criticidad.</div>
-                    )}
-                 </div>
-              </div>
-
-              {/* Best Performers */}
-              <div>
-                 <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <Award className="w-4 h-4" /> Líderes en Cumplimiento
-                 </p>
-                 <div className="space-y-3">
-                    {stats.bestPerformers.length > 0 && stats.bestPerformers[0].avg > 0 ? stats.bestPerformers.map((p, i) => (
-                       <div key={i} className="flex justify-between items-center p-4 bg-emerald-50/50 rounded-2xl border border-emerald-50">
-                          <span className="font-bold text-slate-700 text-xs uppercase">{p.name}</span>
-                          <span className="font-black text-emerald-600 text-sm">{p.avg.toFixed(1)}%</span>
-                       </div>
-                    )) : (
-                       <div className="text-center py-4 text-slate-400 text-xs font-medium italic">No hay suficientes datos para el ranking.</div>
-                    )}
-                 </div>
-              </div>
-           </div>
-        </div>
-
-        {/* ACTIVITY BREAKDOWN & CATEGORIES */}
-        <div className="space-y-8">
-           <div className="bg-white p-8 rounded-[3rem] shadow-2xl border border-slate-100">
-              <div className="flex items-center gap-3 mb-8">
-                 <div className="p-3 bg-slate-50 rounded-2xl text-slate-800">
-                    <BarChart3 className="w-6 h-6" />
-                 </div>
-                 <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Distribución Operativa</h3>
-              </div>
-              
-              <div className="space-y-5">
-                 {[
-                    { label: 'Auditorías de Seguridad', val: currentAudits.length, color: 'bg-orange-500', icon: <Target className="w-4 h-4 text-white" /> },
-                    { label: 'Inventarios CCTV', val: currentCCTV.length, color: 'bg-blue-500', icon: <Target className="w-4 h-4 text-white" /> },
-                    { label: 'Incidentes Reportados (Pendientes)', val: stats.totalPendingsCount, color: 'bg-red-500', icon: <ListTodo className="w-4 h-4 text-white" /> },
-                    { label: 'Cobertura de Zona (Sedes Visitadas)', val: stats.uniqueVisitedCount, color: 'bg-emerald-500', icon: <Store className="w-4 h-4 text-white" /> },
-                 ].map((item, i) => (
-                    <div key={i} className="group">
-                       <div className="flex justify-between items-end mb-2">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                             {item.label}
-                          </span>
-                          <span className="font-black text-slate-800">{item.val}</span>
-                       </div>
-                       <div className="h-4 bg-slate-50 rounded-full overflow-hidden border border-slate-100">
-                          <div 
-                             className={`h-full rounded-full ${item.color} transition-all duration-1000 shadow-sm`} 
-                             style={{ width: `${Math.min(100, (item.val / (stats.totalActivity + (stats.totalPendingsCount || 1))) * 100)}%` }}
-                          ></div>
-                       </div>
-                    </div>
-                 ))}
-              </div>
-           </div>
-
-           {/* INSIGHT CARD INTELIGENTE */}
-           <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-8 rounded-[3rem] shadow-2xl shadow-orange-500/20 text-white relative overflow-hidden">
-              <div className="relative z-10">
-                 <h4 className="text-lg font-black uppercase tracking-tight mb-2">Diagnóstico Rápido</h4>
-                 <p className="text-xs font-medium opacity-90 leading-relaxed">
-                    {getInsightMessage()}
-                 </p>
-              </div>
-              <ArrowRight className="absolute bottom-6 right-6 w-24 h-24 text-white opacity-10" />
-           </div>
+        {/* KPI 4 */}
+        <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-orange-100"></div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Actividad Total</p>
+          <div className="flex items-end gap-3 relative z-10">
+            <span className="text-5xl font-black text-slate-800 tracking-tighter">{totalActivities}</span>
+            <Calendar className="w-6 h-6 mb-2 text-orange-500" />
+          </div>
+          <p className="mt-4 text-xs font-bold text-slate-400">Registros este mes</p>
         </div>
 
       </div>
+
+      {/* AQUÍ PODRÍAN IR MÁS GRÁFICOS SI SE REQUIEREN A FUTURO */}
+      <div className="bg-slate-50 rounded-[2.5rem] p-10 text-center border border-slate-100">
+        <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Gráficos detallados disponibles en reporte gerencial</p>
+      </div>
+
     </div>
   );
 };
