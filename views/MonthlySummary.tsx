@@ -11,7 +11,7 @@ import {
   Trophy,
   Siren,
   Target,
-  Zap // Icono para Urgencia
+  Zap
 } from 'lucide-react';
 import { 
   Pharmacy, 
@@ -24,16 +24,13 @@ import {
 } from '../types';
 
 // --- DICCIONARIO DE TRADUCCIÓN (CÓDIGO -> TEXTO HUMANO) ---
-// Aquí convertimos los códigos técnicos "p1.2" en texto legible para el Gerente.
 const QUESTION_MAP: Record<string, string> = {
-  // Procesos (p)
   'p1.1': 'Uniforme y Presencia',
   'p1.2': 'Libro de Novedades',
   'p1.3': 'Control de Accesos',
   'p1.4': 'Reporte de Novedades',
   'p2.1': 'Limpieza y Orden',
   'p2.2': 'Iluminación Perimetral',
-  // Hardware (h) - Ajusta según tus IDs reales
   'cctv': 'Sistema CCTV',
   'dvr': 'Grabador DVR',
   'alarma': 'Sistema de Alarma',
@@ -99,7 +96,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     if (audit.processAnswers) {
       Object.entries(audit.processAnswers).forEach(([key, value]: any) => {
         if (value.status === 'NO') {
-          // Intentamos traducir, si no existe en el mapa, usamos el código original
           const readableName = QUESTION_MAP[key] || key; 
           failureCounts[readableName] = (failureCounts[readableName] || 0) + 1;
         }
@@ -116,12 +112,28 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   });
   const topFailure = Object.entries(failureCounts).sort((a, b) => b[1] - a[1])[0];
 
-  // 2. Tipología de Caso (Mejorando "General")
+  // 2. Tipología de Caso (AHORA MÁS INTELIGENTE)
   const caseTypeCounts: Record<string, number> = {};
   cases.forEach(c => {
-    // Si es "General" o vacío, lo contamos como "Sin Clasificar" para que se vea la necesidad de clasificar
-    let type = c.type || 'Sin Clasificar';
-    if (type === 'General') type = 'Incidente General'; // Nombre un poco más formal
+    let type = c.type;
+
+    // --- LÓGICA INTELIGENTE DE RESPALDO ---
+    // Si no tiene tipo asignado, intentamos deducirlo por el título
+    if (!type || type === 'General' || type === '') {
+      const titleLower = (c.title || '').toLowerCase();
+      if (titleLower.includes('cámara') || titleLower.includes('cctv') || titleLower.includes('dvr') || titleLower.includes('grabador') || titleLower.includes('video')) {
+        type = 'Falla Técnica CCTV';
+      } else if (titleLower.includes('hurto') || titleLower.includes('robo') || titleLower.includes('pérdida')) {
+        type = 'Delito contra la Propiedad';
+      } else if (titleLower.includes('procedimiento') || titleLower.includes('protocolo') || titleLower.includes('incumplimiento')) {
+        type = 'Falla de Procedimiento';
+      } else {
+        // Si no podemos deducirlo, ahí sí queda como pendiente de clasificar
+        type = 'Pendiente de Clasificar';
+      }
+    }
+    // ------------------------------------
+
     caseTypeCounts[type] = (caseTypeCounts[type] || 0) + 1;
   });
   const topCaseType = Object.entries(caseTypeCounts).sort((a, b) => b[1] - a[1])[0];
@@ -201,7 +213,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       {/* SECCIÓN INFERIOR */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* COLUMNA 1: FOCOS DE RIESGO (Mejorado) */}
+        {/* COLUMNA 1: FOCOS DE RIESGO (INTELIGENTE) */}
         <div className="bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-800 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
           
@@ -227,7 +239,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
               </div>
             </div>
 
-            {/* 2. Tipología Predominante (Mejorado) */}
+            {/* 2. Tipología Predominante (AHORA INTELIGENTE) */}
             <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm transition-colors hover:bg-white/10">
               <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-500 shrink-0">
                 <Target className="w-6 h-6" />
@@ -243,7 +255,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
               </div>
             </div>
 
-            {/* 3. Urgencia Operativa (Reemplaza Zona) */}
+            {/* 3. Urgencia Operativa */}
             <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm transition-colors hover:bg-white/10">
               <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-red-500 shrink-0">
                 <Zap className="w-6 h-6" />
