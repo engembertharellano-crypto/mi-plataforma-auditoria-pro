@@ -31,7 +31,7 @@ interface SidebarProps {
   isSyncing: boolean;
   isOpen: boolean;
   onClose: () => void;
-  // --- NUEVAS PROPS PARA EL MODO VIAJE ---
+  // Props para el Modo Viaje
   isTravelMode: boolean;
   onToggleTravelMode: () => void;
 }
@@ -51,7 +51,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'ai-assistant', label: 'Asistente IA', icon: BrainCircuit, highlight: true },
-    { id: 'visit-log', label: 'Visor de Auditorías', icon: CalendarDays },
+    { id: 'visit-log', label: 'Bitácora', icon: CalendarDays }, // <--- NOMBRE CORREGIDO
     { id: 'case-management', label: 'Gestión de Casos', icon: ShieldAlert },
     { id: 'audit-wizard', label: 'Iniciar Auditoría', icon: ClipboardCheck },
     { id: 'new-visit', label: 'Registrar Visita', icon: Briefcase },
@@ -99,7 +99,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          {/* PERFIL DE USUARIO */}
+          {/* PERFIL */}
           <div className="bg-white/5 rounded-2xl p-4 border border-white/5 mb-2">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Sesión Activa</p>
             <p className="font-bold text-sm truncate">{user?.fullName}</p>
@@ -111,7 +111,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          {/* --- INTERRUPTOR DE MODO VIAJE (VISIBLE SOLO PARA COORDINADORES) --- */}
+          {/* MODO VIAJE (Solo visible para coordinadores, no admins) */}
           {!isAdmin && (
             <button 
               onClick={onToggleTravelMode}
@@ -143,7 +143,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* MENÚ SCROLLABLE */}
+        {/* MENÚ */}
         <div className="flex-1 overflow-y-auto px-4 space-y-1 custom-scrollbar pb-4">
           <p className="px-4 py-2 text-[10px] font-black text-slate-500 uppercase tracking-widest sticky top-0 bg-slate-900 z-10">Menú Principal</p>
           
