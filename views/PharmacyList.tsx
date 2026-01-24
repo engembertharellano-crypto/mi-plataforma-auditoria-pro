@@ -25,9 +25,10 @@ import {
   AlertTriangle,
   UserCheck,
   Users,
-  Navigation, // Icono GPS agregado
-  ShieldCheck, // Icono Seguridad agregado
-  ShieldAlert  // Icono Sin Seguridad agregado
+  Navigation,
+  ShieldCheck,
+  ShieldAlert,
+  Plane // Icono de modo viaje
 } from 'lucide-react';
 import { Pharmacy, StaffRecord } from '../types';
 
@@ -49,11 +50,19 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
   const [showNewPharmacyModal, setShowNewPharmacyModal] = useState(false);
   const [showGlobalMap, setShowGlobalMap] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ id: string; name: string } | null>(null);
+  
+  // --- NUEVO ESTADO: MODO VIAJE ---
+  const [viewMode, setViewMode] = useState<'mine' | 'all'>('mine');
 
   const isAdmin = useMemo(() => {
     const adminRoles = ['Gerente de seguridad', 'Lider de investigaciones', 'Super Usuario'];
     return adminRoles.includes(currentUser?.role);
   }, [currentUser]);
+
+  // Si es admin, siempre ve todo (ignora el filtro)
+  useEffect(() => {
+    if (isAdmin) setViewMode('all');
+  }, [isAdmin]);
 
   const [newPharmacyData, setNewPharmacyData] = useState({
     name: '',
@@ -62,7 +71,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
     zone: (isAdmin ? 'Gran Caracas Llanos' : currentUser?.zone) as Pharmacy['zone'],
     location: null as { lat: number; lng: number } | null,
     photo: null as string | null,
-    hasSecurityOfficer: false // Nuevo campo inicializado
+    hasSecurityOfficer: false
   });
 
   const [formData, setFormData] = useState({
@@ -72,7 +81,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
     zone: 'Gran Caracas Llanos' as Pharmacy['zone'],
     location: null as { lat: number; lng: number } | null,
     photo: null as string | null,
-    hasSecurityOfficer: false // Nuevo campo inicializado
+    hasSecurityOfficer: false
   });
 
   const [showMapModal, setShowMapModal] = useState(false);
@@ -102,369 +111,105 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [tempLocation, setTempLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  // --- MAP INITIALIZATION (GPS INDIVIDUAL) ---
+  // --- FILTRO INTELIGENTE (LA CLAVE DEL MODO VIAJE) ---
+  const filteredPharmacies = pharmacies.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          p.address.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Si es admin o está en 'Modo Viaje', muestra todas.
+    // Si no, solo muestra las de su zona.
+    const matchesZone = isAdmin || viewMode === 'all' || p.zone === currentUser?.zone;
+
+    return matchesSearch && matchesZone;
+  });
+
+  // --- MAP INITIALIZATION ---
   useEffect(() => {
     if (!showMapModal) return;
-    
     const timeout = setTimeout(() => {
       if (!mapContainerRef.current) return;
       const L = (window as any).L;
       if (!L) return;
-
       const initialLat = tempLocation?.lat || 10.4806;
       const initialLng = tempLocation?.lng || -66.9036;
-
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-      }
-
+      if (mapInstanceRef.current) mapInstanceRef.current.remove();
       try {
-        const map = L.map(mapContainerRef.current, {
-          zoomControl: false,
-          attributionControl: false
-        }).setView([initialLat, initialLng], 15);
-
+        const map = L.map(mapContainerRef.current, { zoomControl: false, attributionControl: false }).setView([initialLat, initialLng], 15);
         L.control.zoom({ position: 'topright' }).addTo(map);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
         const marker = L.marker([initialLat, initialLng], { draggable: true }).addTo(map);
-        marker.on('dragend', () => {
-          const pos = marker.getLatLng();
-          setTempLocation({ lat: pos.lat, lng: pos.lng });
-        });
-
-        map.on('click', (e: any) => {
-          marker.setLatLng(e.latlng);
-          setTempLocation({ lat: e.latlng.lat, lng: e.latlng.lng });
-        });
-
-        mapInstanceRef.current = map;
-        markerRef.current = marker;
-        
-        map.invalidateSize();
-        setTimeout(() => map.invalidateSize(), 100);
-      } catch (err) {
-        console.error("Map Init Error:", err);
-      }
+        marker.on('dragend', () => { const pos = marker.getLatLng(); setTempLocation({ lat: pos.lat, lng: pos.lng }); });
+        map.on('click', (e: any) => { marker.setLatLng(e.latlng); setTempLocation({ lat: e.latlng.lat, lng: e.latlng.lng }); });
+        mapInstanceRef.current = map; markerRef.current = marker;
+        map.invalidateSize(); setTimeout(() => map.invalidateSize(), 100);
+      } catch (err) { console.error(err); }
     }, 350);
-
-    return () => { 
-      clearTimeout(timeout);
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
+    return () => { clearTimeout(timeout); if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; } };
   }, [showMapModal]);
 
-  // --- GLOBAL ZONE MAP INITIALIZATION ---
+  // --- GLOBAL MAP ---
   useEffect(() => {
     if (!showGlobalMap) return;
-
     const timeout = setTimeout(() => {
       if (!globalMapRef.current) return;
       const L = (window as any).L;
       if (!L) return;
-
-      if (globalMapInstanceRef.current) {
-        globalMapInstanceRef.current.remove();
-      }
-
+      if (globalMapInstanceRef.current) globalMapInstanceRef.current.remove();
       try {
-        const map = L.map(globalMapRef.current, {
-          zoomControl: false,
-          attributionControl: false
-        }).setView([10.4806, -66.9036], 12);
-
+        const map = L.map(globalMapRef.current, { zoomControl: false, attributionControl: false }).setView([10.4806, -66.9036], 12);
         L.control.zoom({ position: 'topright' }).addTo(map);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-        const orangeIcon = L.divIcon({
-          className: 'custom-marker',
-          html: `<div style="background-color: #ea580c; width: 24px; height: 24px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.3);"></div>`,
-          iconSize: [24, 24],
-          iconAnchor: [12, 24],
-          tooltipAnchor: [15, -15]
-        });
-
-        const zonePharmacies = pharmacies.filter(p => 
-          (isAdmin || p.zone === currentUser?.zone) && p.location
-        );
-
+        const orangeIcon = L.divIcon({ className: 'custom-marker', html: `<div style="background-color: #ea580c; width: 24px; height: 24px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.3);"></div>`, iconSize: [24, 24], iconAnchor: [12, 24], tooltipAnchor: [15, -15] });
+        
+        // Usar filteredPharmacies para el mapa también
+        const zonePharmacies = filteredPharmacies.filter(p => p.location);
         const bounds = L.latLngBounds([]);
-
         zonePharmacies.forEach(p => {
           if (p.location) {
             const marker = L.marker([p.location.lat, p.location.lng], { icon: orangeIcon }).addTo(map);
-            
-            marker.bindTooltip(`
-              <div style="padding: 4px; font-family: sans-serif;">
-                <p style="margin: 0; font-weight: 900; color: #1e293b; text-transform: uppercase; font-size: 10px;">${p.name}</p>
-                <p style="margin: 2px 0 0 0; color: #64748b; font-size: 9px;">${p.address.substring(0, 40)}...</p>
-              </div>
-            `, { direction: 'top', opacity: 0.9 });
-
-            marker.on('click', () => {
-              map.flyTo([p.location!.lat, p.location!.lng], 18, {
-                animate: true,
-                duration: 1.5
-              });
-            });
-
+            marker.bindTooltip(`<div style="padding: 4px; font-family: sans-serif;"><p style="margin: 0; font-weight: 900; color: #1e293b; text-transform: uppercase; font-size: 10px;">${p.name}</p><p style="margin: 2px 0 0 0; color: #64748b; font-size: 9px;">${p.address.substring(0, 40)}...</p></div>`, { direction: 'top', opacity: 0.9 });
+            marker.on('click', () => { map.flyTo([p.location!.lat, p.location!.lng], 18, { animate: true, duration: 1.5 }); });
             bounds.extend([p.location.lat, p.location.lng]);
           }
         });
-
-        if (zonePharmacies.length > 0) {
-          map.fitBounds(bounds, { padding: [50, 50] });
-        } else {
-          map.setView([10.4806, -66.9036], 11);
-        }
-
-        globalMapInstanceRef.current = map;
-        map.invalidateSize();
-      } catch (err) {
-        console.error("Global Map Init Error:", err);
-      }
+        if (zonePharmacies.length > 0) map.fitBounds(bounds, { padding: [50, 50] }); else map.setView([10.4806, -66.9036], 11);
+        globalMapInstanceRef.current = map; map.invalidateSize();
+      } catch (err) { console.error(err); }
     }, 350);
+    return () => { clearTimeout(timeout); if (globalMapInstanceRef.current) { globalMapInstanceRef.current.remove(); globalMapInstanceRef.current = null; } };
+  }, [showGlobalMap, filteredPharmacies]);
 
-    return () => { 
-      clearTimeout(timeout);
-      if (globalMapInstanceRef.current) {
-        globalMapInstanceRef.current.remove();
-        globalMapInstanceRef.current = null;
-      }
-    };
-  }, [showGlobalMap, pharmacies]);
-
-  // Función para abrir GPS
-  const openGPS = (lat: number, lng: number) => {
-    window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
-  };
+  const openGPS = (lat: number, lng: number) => window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) return;
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setTempLocation(coords);
-        if (mapInstanceRef.current && markerRef.current) {
-          mapInstanceRef.current.setView([coords.lat, coords.lng], 17);
-          markerRef.current.setLatLng([coords.lat, coords.lng]);
-        }
-        setIsLocating(false);
-      },
-      () => {
-        setIsLocating(false);
-        alert("No se pudo obtener la ubicación actual.");
-      },
+      (pos) => { const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude }; setTempLocation(coords); if (mapInstanceRef.current && markerRef.current) { mapInstanceRef.current.setView([coords.lat, coords.lng], 17); markerRef.current.setLatLng([coords.lat, coords.lng]); } setIsLocating(false); },
+      () => { setIsLocating(false); alert("No se pudo obtener la ubicación actual."); },
       { enableHighAccuracy: true, timeout: 5000 }
     );
   };
 
-  const filteredPharmacies = pharmacies.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.address.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   const handleEditClick = (pharmacy: Pharmacy) => {
     setEditingPharmacy(pharmacy);
-    setFormData({
-      name: pharmacy.name,
-      address: pharmacy.address,
-      corporatePhone: pharmacy.corporatePhone || '',
-      zone: pharmacy.zone,
-      location: pharmacy.location || null,
-      photo: pharmacy.photo || null,
-      hasSecurityOfficer: pharmacy.hasSecurityOfficer || false // Cargar dato existente
-    });
+    setFormData({ name: pharmacy.name, address: pharmacy.address, corporatePhone: pharmacy.corporatePhone || '', zone: pharmacy.zone, location: pharmacy.location || null, photo: pharmacy.photo || null, hasSecurityOfficer: pharmacy.hasSecurityOfficer || false });
   };
 
-  const handleSaveEdit = () => {
-    if (!editingPharmacy) return;
-    
-    onUpdate({ 
-      ...editingPharmacy, 
-      ...formData, 
-      location: formData.location || undefined, 
-      photo: formData.photo || undefined,
-      hasSecurityOfficer: formData.hasSecurityOfficer // Guardar dato
-    });
-    setEditingPharmacy(null);
-  };
+  const handleSaveEdit = () => { if (!editingPharmacy) return; onUpdate({ ...editingPharmacy, ...formData, location: formData.location || undefined, photo: formData.photo || undefined, hasSecurityOfficer: formData.hasSecurityOfficer }); setEditingPharmacy(null); };
 
-  const handleSaveNew = () => {
-    if (!newPharmacyData.name || !newPharmacyData.address) { alert("Nombre y dirección obligatorios"); return; }
-    onAdd({
-      id: `new-${Date.now()}`,
-      ...newPharmacyData,
-      location: newPharmacyData.location || undefined,
-      status: 'Sin auditorías previas',
-      photo: newPharmacyData.photo || undefined,
-      hasSecurityOfficer: newPharmacyData.hasSecurityOfficer // Guardar dato nuevo
-    });
-    setShowNewPharmacyModal(false);
-    setNewPharmacyData({ 
-        name: '', 
-        address: '', 
-        corporatePhone: '', 
-        zone: (isAdmin ? 'Gran Caracas Llanos' : currentUser?.zone) as Pharmacy['zone'], 
-        location: null, 
-        photo: null,
-        hasSecurityOfficer: false 
-    });
-  };
+  const handleSaveNew = () => { if (!newPharmacyData.name || !newPharmacyData.address) { alert("Nombre y dirección obligatorios"); return; } onAdd({ id: `new-${Date.now()}`, ...newPharmacyData, location: newPharmacyData.location || undefined, status: 'Sin auditorías previas', photo: newPharmacyData.photo || undefined, hasSecurityOfficer: newPharmacyData.hasSecurityOfficer }); setShowNewPharmacyModal(false); setNewPharmacyData({ name: '', address: '', corporatePhone: '', zone: (isAdmin ? 'Gran Caracas Llanos' : currentUser?.zone) as Pharmacy['zone'], location: null, photo: null, hasSecurityOfficer: false }); };
 
-  // --- IMAGE HANDLING ---
-  const startImageEditor = (imageData: string, mode: 'create' | 'edit') => { 
-    setTempImage(imageData); 
-    setEditorMode(mode); 
-    setCropScale(1); 
-    setCropRotation(0); 
-    setCropOffset({ x: 0, y: 0 }); 
-    setShowCropModal(true); 
-  };
+  const startImageEditor = (imageData: string, mode: 'create' | 'edit') => { setTempImage(imageData); setEditorMode(mode); setCropScale(1); setCropRotation(0); setCropOffset({ x: 0, y: 0 }); setShowCropModal(true); };
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>, mode: 'create' | 'edit') => { const file = event.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onloadend = () => startImageEditor(reader.result as string, mode); reader.readAsDataURL(file); } event.target.value = ''; };
+  const startCamera = async () => { setShowCameraModal(true); try { setIsCameraReady(false); const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } }); setCameraStream(stream); if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.onloadedmetadata = () => { videoRef.current?.play(); setIsCameraReady(true); }; } } catch (err) { setShowCameraModal(false); alert("No se pudo acceder a la cámara. Verifique los permisos."); } };
+  const capturePhoto = () => { if (isCameraReady && videoRef.current && canvasRef.current) { const canvas = canvasRef.current; canvas.width = videoRef.current.videoWidth; canvas.height = videoRef.current.videoHeight; canvas.getContext('2d')?.drawImage(videoRef.current, 0, 0); const photoData = canvas.toDataURL('image/jpeg', 0.8); stopCamera(); startImageEditor(photoData, editingPharmacy ? 'edit' : 'create'); } };
+  const stopCamera = () => { if (cameraStream) { cameraStream.getTracks().forEach(track => track.stop()); setCameraStream(null); } setIsCameraReady(false); setShowCameraModal(false); };
+  const confirmCrop = () => { if (!imageRef.current) return; const canvas = document.createElement('canvas'); canvas.width = 800; canvas.height = 450; const ctx = canvas.getContext('2d'); if (ctx) { ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.translate(canvas.width / 2, canvas.height / 2); ctx.translate(cropOffset.x, cropOffset.y); ctx.rotate((cropRotation * Math.PI) / 180); ctx.scale(cropScale, cropScale); ctx.drawImage(imageRef.current, -imageRef.current.naturalWidth / 2, -imageRef.current.naturalHeight / 2); const finalImage = canvas.toDataURL('image/jpeg', 0.6); if (editorMode === 'edit') setFormData(prev => ({ ...prev, photo: finalImage })); else setNewPharmacyData(prev => ({ ...prev, photo: finalImage })); setShowCropModal(false); } };
+  const handleOpenMap = (mode: 'edit' | 'create') => { setMapMode(mode); setTempLocation(mode === 'edit' ? formData.location : newPharmacyData.location || { lat: 10.4806, lng: -66.9036 }); setShowMapModal(true); };
+  const confirmLocation = () => { if (tempLocation) { mapMode === 'edit' ? setFormData(prev => ({ ...prev, location: tempLocation })) : setNewPharmacyData(prev => ({ ...prev, location: tempLocation })); } setShowMapModal(false); };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>, mode: 'create' | 'edit') => { 
-    const file = event.target.files?.[0]; 
-    if (file) { 
-      const reader = new FileReader(); 
-      reader.onloadend = () => startImageEditor(reader.result as string, mode); 
-      reader.readAsDataURL(file); 
-    } 
-    event.target.value = ''; 
-  };
-
-  const startCamera = async () => { 
-    setShowCameraModal(true); 
-    try { 
-      setIsCameraReady(false);
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } 
-      }); 
-      setCameraStream(stream); 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-            videoRef.current?.play();
-            setIsCameraReady(true);
-        };
-      }
-    } catch (err) { 
-      setShowCameraModal(false); 
-      alert("No se pudo acceder a la cámara. Verifique los permisos.");
-    } 
-  };
-
-  const capturePhoto = () => { 
-    if (isCameraReady && videoRef.current && canvasRef.current) { 
-      const canvas = canvasRef.current; 
-      canvas.width = videoRef.current.videoWidth; 
-      canvas.height = videoRef.current.videoHeight; 
-      canvas.getContext('2d')?.drawImage(videoRef.current, 0, 0); 
-      const photoData = canvas.toDataURL('image/jpeg', 0.8); // Calidad media para cámara
-      stopCamera(); 
-      startImageEditor(photoData, editingPharmacy ? 'edit' : 'create'); 
-    } 
-  };
-
-  const stopCamera = () => { 
-    if (cameraStream) { 
-      cameraStream.getTracks().forEach(track => track.stop()); 
-      setCameraStream(null); 
-    } 
-    setIsCameraReady(false);
-    setShowCameraModal(false); 
-  };
-
-  const confirmCrop = () => { 
-    if (!imageRef.current) return; 
-    const canvas = document.createElement('canvas');
-    canvas.width = 800; 
-    canvas.height = 450; 
-    const ctx = canvas.getContext('2d'); 
-    if (ctx) { 
-      ctx.fillStyle = '#f8fafc'; 
-      ctx.fillRect(0, 0, canvas.width, canvas.height); 
-      ctx.translate(canvas.width / 2, canvas.height / 2); 
-      ctx.translate(cropOffset.x, cropOffset.y); 
-      ctx.rotate((cropRotation * Math.PI) / 180); 
-      ctx.scale(cropScale, cropScale); 
-      ctx.drawImage(imageRef.current, -imageRef.current.naturalWidth / 2, -imageRef.current.naturalHeight / 2); 
-      
-      // Calidad reducida para asegurar subida rápida
-      const finalImage = canvas.toDataURL('image/jpeg', 0.6); 
-      
-      if (editorMode === 'edit') setFormData(prev => ({ ...prev, photo: finalImage })); 
-      else setNewPharmacyData(prev => ({ ...prev, photo: finalImage })); 
-      setShowCropModal(false); 
-    } 
-  };
-
-  const handleOpenMap = (mode: 'edit' | 'create') => { 
-    setMapMode(mode); 
-    setTempLocation(mode === 'edit' ? formData.location : newPharmacyData.location || { lat: 10.4806, lng: -66.9036 }); 
-    setShowMapModal(true); 
-  };
-
-  const confirmLocation = () => { 
-    if (tempLocation) { 
-      mapMode === 'edit' ? setFormData(prev => ({ ...prev, location: tempLocation })) : setNewPharmacyData(prev => ({ ...prev, location: tempLocation })); 
-    } 
-    setShowMapModal(false); 
-  };
-
-  const renderCropModal = () => (
-    <div className="fixed inset-0 bg-black/95 z-[400] flex flex-col p-6 animate-in fade-in duration-300">
-      <div className="flex justify-between items-center text-white mb-6">
-        <div>
-          <h3 className="text-xl font-bold">Ajustar Imagen</h3>
-          <p className="text-xs text-white/50 uppercase tracking-widest mt-1">Arrastra para mover • Rueda para zoom</p>
-        </div>
-        <button onClick={() => setShowCropModal(false)} className="p-3 hover:bg-white/10 rounded-full transition-all"><X className="w-6 h-6" /></button>
-      </div>
-      
-      <div className="flex-1 relative overflow-hidden bg-slate-900 rounded-3xl flex items-center justify-center cursor-move"
-        onMouseDown={(e) => { setIsDragging(true); setDragStart({ x: e.clientX - cropOffset.x, y: e.clientY - cropOffset.y }); }}
-        onMouseMove={(e) => { if (isDragging) setCropOffset({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y }); }}
-        onMouseUp={() => setIsDragging(false)}
-        onMouseLeave={() => setIsDragging(false)}
-        onWheel={(e) => setCropScale(prev => Math.max(0.1, Math.min(5, prev - e.deltaY * 0.001)))}
-      >
-        <div className="absolute inset-0 border-4 border-orange-500/50 z-10 pointer-events-none flex items-center justify-center">
-          <div className="w-[800px] h-[450px] max-w-full border-2 border-white/50 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]"></div>
-        </div>
-        {tempImage && (
-          <img 
-            ref={imageRef}
-            src={tempImage} 
-            alt="Crop" 
-            draggable={false}
-            className="max-w-none transition-transform duration-75 select-none"
-            style={{ 
-              transform: `translate(${cropOffset.x}px, ${cropOffset.y}px) rotate(${cropRotation}deg) scale(${cropScale})`,
-            }}
-          />
-        )}
-      </div>
-
-      <div className="mt-8 flex flex-col md:flex-row items-center justify-between gap-8 bg-slate-800/50 p-6 rounded-3xl backdrop-blur-md">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setCropScale(prev => Math.max(0.1, prev - 0.1))} className="p-2 bg-white/10 rounded-lg text-white"><Minus className="w-5 h-5" /></button>
-            <span className="text-white text-xs font-black w-12 text-center">{Math.round(cropScale * 100)}%</span>
-            <button onClick={() => setCropScale(prev => Math.min(5, prev + 0.1))} className="p-2 bg-white/10 rounded-lg text-white"><Maximize className="w-5 h-5" /></button>
-          </div>
-          <button onClick={() => setCropRotation(prev => (prev + 90) % 360)} className="flex items-center gap-2 text-white text-xs font-black uppercase bg-white/10 px-4 py-2 rounded-xl"><RotateCw className="w-4 h-4" /> Rotar 90°</button>
-        </div>
-        <div className="flex gap-4">
-          <button onClick={() => setShowCropModal(false)} className="px-8 py-3 text-white font-black uppercase text-[10px] tracking-widest">Cancelar</button>
-          <button onClick={confirmCrop} className="bg-orange-600 text-white px-10 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center gap-2"><Save className="w-4 h-4" /> Finalizar</button>
-        </div>
-      </div>
-    </div>
-  );
+  const renderCropModal = () => ( <div className="fixed inset-0 bg-black/95 z-[400] flex flex-col p-6 animate-in fade-in duration-300"> <div className="flex justify-between items-center text-white mb-6"> <div> <h3 className="text-xl font-bold">Ajustar Imagen</h3> <p className="text-xs text-white/50 uppercase tracking-widest mt-1">Arrastra para mover • Rueda para zoom</p> </div> <button onClick={() => setShowCropModal(false)} className="p-3 hover:bg-white/10 rounded-full transition-all"><X className="w-6 h-6" /></button> </div> <div className="flex-1 relative overflow-hidden bg-slate-900 rounded-3xl flex items-center justify-center cursor-move" onMouseDown={(e) => { setIsDragging(true); setDragStart({ x: e.clientX - cropOffset.x, y: e.clientY - cropOffset.y }); }} onMouseMove={(e) => { if (isDragging) setCropOffset({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y }); }} onMouseUp={() => setIsDragging(false)} onMouseLeave={() => setIsDragging(false)} onWheel={(e) => setCropScale(prev => Math.max(0.1, Math.min(5, prev - e.deltaY * 0.001)))}> <div className="absolute inset-0 border-4 border-orange-500/50 z-10 pointer-events-none flex items-center justify-center"> <div className="w-[800px] h-[450px] max-w-full border-2 border-white/50 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]"></div> </div> {tempImage && ( <img ref={imageRef} src={tempImage} alt="Crop" draggable={false} className="max-w-none transition-transform duration-75 select-none" style={{ transform: `translate(${cropOffset.x}px, ${cropOffset.y}px) rotate(${cropRotation}deg) scale(${cropScale})`, }} /> )} </div> <div className="mt-8 flex flex-col md:flex-row items-center justify-between gap-8 bg-slate-800/50 p-6 rounded-3xl backdrop-blur-md"> <div className="flex items-center gap-6"> <div className="flex items-center gap-3"> <button onClick={() => setCropScale(prev => Math.max(0.1, prev - 0.1))} className="p-2 bg-white/10 rounded-lg text-white"><Minus className="w-5 h-5" /></button> <span className="text-white text-xs font-black w-12 text-center">{Math.round(cropScale * 100)}%</span> <button onClick={() => setCropScale(prev => Math.min(5, prev + 0.1))} className="p-2 bg-white/10 rounded-lg text-white"><Maximize className="w-5 h-5" /></button> </div> <button onClick={() => setCropRotation(prev => (prev + 90) % 360)} className="flex items-center gap-2 text-white text-xs font-black uppercase bg-white/10 px-4 py-2 rounded-xl"><RotateCw className="w-4 h-4" /> Rotar 90°</button> </div> <div className="flex gap-4"> <button onClick={() => setShowCropModal(false)} className="px-8 py-3 text-white font-black uppercase text-[10px] tracking-widest">Cancelar</button> <button onClick={confirmCrop} className="bg-orange-600 text-white px-10 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center gap-2"><Save className="w-4 h-4" /> Finalizar</button> </div> </div> </div> );
 
   return (
     <div className="max-w-7xl mx-auto p-8 animate-in fade-in duration-500 pb-20">
@@ -475,9 +220,28 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
         </div>
         <div className="flex gap-4">
           <button onClick={() => setShowGlobalMap(true)} className="bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-sm transition-all">
-            <Globe className="w-5 h-5 text-orange-400" /> Ver Mapa de Zona
+            <Globe className="w-5 h-5 text-orange-400" /> Ver Mapa
           </button>
-          <button onClick={() => setShowNewPharmacyModal(true)} className="bg-orange-600 hover:bg-orange-500 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all transform hover:-translate-y-0.5"><Plus className="w-5 h-5" /> Registrar Farmacia</button>
+          
+          {/* BOTÓN NUEVO: SELECTOR DE MODO VIAJE */}
+          {!isAdmin && (
+            <div className="bg-white rounded-xl flex p-1 shadow-lg">
+              <button 
+                onClick={() => setViewMode('mine')}
+                className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all ${viewMode === 'mine' ? 'bg-orange-500 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                Mi Zona
+              </button>
+              <button 
+                onClick={() => setViewMode('all')}
+                className={`px-4 py-2 rounded-lg text-xs font-black uppercase flex items-center gap-2 transition-all ${viewMode === 'all' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                <Plane className="w-3 h-3" /> Modo Viaje
+              </button>
+            </div>
+          )}
+
+          <button onClick={() => setShowNewPharmacyModal(true)} className="bg-orange-600 hover:bg-orange-500 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all transform hover:-translate-y-0.5"><Plus className="w-5 h-5" /> Registrar</button>
         </div>
       </div>
 
@@ -487,7 +251,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {filteredPharmacies.map(pharmacy => (
+        {filteredPharmacies.length > 0 ? filteredPharmacies.map(pharmacy => (
           <div key={pharmacy.id} className="glass-card rounded-[2rem] p-1 border border-white/60 shadow-lg hover:shadow-2xl transition-all duration-300 group hover:-translate-y-2">
               <div className="h-44 bg-slate-100 rounded-t-[1.8rem] rounded-b-xl relative overflow-hidden">
                 {pharmacy.photo ? <img src={pharmacy.photo} alt={pharmacy.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-50 flex items-center justify-center"><Store className="w-16 h-16 text-slate-200" /></div>}
@@ -513,7 +277,22 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
                 </div>
               </div>
           </div>
-        ))}
+        )) : (
+          <div className="col-span-full py-20 text-center">
+            <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/20">
+              <Store className="w-10 h-10 text-white/50" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">No se encontraron farmacias</h3>
+            <p className="text-slate-300 text-sm">
+              {viewMode === 'mine' ? 'No tienes sedes asignadas en tu zona.' : 'No hay resultados en el directorio nacional.'}
+            </p>
+            {viewMode === 'mine' && (
+              <button onClick={() => setViewMode('all')} className="mt-6 text-orange-400 font-bold text-sm hover:text-orange-300 transition-colors uppercase tracking-widest flex items-center gap-2 mx-auto">
+                <Plane className="w-4 h-4" /> Buscar en otras zonas
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* MODAL: ZONE MAP */}
@@ -526,7 +305,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
                 </div>
                 <div>
                    <h3 className="text-2xl font-black tracking-tighter uppercase">Mapa de Cobertura</h3>
-                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{isAdmin ? 'Red Nacional de Sedes' : `Sedes de Zona: ${currentUser?.zone}`}</p>
+                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{isAdmin ? 'Red Nacional de Sedes' : (viewMode === 'all' ? 'Cobertura Nacional (Modo Viaje)' : `Sedes de Zona: ${currentUser?.zone}`)}</p>
                 </div>
               </div>
               <button onClick={() => setShowGlobalMap(false)} className="p-4 hover:bg-white/10 rounded-full transition-all"><X className="w-8 h-8" /></button>
@@ -540,14 +319,14 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
                      <div className="w-4 h-4 bg-[#ea580c] rounded-full border-2 border-white shadow-sm"></div>
                      <span className="text-xs font-bold text-slate-700">Sede Registrada</span>
                   </div>
-                  <p className="text-[10px] text-slate-500 font-medium leading-relaxed italic">Pasa el cursor sobre un punto para ver detalles. Haz clic para zoom cinematográfico.</p>
+                  <p className="text-[10px] text-slate-500 font-medium leading-relaxed italic">Mostrando {filteredPharmacies.length} sedes según el filtro activo.</p>
                </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL: NEW PHARMACY */}
+      {/* MODAL: NEW PHARMACY (Contenido original + Switch Seguridad) */}
       {showNewPharmacyModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl animate-in fade-in zoom-in duration-200 overflow-hidden border border-white/20">
@@ -620,7 +399,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
         </div>
       )}
 
-      {/* MODAL: EDIT PHARMACY */}
+      {/* MODAL: EDIT PHARMACY (Contenido original + Switch Seguridad) */}
       {editingPharmacy && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl animate-in fade-in zoom-in duration-200 overflow-hidden border border-white/20">
@@ -695,7 +474,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
         </div>
       )}
 
-      {/* MODAL: VIEW PHARMACY DETAILS */}
+      {/* MODAL: VIEW DETAILS (Original) */}
       {viewingPharmacy && (() => {
         const pharmacyStaff = staffRecords.filter(s => s.pharmacyId === viewingPharmacy.id);
         const manager = pharmacyStaff.find(s => s.role === 'Gerente') || pharmacyStaff.find(s => s.role === 'Gerente/Regente');
@@ -810,8 +589,6 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
                             <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Coordenadas Registradas</p>
                             <p className="text-[10px] font-mono font-bold text-blue-300 mt-1">{viewingPharmacy.location.lat.toFixed(6)}, {viewingPharmacy.location.lng.toFixed(6)}</p>
                           </div>
-                          
-                          {/* BOTON GPS NUEVO */}
                           <button 
                             onClick={() => openGPS(viewingPharmacy.location!.lat, viewingPharmacy.location!.lng)}
                             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-blue-500/30 transition-all transform hover:-translate-y-0.5"
@@ -851,90 +628,10 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ pharmacies, staffRecords, o
         );
       })()}
 
-      {/* MODAL: MAP SELECTION (GPS INDIVIDUAL) */}
-      {showMapModal && (
-        <div className="fixed inset-0 bg-black/80 z-[140] flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-4xl h-[600px] flex flex-col relative overflow-hidden shadow-2xl animate-in zoom-in">
-            <div className="px-6 py-4 border-b flex justify-between items-center bg-white">
-              <h3 className="font-bold text-lg">{mapMode === 'create' ? 'Definir Ubicación' : 'Actualizar Ubicación'}</h3>
-              <button onClick={() => setShowMapModal(false)} className="hover:bg-slate-100 p-2 rounded-full"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="flex-1 relative bg-slate-100">
-              <div ref={mapContainerRef} className="absolute inset-0 w-full h-full min-h-[400px]"></div>
-              
-              <button 
-                onClick={handleGetCurrentLocation}
-                disabled={isLocating}
-                className="absolute bottom-10 right-6 z-[1000] p-4 bg-white hover:bg-slate-50 text-slate-800 rounded-2xl shadow-2xl border border-slate-100 transition-all active:scale-95 flex items-center gap-3"
-              >
-                {isLocating ? <Loader2 className="w-6 h-6 animate-spin text-orange-500" /> : <Crosshair className="w-6 h-6 text-orange-600" />}
-                <span className="font-black uppercase tracking-widest text-[10px]">Mi Ubicación Actual</span>
-              </button>
-            </div>
-            <div className="p-4 border-t flex justify-end gap-3 bg-white">
-              <button onClick={confirmLocation} className="bg-orange-600 text-white px-8 py-2.5 rounded-xl font-bold hover:bg-orange-700 shadow-lg">Confirmar Ubicación</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: CAMERA CAPTURE */}
-      {showCameraModal && (
-        <div className="fixed inset-0 bg-black z-[500] flex flex-col animate-in fade-in duration-300">
-            <div className="p-6 flex justify-between items-center text-white bg-black/50 absolute top-0 w-full z-[510] backdrop-blur-md">
-              <div>
-                <h3 className="font-black uppercase tracking-widest">Capturar Foto Sede</h3>
-                <p className="text-[10px] text-white/60 font-bold uppercase mt-0.5">Ajuste el encuadre a la fachada</p>
-              </div>
-              <button onClick={stopCamera} className="p-3 bg-white/10 hover:bg-white/20 rounded-full transition-all">
-                <X className="w-7 h-7" />
-              </button>
-            </div>
-            
-            <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-black">
-              <video 
-                ref={videoRef} 
-                autoPlay 
-                playsInline 
-                muted
-                className="w-full h-full object-cover" 
-              />
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-[505]">
-                 <div className="w-[85%] h-[60%] border-2 border-white/20 rounded-3xl border-dashed"></div>
-              </div>
-            </div>
-            
-            <canvas ref={canvasRef} className="hidden" />
-            
-            <div className="fixed bottom-10 left-0 right-0 flex justify-center items-center z-[600] pointer-events-none">
-              <button 
-                onClick={capturePhoto} 
-                disabled={!isCameraReady}
-                className={`w-20 h-20 rounded-full bg-white border-[6px] border-slate-300 ring-4 ring-orange-500 ring-offset-4 ring-offset-black shadow-[0_0_50px_rgba(249,115,22,0.5)] transition-all active:scale-90 hover:scale-105 flex items-center justify-center group pointer-events-auto ${!isCameraReady ? 'opacity-50 grayscale' : ''}`}
-              >
-                 <div className="w-16 h-16 rounded-full border-2 border-slate-100 group-active:bg-slate-100 transition-colors"></div>
-              </button>
-            </div>
-            
-            <div className="fixed bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-black/80 to-transparent z-[515] pointer-events-none"></div>
-        </div>
-      )}
-
       {showCropModal && renderCropModal()}
-
-      {deleteConfirmation && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[180] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl text-center">
-             <Trash2 className="w-12 h-12 text-red-600 mx-auto mb-4" />
-             <h3 className="text-2xl font-black mb-2 tracking-tight">¿Eliminar {deleteConfirmation.name}?</h3>
-             <p className="text-slate-500 mb-6">Esta acción borrará permanentemente la sede y todos sus registros asociados.</p>
-             <div className="flex gap-3">
-               <button onClick={() => setDeleteConfirmation(null)} className="flex-1 py-3 rounded-xl border font-bold">Cancelar</button>
-               <button onClick={() => { onDelete(deleteConfirmation.id); setDeleteConfirmation(null); }} className="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold">Eliminar</button>
-             </div>
-          </div>
-        </div>
-      )}
+      {showCameraModal && <div className="fixed inset-0 bg-black z-[500] flex flex-col animate-in fade-in duration-300"> <div className="p-6 flex justify-between items-center text-white bg-black/50 absolute top-0 w-full z-[510] backdrop-blur-md"> <div> <h3 className="font-black uppercase tracking-widest">Capturar Foto Sede</h3> <p className="text-[10px] text-white/60 font-bold uppercase mt-0.5">Ajuste el encuadre a la fachada</p> </div> <button onClick={stopCamera} className="p-3 bg-white/10 hover:bg-white/20 rounded-full transition-all"> <X className="w-7 h-7" /> </button> </div> <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-black"> <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" /> <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-[505]"> <div className="w-[85%] h-[60%] border-2 border-white/20 rounded-3xl border-dashed"></div> </div> </div> <canvas ref={canvasRef} className="hidden" /> <div className="fixed bottom-10 left-0 right-0 flex justify-center items-center z-[600] pointer-events-none"> <button onClick={capturePhoto} disabled={!isCameraReady} className={`w-20 h-20 rounded-full bg-white border-[6px] border-slate-300 ring-4 ring-orange-500 ring-offset-4 ring-offset-black shadow-[0_0_50px_rgba(249,115,22,0.5)] transition-all active:scale-90 hover:scale-105 flex items-center justify-center group pointer-events-auto ${!isCameraReady ? 'opacity-50 grayscale' : ''}`}> <div className="w-16 h-16 rounded-full border-2 border-slate-100 group-active:bg-slate-100 transition-colors"></div> </button> </div> <div className="fixed bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-black/80 to-transparent z-[515] pointer-events-none"></div> </div>}
+      {showMapModal && <div className="fixed inset-0 bg-black/80 z-[140] flex items-center justify-center p-4"> <div className="bg-white rounded-3xl w-full max-w-4xl h-[600px] flex flex-col relative overflow-hidden shadow-2xl animate-in zoom-in"> <div className="px-6 py-4 border-b flex justify-between items-center bg-white"> <h3 className="font-bold text-lg">{mapMode === 'create' ? 'Definir Ubicación' : 'Actualizar Ubicación'}</h3> <button onClick={() => setShowMapModal(false)} className="hover:bg-slate-100 p-2 rounded-full"><X className="w-5 h-5" /></button> </div> <div className="flex-1 relative bg-slate-100"> <div ref={mapContainerRef} className="absolute inset-0 w-full h-full min-h-[400px]"></div> <button onClick={handleGetCurrentLocation} disabled={isLocating} className="absolute bottom-10 right-6 z-[1000] p-4 bg-white hover:bg-slate-50 text-slate-800 rounded-2xl shadow-2xl border border-slate-100 transition-all active:scale-95 flex items-center gap-3"> {isLocating ? <Loader2 className="w-6 h-6 animate-spin text-orange-500" /> : <Crosshair className="w-6 h-6 text-orange-600" />} <span className="font-black uppercase tracking-widest text-[10px]">Mi Ubicación Actual</span> </button> </div> <div className="p-4 border-t flex justify-end gap-3 bg-white"> <button onClick={confirmLocation} className="bg-orange-600 text-white px-8 py-2.5 rounded-xl font-bold hover:bg-orange-700 shadow-lg">Confirmar Ubicación</button> </div> </div> </div>}
+      {deleteConfirmation && <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[180] flex items-center justify-center p-4"> <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl text-center"> <Trash2 className="w-12 h-12 text-red-600 mx-auto mb-4" /> <h3 className="text-2xl font-black mb-2 tracking-tight">¿Eliminar {deleteConfirmation.name}?</h3> <p className="text-slate-500 mb-6">Esta acción borrará permanentemente la sede y todos sus registros asociados.</p> <div className="flex gap-3"> <button onClick={() => setDeleteConfirmation(null)} className="flex-1 py-3 rounded-xl border font-bold">Cancelar</button> <button onClick={() => { onDelete(deleteConfirmation.id); setDeleteConfirmation(null); }} className="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold">Eliminar</button> </div> </div> </div>}
     </div>
   );
 };
