@@ -24,7 +24,7 @@ import { Menu, CheckCircle2, XCircle, Loader2, WifiOff } from 'lucide-react';
 import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, PendingRecord, StaffRecord, SupportRecord, DeliveryReceipt, ScheduleEntry, BriefingData, Asset, AssetLoan, CaseRecord } from './types';
 import { supabase } from './lib/supabase';
 
-const DATA_VERSION = "11.17-TRAVEL-MODE-READY";
+const DATA_VERSION = "11.18-SMART-ZONE-FILTERING";
 
 interface UserData {
   version: string;
@@ -106,6 +106,15 @@ const App: React.FC = () => {
     return ['super usuario', 'gerente corporativo de seguridad', 'gerente de seguridad', 'lider de investigaciones'].includes(role);
   }, [currentUser]);
 
+  // --- FILTRO QUIRÚRGICO: FARMACIAS DE MI ZONA ---
+  // Esta lista se usará SOLO para Dashboard y Estadísticas, para no ensuciar la vista.
+  const myZonePharmacies = useMemo(() => {
+    if (!userData.pharmacies) return [];
+    // Si es jefe, ve todo. Si no, solo su zona.
+    if (isBoss) return userData.pharmacies;
+    return userData.pharmacies.filter(p => p.zone === currentUser?.zone);
+  }, [userData.pharmacies, currentUser, isBoss]);
+
   const addToast = useCallback((message: string, type: 'success' | 'error' | 'sync') => {
     const id = Math.random().toString(36).substr(2, 9);
     setToasts(prev => [...prev, { id, message, type }]);
@@ -141,8 +150,7 @@ const App: React.FC = () => {
         return data || [];
       };
 
-      // --- CAMBIO CLAVE: DESCARGAR TODAS LAS FARMACIAS SIEMPRE ---
-      // Esto permite que el "Modo Viaje" funcione, ya que la data estará local.
+      // Descargamos TODAS para permitir el Modo Viaje cuando sea necesario
       let pharmQuery = supabase.from('pharmacies').select('*').order('name');
       
       const [pharms, auds, cctvs, phys, mgmts, pends, stfs, supps, recs, assts, lns, casesData, dbUsers, schs] = await Promise.all([
@@ -229,7 +237,6 @@ const App: React.FC = () => {
     if (!checkPermission()) return;
     if (!supabase || !currentUser) return;
     try {
-      // INTELIGENCIA: Guardar con la zona de la farmacia, no del usuario
       const realZone = 
         data.zone || 
         (data.pharmacy && data.pharmacy.zone) || 
@@ -331,14 +338,17 @@ const App: React.FC = () => {
 
           <main className={`flex-1 transition-all duration-300 lg:ml-80 p-4 md:p-6 ${isSidebarOpen ? 'blur-sm pointer-events-none lg:blur-none lg:pointer-events-auto' : ''}`}>
             
-            {currentView === 'dashboard' && <Dashboard onNavigate={setCurrentView} pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} onSelectAudit={(a) => { setSelectedAudit(a); setCurrentView('audit-results'); }} />}
+            {/* 1. DASHBOARD: Usa 'myZonePharmacies' (Vista Limpia) */}
+            {currentView === 'dashboard' && <Dashboard onNavigate={setCurrentView} pharmacies={myZonePharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} onSelectAudit={(a) => { setSelectedAudit(a); setCurrentView('audit-results'); }} />}
             
             {currentView === 'ai-assistant' && !isReadOnly && <AIAssistant pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} pendingRecords={userData.pendingRecords} staffRecords={userData.staffRecords} schedule={userData.schedule} dailyBriefing={userData.dailyBriefing} onSaveSchedule={async (s) => { if(!checkPermission()) return; setUserData(prev => ({...prev, schedule: s})); if (s.length > 0) await saveToCloud('schedule', s[0].id, s[0]); }} onSaveBriefing={(b) => setUserData(prev => ({...prev, dailyBriefing: b}))} onAddPending={async (p) => { if(!checkPermission()) return; setUserData(prev => ({...prev, pendingRecords: [p, ...prev.pendingRecords]})); await saveToCloud('pending_tasks', p.id, p); }} />}
             
+            {/* 2. AUDITORÍA: Usa 'userData.pharmacies' (Full) para poder auditar otras zonas en viajes */}
             {currentView === 'audit-wizard' && <AuditWizard onCancel={() => { setAuditToEdit(null); setCurrentView('dashboard'); }} onFinish={handleFinishAudit} pharmacies={userData.pharmacies} initialAudit={auditToEdit} onAddPharmacy={async (p) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] })); await supabase.from('pharmacies').insert({ id: p.id, name: p.name, address: p.address, zone: p.zone, status: p.status, risk: p.risk, corporate_phone: p.corporate_phone, photo: p.photo, location: p.location }); }} />}
             
             {currentView === 'audit-results' && selectedAudit && <AuditResults audit={selectedAudit} onBack={() => setCurrentView('dashboard')} onSaveReport={async (id, text) => { if(!checkPermission()) return; const updated = userData.audits.map(a => a.id === id ? {...a, reportText: text} : a); setUserData(prev => ({...prev, audits: updated})); const aud = updated.find(x => x.id === id); if(aud) await saveToCloud('audits', id, aud); }} />}
             
+            {/* 3. VISITAS: Full para registrar apoyo */}
             {currentView === 'new-visit' && <NewVisit pharmacies={userData.pharmacies} onCancel={() => setCurrentView('dashboard')} onSave={async (r) => { if(!checkPermission()) return; const rec = { ...r, createdBy: currentUser.fullName }; setUserData(prev => ({...prev, managementRecords: [rec, ...prev.managementRecords]})); await saveToCloud('management_visits', rec.id, rec); setCurrentView('visit-log'); }} />}
             
             {currentView === 'cctv-inventory' && <CCTVInventory pharmacies={userData.pharmacies} records={userData.cctvRecords} onBack={() => setCurrentView('dashboard')} onSave={async (r) => { if(!checkPermission()) return; const rec = { ...r, createdBy: currentUser.fullName }; setUserData(prev => ({...prev, cctvRecords: [...prev.cctvRecords, rec]})); await saveToCloud('cctv_records', rec.id, rec); }} onAddPharmacy={() => {}} />}
@@ -353,7 +363,8 @@ const App: React.FC = () => {
             
             {currentView === 'visit-log' && <VisitLog pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} users={getFilteredUsers()} currentUser={currentUser} onDeleteAudit={id => { if(!checkPermission()) return; setUserData(p => ({...p, audits: p.audits.filter(x => x.id !== id)})); deleteFromCloud('audits', id); }} onDeleteCCTV={id => { if(!checkPermission()) return; setUserData(p => ({...p, cctvRecords: p.cctvRecords.filter(x => x.id !== id)})); deleteFromCloud('cctv_records', id); }} onDeletePhysical={id => { if(!checkPermission()) return; setUserData(p => ({...p, physicalRecords: p.physicalRecords.filter(x => x.id !== id)})); deleteFromCloud('physical_records', id); }} onDeleteManagement={id => { if(!checkPermission()) return; setUserData(p => ({...p, managementRecords: p.managementRecords.filter(x => x.id !== id)})); deleteFromCloud('management_visits', id); }} hasAdminPrivileges={isBoss} onEditAudit={handleEditAuditRequest} />}
             
-            {currentView === 'monthly-summary' && <MonthlySummary pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} pendingRecords={userData.pendingRecords} cases={userData.cases} users={getFilteredUsers()} currentUser={currentUser} />}
+            {/* 4. ESTADÍSTICAS: Usa 'myZonePharmacies' (Vista Limpia) */}
+            {currentView === 'monthly-summary' && <MonthlySummary pharmacies={myZonePharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} pendingRecords={userData.pendingRecords} cases={userData.cases} users={getFilteredUsers()} currentUser={currentUser} />}
             
             {currentView === 'management-report' && !isReadOnly && <ManagementReport pharmacies={userData.pharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} />}
             
@@ -381,6 +392,7 @@ const App: React.FC = () => {
               />
             )}
             
+            {/* 5. LISTA DE FARMACIAS: Usa 'userData.pharmacies' (Full) porque YA TIENE SU PROPIO TOGGLE INTERNO */}
             {currentView === 'pharmacy-list' && (
                 <PharmacyList 
                     pharmacies={userData.pharmacies} 
