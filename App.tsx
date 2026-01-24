@@ -24,7 +24,7 @@ import { Menu, CheckCircle2, XCircle, Loader2, WifiOff } from 'lucide-react';
 import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, PendingRecord, StaffRecord, SupportRecord, DeliveryReceipt, ScheduleEntry, BriefingData, Asset, AssetLoan, CaseRecord } from './types';
 import { supabase } from './lib/supabase';
 
-const DATA_VERSION = "11.20-GLOBAL-TRAVEL-MODE";
+const DATA_VERSION = "11.21-TRAVEL-MODE-FINAL";
 
 interface UserData {
   version: string;
@@ -60,7 +60,7 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   
-  // --- NUEVO ESTADO GLOBAL: MODO VIAJE ---
+  // ESTADO GLOBAL: MODO VIAJE
   const [isTravelMode, setIsTravelMode] = useState(false);
   
   const syncInProgress = useRef(false);
@@ -111,16 +111,11 @@ const App: React.FC = () => {
   }, [currentUser]);
 
   // --- FILTRO DINÁMICO CENTRALIZADO ---
-  // Esta variable 'visiblePharmacies' es la que controla qué ve el usuario en TODOS los módulos.
   const visiblePharmacies = useMemo(() => {
     if (!userData.pharmacies) return [];
-    
-    // Si es Jefe O si tiene el Modo Viaje activado -> VE TODO
     if (isBoss || isTravelMode) {
       return userData.pharmacies;
     }
-    
-    // Si no -> Solo ve su zona
     return userData.pharmacies.filter(p => p.zone === currentUser?.zone);
   }, [userData.pharmacies, currentUser, isBoss, isTravelMode]);
 
@@ -246,7 +241,6 @@ const App: React.FC = () => {
     if (!checkPermission()) return;
     if (!supabase || !currentUser) return;
     try {
-      // INTELIGENCIA: Guardar con la zona de la farmacia, no del usuario
       const realZone = 
         data.zone || 
         (data.pharmacy && data.pharmacy.zone) || 
@@ -254,10 +248,8 @@ const App: React.FC = () => {
         'Global';
 
       const payload: any = { id, data, created_by: currentUser.fullName, zone: realZone };
-      
       const pharmacyId = data.pharmacyId || (data.pharmacy && data.pharmacy.id);
       if (pharmacyId) payload.pharmacy_id = pharmacyId;
-      
       const { error } = await supabase.from(table).upsert(payload);
       if (error) throw error;
       addToast("Guardado", "success");
@@ -351,7 +343,7 @@ const App: React.FC = () => {
             isSyncing={isSyncing} 
             isOpen={isSidebarOpen} 
             onClose={() => setIsSidebarOpen(false)}
-            // --- PASAMOS EL CONTROL DEL MODO VIAJE A LA SIDEBAR ---
+            // PASAMOS EL CONTROL DE MODO VIAJE A LA SIDEBAR
             isTravelMode={isTravelMode}
             onToggleTravelMode={() => setIsTravelMode(!isTravelMode)}
           />
@@ -360,24 +352,26 @@ const App: React.FC = () => {
 
           <main className={`flex-1 transition-all duration-300 lg:ml-80 p-4 md:p-6 ${isSidebarOpen ? 'blur-sm pointer-events-none lg:blur-none lg:pointer-events-auto' : ''}`}>
             
-            {/* AHORA TODOS LOS MÓDULOS RECIBEN 'visiblePharmacies' */}
-            {/* Si Modo Viaje está OFF: Reciben solo la zona. */}
-            {/* Si Modo Viaje está ON: Reciben todo el país. */}
-
+            {/* 1. DASHBOARD */}
             {currentView === 'dashboard' && <Dashboard onNavigate={setCurrentView} pharmacies={visiblePharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} onSelectAudit={(a) => { setSelectedAudit(a); setCurrentView('audit-results'); }} />}
             
+            {/* 2. ASISTENTE IA */}
             {currentView === 'ai-assistant' && !isReadOnly && <AIAssistant pharmacies={visiblePharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} pendingRecords={userData.pendingRecords} staffRecords={userData.staffRecords} schedule={userData.schedule} dailyBriefing={userData.dailyBriefing} onSaveSchedule={async (s) => { if(!checkPermission()) return; setUserData(prev => ({...prev, schedule: s})); if (s.length > 0) await saveToCloud('schedule', s[0].id, s[0]); }} onSaveBriefing={(b) => setUserData(prev => ({...prev, dailyBriefing: b}))} onAddPending={async (p) => { if(!checkPermission()) return; setUserData(prev => ({...prev, pendingRecords: [p, ...prev.pendingRecords]})); await saveToCloud('pending_tasks', p.id, p); }} />}
             
+            {/* 3. AUDITORÍA */}
             {currentView === 'audit-wizard' && <AuditWizard onCancel={() => { setAuditToEdit(null); setCurrentView('dashboard'); }} onFinish={handleFinishAudit} pharmacies={visiblePharmacies} initialAudit={auditToEdit} onAddPharmacy={async (p) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] })); await supabase.from('pharmacies').insert({ id: p.id, name: p.name, address: p.address, zone: p.zone, status: p.status, risk: p.risk, corporate_phone: p.corporate_phone, photo: p.photo, location: p.location }); }} />}
             
             {currentView === 'audit-results' && selectedAudit && <AuditResults audit={selectedAudit} onBack={() => setCurrentView('dashboard')} onSaveReport={async (id, text) => { if(!checkPermission()) return; const updated = userData.audits.map(a => a.id === id ? {...a, reportText: text} : a); setUserData(prev => ({...prev, audits: updated})); const aud = updated.find(x => x.id === id); if(aud) await saveToCloud('audits', id, aud); }} />}
             
+            {/* 4. VISITAS */}
             {currentView === 'new-visit' && <NewVisit pharmacies={visiblePharmacies} onCancel={() => setCurrentView('dashboard')} onSave={async (r) => { if(!checkPermission()) return; const rec = { ...r, createdBy: currentUser.fullName }; setUserData(prev => ({...prev, managementRecords: [rec, ...prev.managementRecords]})); await saveToCloud('management_visits', rec.id, rec); setCurrentView('visit-log'); }} />}
             
+            {/* 5. INVENTARIOS */}
             {currentView === 'cctv-inventory' && <CCTVInventory pharmacies={visiblePharmacies} records={userData.cctvRecords} onBack={() => setCurrentView('dashboard')} onSave={async (r) => { if(!checkPermission()) return; const rec = { ...r, createdBy: currentUser.fullName }; setUserData(prev => ({...prev, cctvRecords: [...prev.cctvRecords, rec]})); await saveToCloud('cctv_records', rec.id, rec); }} onAddPharmacy={() => {}} />}
             
             {currentView === 'physical-inventory' && <PhysicalInventory pharmacies={visiblePharmacies} records={userData.physicalRecords} onBack={() => setCurrentView('dashboard')} onSave={async (r) => { if(!checkPermission()) return; const rec = { ...r, createdBy: currentUser.fullName }; setUserData(prev => ({...prev, physicalRecords: [...prev.physicalRecords, rec]})); await saveToCloud('physical_records', rec.id, rec); }} onAddPharmacy={() => {}} />}
             
+            {/* 6. PENDIENTES Y OTROS */}
             {currentView === 'pending-tasks' && <PendingTasks pharmacies={visiblePharmacies} records={userData.pendingRecords} onAdd={async (r) => { if(!checkPermission()) return; const rec = { ...r, createdBy: currentUser.fullName }; setUserData(prev => ({...prev, pendingRecords: [rec, ...prev.pendingRecords]})); await saveToCloud('pending_tasks', rec.id, rec); }} onUpdateStatus={async (id, status) => { if(!checkPermission()) return; const updated = userData.pendingRecords.map(r => r.id === id ? {...r, status} : r); setUserData(prev => ({...prev, pendingRecords: updated})); const p = updated.find(x => x.id === id); if(p) await saveToCloud('pending_tasks', id, p); }} onDelete={async (id) => { if(!checkPermission()) return; setUserData(prev => ({...prev, pendingRecords: prev.pendingRecords.filter(r => r.id !== id)})); await deleteFromCloud('pending_tasks', id); }} />}
             
             {currentView === 'delivery-receipts' && <DeliveryReceipts receipts={userData.deliveryReceipts} onAdd={async (r) => { if(!checkPermission()) return; const rec = { ...r, createdBy: currentUser.fullName }; setUserData(prev => ({...prev, deliveryReceipts: [rec, ...prev.deliveryReceipts]})); await saveToCloud('delivery_receipts', rec.id, rec); }} onDelete={async (id) => { if(!checkPermission()) return; setUserData(prev => ({...prev, deliveryReceipts: prev.deliveryReceipts.filter(r => r.id !== id)})); await deleteFromCloud('delivery_receipts', id); }} />}
@@ -455,7 +449,9 @@ const App: React.FC = () => {
                             has_security_officer: p.hasSecurityOfficer 
                         }); 
                     }} 
-                    currentUser={currentUser} 
+                    currentUser={currentUser}
+                    // AHORA PASAMOS EL ESTADO DEL MODO VIAJE A LA LISTA DE FARMACIAS TAMBIÉN
+                    isTravelMode={isTravelMode}
                 />
             )}
             
