@@ -2,9 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   Search, 
   Filter, 
-  Globe,
-  Calendar,
-  MapPin
+  Globe
 } from 'lucide-react';
 import { AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, Pharmacy } from '../types';
 
@@ -32,8 +30,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
   cctvRecords, 
   physicalRecords, 
   managementRecords, 
-  currentUser,
-  hasAdminPrivileges
+  currentUser
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('Todos');
@@ -53,12 +50,22 @@ const VisitLog: React.FC<VisitLogProps> = ({
         const pId = item.pharmacyId || (item.pharmacy && item.pharmacy.id);
         const pharmacyData = pharmacies.find(p => p.id === pId);
 
-        // EXTRAER OBSERVACIÓN SEGÚN EL TIPO DE REGISTRO
-        let observacionFinal = 'Sin observaciones registradas';
-        if (type === 'Auditoría') observacionFinal = item.reportText || `Puntaje obtenido: ${item.score}%`;
-        else if (type === 'Inventario CCTV') observacionFinal = item.observations || 'Revisión de cámaras finalizada';
-        else if (type === 'Infraestructura') observacionFinal = item.observations || 'Inspección de áreas completada';
-        else if (type === 'Visita Gerencial') observacionFinal = item.reason || 'Visita de seguimiento';
+        // EXTRACCIÓN DE OBSERVACIONES REALES (SEGÚN FOTOS 1 Y 2)
+        let textoObservacion = "";
+
+        if (type === 'Auditoría') {
+          // Si el reporte es muy largo, tomamos solo el inicio para no ensuciar la tabla
+          const rawReport = item.reportText || "";
+          textoObservacion = rawReport.length > 200 ? rawReport.substring(0, 200) + "..." : rawReport;
+          if (!textoObservacion) textoObservacion = `Auditoría finalizada con score de ${item.score}%`;
+        } 
+        else if (type === 'Inventario CCTV' || type === 'Infraestructura') {
+          // Buscamos el campo donde se guarda el texto de "Observaciones del Levantamiento"
+          textoObservacion = item.observations || item.notes || item.comments || "Sin observaciones registradas";
+        } 
+        else if (type === 'Visita Gerencial') {
+          textoObservacion = item.reason || item.observations || "Visita de gestión";
+        }
 
         return {
           id: item.id,
@@ -66,7 +73,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
           date: item[dateKey] || item.date, 
           pharmacy: pharmacyData ? pharmacyData.name : (item.pharmacy?.name || 'Sede Desconocida'),
           pharmacyZone: pharmacyData ? pharmacyData.zone : (item.pharmacy?.zone || 'Zona No Identificada'), 
-          details: observacionFinal,
+          details: textoObservacion,
           original: item
         };
       });
@@ -106,6 +113,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
         <p className="text-slate-300 font-bold uppercase tracking-widest text-sm">Trazabilidad y Reportes de Campo</p>
       </div>
 
+      {/* FILTROS */}
       <div className="bg-white p-4 rounded-[2rem] shadow-xl border border-slate-100 mb-8 flex flex-col md:flex-row items-center gap-4">
           <div className="relative group flex-1 w-full">
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -121,7 +129,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
           <div className="relative w-full md:w-64">
             <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <select 
-              className="w-full pl-12 pr-10 py-4 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 appearance-none transition-all"
+              className="w-full pl-12 pr-10 py-4 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 appearance-none"
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
             >
@@ -137,7 +145,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
             <div className="relative w-full md:w-64">
               <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <select 
-                className="w-full pl-12 pr-10 py-4 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 appearance-none transition-all"
+                className="w-full pl-12 pr-10 py-4 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 appearance-none"
                 value={filterZone}
                 onChange={(e) => setFilterZone(e.target.value)}
               >
@@ -150,19 +158,20 @@ const VisitLog: React.FC<VisitLogProps> = ({
           <div className="flex gap-2 w-full md:w-auto">
             <input 
               type="date" 
-              className="w-full md:w-40 px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-600 text-sm"
+              className="px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-600 text-sm"
               value={dateRange.start}
               onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
             />
             <input 
               type="date" 
-              className="w-full md:w-40 px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-600 text-sm"
+              className="px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-600 text-sm"
               value={dateRange.end}
               onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
             />
           </div>
       </div>
 
+      {/* TABLA SIN COLUMNA DE ACCIÓN */}
       <div className="bg-white rounded-[2.5rem] shadow-xl border border-white overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -176,7 +185,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-50">
               {filteredRecords.length > 0 ? filteredRecords.map((record) => (
-                <tr key={`${record.type}-${record.id}`} className="group hover:bg-slate-50/50 transition-colors">
+                <tr key={`${record.type}-${record.id}`} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-6 px-8 align-top">
                     <span className="text-sm font-bold text-slate-800">{record.date}</span>
                   </td>
@@ -197,7 +206,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
                     <div className="font-black text-slate-900 text-lg uppercase tracking-tight">{record.pharmacy}</div>
                   </td>
                   <td className="py-6 px-8 align-top">
-                    <p className="text-sm text-slate-600 font-medium leading-relaxed italic max-w-2xl">
+                    <p className="text-sm text-slate-600 font-medium leading-relaxed italic max-w-2xl whitespace-pre-wrap">
                       {record.details}
                     </p>
                   </td>
@@ -205,7 +214,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
               )) : (
                 <tr>
                   <td colSpan={4} className="py-20 text-center text-slate-400 font-medium">
-                    No se encontraron registros.
+                    No hay registros para mostrar.
                   </td>
                 </tr>
               )}
