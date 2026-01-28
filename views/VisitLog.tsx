@@ -50,21 +50,18 @@ const VisitLog: React.FC<VisitLogProps> = ({
         const pId = item.pharmacyId || (item.pharmacy && item.pharmacy.id);
         const pharmacyData = pharmacies.find(p => p.id === pId);
 
-        // EXTRACCIÓN DE OBSERVACIONES REALES (SEGÚN FOTOS 1 Y 2)
         let textoObservacion = "";
 
         if (type === 'Auditoría') {
-          // Si el reporte es muy largo, tomamos solo el inicio para no ensuciar la tabla
-          const rawReport = item.reportText || "";
-          textoObservacion = rawReport.length > 200 ? rawReport.substring(0, 200) + "..." : rawReport;
-          if (!textoObservacion) textoObservacion = `Auditoría finalizada con score de ${item.score}%`;
+          // CAMBIO: Texto profesional que redirige al Dashboard en lugar de mostrar el informe
+          textoObservacion = `Nivel de cumplimiento: ${item.score}%. El análisis detallado de los hallazgos y métricas se encuentra disponible en el módulo Dashboard.`;
         } 
         else if (type === 'Inventario CCTV' || type === 'Infraestructura') {
-          // Buscamos el campo donde se guarda el texto de "Observaciones del Levantamiento"
-          textoObservacion = item.observations || item.notes || item.comments || "Sin observaciones registradas";
+          // Extrae las observaciones reales capturadas en el levantamiento
+          textoObservacion = item.observations || item.notes || item.comments || "Sin observaciones registradas durante el levantamiento.";
         } 
         else if (type === 'Visita Gerencial') {
-          textoObservacion = item.reason || item.observations || "Visita de gestión";
+          textoObservacion = item.reason || item.observations || "Visita de gestión y seguimiento preventivo.";
         }
 
         return {
@@ -113,7 +110,6 @@ const VisitLog: React.FC<VisitLogProps> = ({
         <p className="text-slate-300 font-bold uppercase tracking-widest text-sm">Trazabilidad y Reportes de Campo</p>
       </div>
 
-      {/* FILTROS */}
       <div className="bg-white p-4 rounded-[2rem] shadow-xl border border-slate-100 mb-8 flex flex-col md:flex-row items-center gap-4">
           <div className="relative group flex-1 w-full">
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -171,7 +167,6 @@ const VisitLog: React.FC<VisitLogProps> = ({
           </div>
       </div>
 
-      {/* TABLA SIN COLUMNA DE ACCIÓN */}
       <div className="bg-white rounded-[2.5rem] shadow-xl border border-white overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -214,7 +209,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
               )) : (
                 <tr>
                   <td colSpan={4} className="py-20 text-center text-slate-400 font-medium">
-                    No hay registros para mostrar.
+                    No hay registros disponibles.
                   </td>
                 </tr>
               )}
