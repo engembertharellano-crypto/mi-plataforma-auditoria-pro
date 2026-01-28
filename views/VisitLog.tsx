@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { 
   Search, 
   Filter, 
-  Globe
+  Globe,
+  Pencil // Importamos el lápiz
 } from 'lucide-react';
 import { AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, Pharmacy } from '../types';
 
@@ -18,7 +19,7 @@ interface VisitLogProps {
   onDeleteCCTV: (id: string) => void;
   onDeletePhysical: (id: string) => void;
   onDeleteManagement: (id: string) => void;
-  onEditAudit?: (audit: AuditState) => void;
+  onEditAudit?: (audit: AuditState) => void; // Esta es la función que activa la edición
   hasAdminPrivileges: boolean;
 }
 
@@ -30,7 +31,8 @@ const VisitLog: React.FC<VisitLogProps> = ({
   cctvRecords, 
   physicalRecords, 
   managementRecords, 
-  currentUser
+  currentUser,
+  onEditAudit // La usamos aquí
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('Todos');
@@ -51,17 +53,14 @@ const VisitLog: React.FC<VisitLogProps> = ({
         const pharmacyData = pharmacies.find(p => p.id === pId);
 
         let textoObservacion = "";
-
         if (type === 'Auditoría') {
-          // CAMBIO: Texto profesional que redirige al Dashboard en lugar de mostrar el informe
-          textoObservacion = `Nivel de cumplimiento: ${item.score}%. El análisis detallado de los hallazgos y métricas se encuentra disponible en el módulo Dashboard.`;
+          textoObservacion = `Nivel de cumplimiento: ${item.score}%. El análisis detallado de los hallazgos y métricas se encuentra disponible en el Dashboard.`;
         } 
         else if (type === 'Inventario CCTV' || type === 'Infraestructura') {
-          // Extrae las observaciones reales capturadas en el levantamiento
-          textoObservacion = item.observations || item.notes || item.comments || "Sin observaciones registradas durante el levantamiento.";
+          textoObservacion = item.observations || item.notes || item.comments || "Sin observaciones registradas.";
         } 
         else if (type === 'Visita Gerencial') {
-          textoObservacion = item.reason || item.observations || "Visita de gestión y seguimiento preventivo.";
+          textoObservacion = item.reason || item.observations || "Visita de gestión.";
         }
 
         return {
@@ -110,6 +109,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
         <p className="text-slate-300 font-bold uppercase tracking-widest text-sm">Trazabilidad y Reportes de Campo</p>
       </div>
 
+      {/* FILTROS */}
       <div className="bg-white p-4 rounded-[2rem] shadow-xl border border-slate-100 mb-8 flex flex-col md:flex-row items-center gap-4">
           <div className="relative group flex-1 w-full">
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -125,7 +125,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
           <div className="relative w-full md:w-64">
             <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <select 
-              className="w-full pl-12 pr-10 py-4 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 appearance-none"
+              className="w-full pl-12 pr-10 py-4 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 appearance-none transition-all"
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
             >
@@ -141,7 +141,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
             <div className="relative w-full md:w-64">
               <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <select 
-                className="w-full pl-12 pr-10 py-4 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 appearance-none"
+                className="w-full pl-12 pr-10 py-4 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 appearance-none transition-all"
                 value={filterZone}
                 onChange={(e) => setFilterZone(e.target.value)}
               >
@@ -180,7 +180,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-50">
               {filteredRecords.length > 0 ? filteredRecords.map((record) => (
-                <tr key={`${record.type}-${record.id}`} className="hover:bg-slate-50/50 transition-colors">
+                <tr key={`${record.type}-${record.id}`} className="group hover:bg-slate-50/50 transition-colors">
                   <td className="py-6 px-8 align-top">
                     <span className="text-sm font-bold text-slate-800">{record.date}</span>
                   </td>
@@ -198,7 +198,22 @@ const VisitLog: React.FC<VisitLogProps> = ({
                     </div>
                   </td>
                   <td className="py-6 px-8 align-top">
-                    <div className="font-black text-slate-900 text-lg uppercase tracking-tight">{record.pharmacy}</div>
+                    <div className="flex items-center gap-3">
+                      <div className="font-black text-slate-900 text-lg uppercase tracking-tight">
+                        {record.pharmacy}
+                      </div>
+                      
+                      {/* LÁPIZ DE EDICIÓN INTEGRADO: Aparece solo si es Auditoría y el usuario es el creador */}
+                      {record.type === 'Auditoría' && onEditAudit && record.original.createdBy === currentUser?.fullName && (
+                        <button 
+                          onClick={() => onEditAudit(record.original)}
+                          className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100"
+                          title="Editar Auditoría"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                   <td className="py-6 px-8 align-top">
                     <p className="text-sm text-slate-600 font-medium leading-relaxed italic max-w-2xl whitespace-pre-wrap">
