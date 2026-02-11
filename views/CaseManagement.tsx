@@ -94,13 +94,11 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
        return alert("Especifique el nombre de la ubicación");
     }
 
-    // --- CORRECCIÓN QUIRÚRGICA DE FECHA Y HORA ---
     const now = new Date();
     let creationDate: string;
 
     if (formData.dateStr) {
       const [year, month, day] = formData.dateStr.split('-').map(Number);
-      // Creamos la fecha usando el constructor local para evitar desfase UTC
       const combinedDate = new Date(
         year, 
         month - 1, 
@@ -113,7 +111,6 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
     } else {
       creationDate = now.toISOString();
     }
-    // ---------------------------------------------
 
     const newCase: CaseRecord = {
       id: internalId,
@@ -419,7 +416,12 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
                         </div>
                      </div>
                   ))}
-                  <div className="relative pl-14"><div className="absolute left-3 top-1 w-4 h-4 bg-slate-500 rounded-full z-10"></div><div className="text-xs font-bold text-slate-400 uppercase tracking-widest pt-1">Caso abierto por {selectedCase.createdBy} el {new Date(selectedCase.date).toLocaleString()}</div></div>
+                  <div className="relative pl-14">
+                    <div className="absolute left-3 top-1 w-4 h-4 bg-slate-500 rounded-full z-10"></div>
+                    <div className="text-xs font-black text-white/90 uppercase tracking-widest pt-1 drop-shadow-md">
+                        Caso abierto por {selectedCase.createdBy} el {new Date(selectedCase.date).toLocaleString()}
+                    </div>
+                  </div>
                </div>
             </div>
          </div>
