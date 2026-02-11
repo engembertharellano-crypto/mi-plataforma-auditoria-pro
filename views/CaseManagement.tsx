@@ -18,7 +18,7 @@ import {
   Pencil, 
   Save, 
   Trash2,
-  Calendar // Icono para la fecha
+  Calendar 
 } from 'lucide-react';
 import { Pharmacy, CaseRecord, CaseTimelineEntry } from '../types';
 
@@ -46,13 +46,11 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
   const [filterStatus, setFilterStatus] = useState<'Activos' | 'Cerrados'>('Activos');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Estados para Modal de Borrado
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  // Formulario Nuevo Caso (Incluye fecha manual)
   const [formData, setFormData] = useState<Partial<CaseRecord> & { dateStr: string }>({
     id: '', 
-    dateStr: new Date().toISOString().split('T')[0], // Fecha por defecto: HOY
+    dateStr: new Date().toLocaleDateString('sv-SE'), 
     priority: 'Media', 
     channel: 'WhatsApp', 
     locationType: 'Farmacia', 
@@ -69,7 +67,6 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
   const [isEditingId, setIsEditingId] = useState(false);
   const [tempOfficialId, setTempOfficialId] = useState('');
 
-  // --- LÓGICA DE VISUALIZACIÓN ---
   const filteredCases = cases.filter(c => {
     const matchesStatus = filterStatus === 'Activos' ? c.status !== 'Cerrado' : c.status === 'Cerrado';
     const term = searchTerm.toLowerCase();
@@ -80,10 +77,8 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
     return matchesStatus && matchesSearch;
   }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  // --- LÓGICA DE PERMISOS ---
   const canDelete = selectedCase && (hasAdminPrivileges || selectedCase.createdBy === currentUser?.fullName);
 
-  // --- MANEJADORES ---
   const handleCreateCase = () => {
     if (!formData.title || !formData.description || !formData.reporterName) return alert("Complete los campos obligatorios.");
     
@@ -99,15 +94,31 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
        return alert("Especifique el nombre de la ubicación");
     }
 
-    // Usar la fecha seleccionada manual o la actual
-    const creationDate = formData.dateStr 
-      ? new Date(formData.dateStr).toISOString() 
-      : new Date().toISOString();
+    // --- CORRECCIÓN QUIRÚRGICA DE FECHA Y HORA ---
+    const now = new Date();
+    let creationDate: string;
+
+    if (formData.dateStr) {
+      const [year, month, day] = formData.dateStr.split('-').map(Number);
+      // Creamos la fecha usando el constructor local para evitar desfase UTC
+      const combinedDate = new Date(
+        year, 
+        month - 1, 
+        day, 
+        now.getHours(), 
+        now.getMinutes(), 
+        now.getSeconds()
+      );
+      creationDate = combinedDate.toISOString();
+    } else {
+      creationDate = now.toISOString();
+    }
+    // ---------------------------------------------
 
     const newCase: CaseRecord = {
       id: internalId,
       officialId: initialOfficialId,
-      date: creationDate, // Guardamos la fecha elegida
+      date: creationDate,
       status: 'Abierto',
       priority: formData.priority as any,
       channel: formData.channel as any,
@@ -124,10 +135,9 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
     onAddCase(newCase);
     setView('list');
     
-    // Reset form
     setFormData({ 
       id: '', 
-      dateStr: new Date().toISOString().split('T')[0], // Reset a Hoy
+      dateStr: new Date().toLocaleDateString('sv-SE'), 
       priority: 'Media', 
       channel: 'WhatsApp', 
       locationType: 'Farmacia', 
@@ -141,15 +151,12 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
 
   const confirmDelete = () => {
     if (!selectedCase) return;
-    // Ejecutar el borrado
     onDeleteCase(selectedCase.id); 
-    // Cerrar modales y volver a la lista inmediatamente
     setShowDeleteModal(false);
     setSelectedCase(null);
     setView('list');
   };
 
-  // Resto de manejadores (Update, Close, Timeline) se mantienen igual...
   const handleSaveOfficialId = () => {
     if (!selectedCase) return;
     const updatedCase = { ...selectedCase, officialId: tempOfficialId.trim().toUpperCase() || undefined };
@@ -186,7 +193,6 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
     setIsClosing(false);
   };
 
-  // --- HELPERS UI ---
   const getPriorityColor = (p: string) => {
     switch(p) {
       case 'Alta': return 'bg-red-100 text-red-700 border-red-200';
@@ -207,7 +213,6 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
   return (
     <div className="max-w-[1600px] mx-auto p-6 md:p-10 animate-in fade-in duration-500 pb-20">
       
-      {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
         <div>
           <h1 className="text-4xl font-black text-white tracking-tighter uppercase mb-2">Gestión de Casos</h1>
@@ -223,7 +228,6 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
         )}
       </div>
 
-      {/* VISTA: LISTA DE CASOS */}
       {view === 'list' && (
         <div className="space-y-6">
           <div className="flex flex-col md:flex-row gap-4">
@@ -271,7 +275,6 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
         </div>
       )}
 
-      {/* VISTA: NUEVO CASO */}
       {view === 'new' && (
         <div className="max-w-2xl mx-auto bg-white rounded-[2.5rem] shadow-2xl p-8 border border-slate-100">
            <div className="flex justify-between items-center mb-8">
@@ -280,7 +283,6 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
            </div>
            <div className="space-y-6">
               
-              {/* CAMPO DE FECHA MANUAL */}
               <div>
                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fecha del Incidente</label>
                  <div className="relative">
@@ -339,7 +341,6 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
         </div>
       )}
 
-      {/* VISTA: EXPEDIENTE DETALLADO */}
       {view === 'detail' && selectedCase && (
          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="space-y-6">
@@ -424,7 +425,6 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
          </div>
       )}
 
-      {/* MODAL DE BORRADO SEGURO */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[250] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-[2rem] w-full max-w-md p-8 shadow-2xl text-center transform transition-all scale-100">
@@ -433,19 +433,19 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
              </div>
              <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tight">¿Eliminar Expediente?</h3>
              <p className="text-slate-500 font-medium mb-8 leading-relaxed">
-               Estás a punto de eliminar el caso <span className="font-bold text-slate-800">{selectedCase?.officialId || selectedCase?.id}</span> permanentemente. <br/><br/>
-               <span className="text-red-600 font-bold text-xs uppercase tracking-widest">Esta acción no se puede deshacer.</span>
+                Estás a punto de eliminar el caso <span className="font-bold text-slate-800">{selectedCase?.officialId || selectedCase?.id}</span> permanentemente. <br/><br/>
+                <span className="text-red-600 font-bold text-xs uppercase tracking-widest">Esta acción no se puede deshacer.</span>
              </p>
              <div className="flex gap-4">
                <button 
-                 type="button" // IMPORTANTE PARA EVITAR SUBMIT
+                 type="button"
                  onClick={() => setShowDeleteModal(false)} 
                  className="flex-1 py-4 rounded-xl border-2 border-slate-100 font-bold text-slate-600 hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest"
                >
                  Cancelar
                </button>
                <button 
-                 type="button" // IMPORTANTE PARA EVITAR SUBMIT
+                 type="button"
                  onClick={confirmDelete} 
                  className="flex-1 py-4 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-200 uppercase text-xs tracking-widest"
                >
