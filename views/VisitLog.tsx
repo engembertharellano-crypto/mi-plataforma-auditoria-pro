@@ -4,7 +4,8 @@ import {
   Filter, 
   Globe,
   Pencil,
-  Trash2
+  Trash2,
+  X
 } from 'lucide-react';
 import { AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, Pharmacy } from '../types';
 
@@ -40,6 +41,9 @@ const VisitLog: React.FC<VisitLogProps> = ({
   const [filterType, setFilterType] = useState('Todos');
   const [filterZone, setFilterZone] = useState('Todas');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+
+  // Modal de eliminación (mismo patrón que PendingTasks)
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ id: string; title: string } | null>(null);
 
   const canFilterByZone = useMemo(() => {
     if (!currentUser) return false;
@@ -103,10 +107,10 @@ const VisitLog: React.FC<VisitLogProps> = ({
     return matchesSearch && matchesType && matchesZone && matchesDate;
   });
 
-  const handleDeleteAudit = (auditId: string) => {
-    const ok = window.confirm('¿Seguro que deseas eliminar esta auditoría? Esta acción no se puede deshacer.');
-    if (!ok) return;
-    onDeleteAudit(auditId);
+  const confirmDelete = () => {
+    if (!deleteConfirmation) return;
+    onDeleteAudit(deleteConfirmation.id);
+    setDeleteConfirmation(null);
   };
 
   return (
@@ -191,13 +195,13 @@ const VisitLog: React.FC<VisitLogProps> = ({
               {filteredRecords.length > 0 ? filteredRecords.map((record) => {
                 const isAudit = record.type === 'Auditoría';
                 const isCreator = record.original?.createdBy === currentUser?.fullName;
-                const canDeleteThisAudit = isAudit && isCreator;
 
                 return (
                   <tr key={`${record.type}-${record.id}`} className="group hover:bg-slate-50/50 transition-colors">
                     <td className="py-6 px-8 align-top">
                       <span className="text-sm font-bold text-slate-800">{record.date}</span>
                     </td>
+
                     <td className="py-6 px-8 align-top">
                       <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${
                         record.type === 'Auditoría' ? 'bg-orange-100 text-orange-700' :
@@ -211,6 +215,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
                         {record.pharmacyZone}
                       </div>
                     </td>
+
                     <td className="py-6 px-8 align-top">
                       <div className="flex items-center gap-3">
                         <div className="font-black text-slate-900 text-lg uppercase tracking-tight">
@@ -229,25 +234,25 @@ const VisitLog: React.FC<VisitLogProps> = ({
                         )}
                       </div>
                     </td>
+
                     <td className="py-6 px-8 align-top">
                       <p className="text-sm text-slate-600 font-medium leading-relaxed italic max-w-2xl whitespace-pre-wrap">
                         {record.details}
                       </p>
                     </td>
+
                     <td className="py-6 px-8 align-top text-right">
-                      {canDeleteThisAudit ? (
+                      {/* Eliminar: solo si es Auditoría y el usuario es el creador */}
+                      {isAudit && isCreator ? (
                         <button
-                          onClick={() => handleDeleteAudit(record.id)}
-                          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 text-red-600 border border-red-100 hover:bg-red-600 hover:text-white transition-all shadow-sm"
+                          onClick={() => setDeleteConfirmation({ id: record.id, title: `Auditoría en ${record.pharmacy}` })}
+                          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all"
                           title="Eliminar Auditoría"
                         >
-                          <Trash2 className="w-4 h-4" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Eliminar</span>
+                          <Trash2 className="w-5 h-5" />
                         </button>
                       ) : (
-                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
-                          —
-                        </span>
+                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">—</span>
                       )}
                     </td>
                   </tr>
@@ -263,6 +268,48 @@ const VisitLog: React.FC<VisitLogProps> = ({
           </table>
         </div>
       </div>
+
+      {/* DELETE MODAL (mismo estilo que PendingTasks) */}
+      {deleteConfirmation && (
+        <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-[110] flex items-center justify-center p-6">
+          <div className="bg-white rounded-[3rem] w-full max-w-md p-10 shadow-3xl animate-in zoom-in-95 duration-200 text-center border border-white/20">
+             <div className="w-20 h-20 bg-red-100 rounded-[2rem] flex items-center justify-center mb-6 mx-auto text-red-600 shadow-inner">
+                <Trash2 className="w-10 h-10" />
+             </div>
+
+             <h3 className="text-3xl font-black text-slate-900 tracking-tighter mb-3">¿Eliminar Auditoría?</h3>
+             <p className="text-slate-500 font-medium mb-10">
+               Estás por remover permanentemente "<strong>{deleteConfirmation.title}</strong>".
+             </p>
+             
+             <div className="flex gap-4">
+                <button 
+                  onClick={() => setDeleteConfirmation(null)}
+                  className="flex-1 py-4 rounded-2xl border-2 border-slate-100 text-slate-500 font-black uppercase tracking-widest text-[10px] hover:bg-slate-50 transition-all"
+                >
+                  Regresar
+                </button>
+                <button 
+                  onClick={confirmDelete}
+                  className="flex-1 py-4 rounded-2xl bg-red-600 text-white font-black uppercase tracking-widest text-[10px] shadow-xl shadow-red-200 transition-all transform active:scale-95"
+                >
+                  Eliminar Registro
+                </button>
+             </div>
+
+             {/* botón cerrar opcional, por si quieres (no cambia comportamiento) */}
+             <button
+               onClick={() => setDeleteConfirmation(null)}
+               className="absolute top-6 right-6 p-3 rounded-full hover:bg-slate-50 transition-all"
+               aria-label="Cerrar"
+               title="Cerrar"
+             >
+               <X className="w-5 h-5 text-slate-400" />
+             </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
