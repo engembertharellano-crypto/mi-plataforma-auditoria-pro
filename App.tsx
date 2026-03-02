@@ -20,8 +20,24 @@ import AccessManagement from './views/AccessManagement';
 import CaseManagement from './views/CaseManagement';
 import Settings from './views/Settings';
 import Login from './views/Login';
-import { Menu, CheckCircle2, XCircle, Loader2, WifiOff } from 'lucide-react';
-import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, PendingRecord, StaffRecord, SupportRecord, DeliveryReceipt, ScheduleEntry, BriefingData, Asset, AssetLoan, CaseRecord } from './types';
+import { Menu, CheckCircle2, XCircle, WifiOff } from 'lucide-react';
+import {
+  ViewName,
+  Pharmacy,
+  AuditState,
+  CCTVInventoryRecord,
+  PhysicalInventoryRecord,
+  ManagementVisitRecord,
+  PendingRecord,
+  StaffRecord,
+  SupportRecord,
+  DeliveryReceipt,
+  ScheduleEntry,
+  BriefingData,
+  Asset,
+  AssetLoan,
+  CaseRecord
+} from './types';
 import { supabase } from './lib/supabase';
 
 const DATA_VERSION = "11.21-TRAVEL-MODE-FINAL";
@@ -59,10 +75,10 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  
+
   // ESTADO GLOBAL: MODO VIAJE
   const [isTravelMode, setIsTravelMode] = useState(false);
-  
+
   const syncInProgress = useRef(false);
 
   const [userData, setUserData] = useState<UserData>(() => {
@@ -84,16 +100,29 @@ const App: React.FC = () => {
           schedule: parsed.schedule || [],
           assets: parsed.assets || [],
           loans: parsed.loans || [],
-          cases: parsed.cases || [], 
+          cases: parsed.cases || [],
           users: parsed.users || [],
           dailyBriefing: parsed.dailyBriefing
         };
       } catch (e) { console.error(e); }
     }
     return {
-      version: DATA_VERSION, pharmacies: [], audits: [], cctvRecords: [], physicalRecords: [],
-      managementRecords: [], pendingRecords: [], staffRecords: [], supportRecords: [],
-      deliveryReceipts: [], schedule: [], assets: [], loans: [], cases: [], users: [], dailyBriefing: undefined
+      version: DATA_VERSION,
+      pharmacies: [],
+      audits: [],
+      cctvRecords: [],
+      physicalRecords: [],
+      managementRecords: [],
+      pendingRecords: [],
+      staffRecords: [],
+      supportRecords: [],
+      deliveryReceipts: [],
+      schedule: [],
+      assets: [],
+      loans: [],
+      cases: [],
+      users: [],
+      dailyBriefing: undefined
     };
   });
 
@@ -105,7 +134,7 @@ const App: React.FC = () => {
   const isBoss = useMemo(() => {
     if (!currentUser) return false;
     const email = currentUser.email ? currentUser.email.trim().toLowerCase() : '';
-    if (email === 'directiva@xana.com') return true; 
+    if (email === 'directiva@xana.com') return true;
     const role = (currentUser.role || '').toLowerCase();
     return ['super usuario', 'gerente corporativo de seguridad', 'gerente de seguridad', 'lider de investigaciones'].includes(role);
   }, [currentUser]);
@@ -142,7 +171,9 @@ const App: React.FC = () => {
     try {
       const role = (user.role || '').toLowerCase();
       const email = (user.email || '').toLowerCase();
-      const userIsBoss = ['super usuario', 'gerente corporativo de seguridad', 'gerente de seguridad', 'lider de investigaciones'].includes(role) || email === 'directiva@xana.com';
+      const userIsBoss =
+        ['super usuario', 'gerente corporativo de seguridad', 'gerente de seguridad', 'lider de investigaciones'].includes(role) ||
+        email === 'directiva@xana.com';
 
       const getTableData = async (table: string) => {
         let q = supabase.from(table).select('*');
@@ -156,41 +187,43 @@ const App: React.FC = () => {
 
       // Siempre descargamos TODAS para tenerlas listas si activan el modo viaje
       let pharmQuery = supabase.from('pharmacies').select('*').order('name');
-      
-      const [pharms, auds, cctvs, phys, mgmts, pends, stfs, supps, recs, assts, lns, casesData, dbUsers, schs] = await Promise.all([
-        pharmQuery,
-        getTableData('audits'),
-        getTableData('cctv_records'),
-        getTableData('physical_records'),
-        getTableData('management_visits'),
-        getTableData('pending_tasks'),
-        getTableData('staff'),
-        getTableData('support_contacts'),
-        getTableData('delivery_receipts'),
-        getTableData('assets'),
-        getTableData('loans'),
-        getTableData('cases'), 
-        supabase.from('users').select('*'),
-        getTableData('schedule')
-      ]);
 
-      const process = (items: any[]) => items.map(item => {
-        if (item.data && typeof item.data === 'object' && !Array.isArray(item.data)) {
-          return { ...item.data, id: item.id || item.data.id, createdBy: item.created_by || item.data.createdBy };
-        }
-        return { ...item, createdBy: item.created_by || item.createdBy };
-      });
+      const [pharms, auds, cctvs, phys, mgmts, pends, stfs, supps, recs, assts, lns, casesData, dbUsers, schs] =
+        await Promise.all([
+          pharmQuery,
+          getTableData('audits'),
+          getTableData('cctv_records'),
+          getTableData('physical_records'),
+          getTableData('management_visits'),
+          getTableData('pending_tasks'),
+          getTableData('staff'),
+          getTableData('support_contacts'),
+          getTableData('delivery_receipts'),
+          getTableData('assets'),
+          getTableData('loans'),
+          getTableData('cases'),
+          supabase.from('users').select('*'),
+          getTableData('schedule')
+        ]);
+
+      const process = (items: any[]) =>
+        items.map(item => {
+          if (item.data && typeof item.data === 'object' && !Array.isArray(item.data)) {
+            return { ...item.data, id: item.id || item.data.id, createdBy: item.created_by || item.data.createdBy };
+          }
+          return { ...item, createdBy: item.created_by || item.createdBy };
+        });
 
       setUserData(prev => {
         const cloudPharms = (pharms.data || []).map((p: any) => ({
-          id: p.id, 
-          name: p.name, 
-          address: p.address, 
-          zone: p.zone, 
+          id: p.id,
+          name: p.name,
+          address: p.address,
+          zone: p.zone,
           status: p.status,
-          risk: p.risk, 
-          corporatePhone: p.corporate_phone, 
-          photo: p.photo, 
+          risk: p.risk,
+          corporatePhone: p.corporate_phone,
+          photo: p.photo,
           location: p.location,
           hasSecurityOfficer: p.has_security_officer
         }));
@@ -212,8 +245,11 @@ const App: React.FC = () => {
           loans: process(lns),
           cases: process(casesData),
           schedule: process(schs),
-          users: (dbUsers.data || []).map((u: any) => ({ 
-            ...u, fullName: u.full_name, isApproved: u.is_approved, isBlocked: u.is_blocked 
+          users: (dbUsers.data || []).map((u: any) => ({
+            ...u,
+            fullName: u.full_name,
+            isApproved: u.is_approved,
+            isBlocked: u.is_blocked
           }))
         };
       });
@@ -233,7 +269,10 @@ const App: React.FC = () => {
   }, [currentUser, fullSync]);
 
   const checkPermission = () => {
-    if (isReadOnly) { addToast("Modo Lectura: Acceso Denegado", "error"); return false; }
+    if (isReadOnly) {
+      addToast("Modo Lectura: Acceso Denegado", "error");
+      return false;
+    }
     return true;
   };
 
@@ -241,10 +280,10 @@ const App: React.FC = () => {
     if (!checkPermission()) return;
     if (!supabase || !currentUser) return;
     try {
-      const realZone = 
-        data.zone || 
-        (data.pharmacy && data.pharmacy.zone) || 
-        currentUser.zone || 
+      const realZone =
+        data.zone ||
+        (data.pharmacy && data.pharmacy.zone) ||
+        currentUser.zone ||
         'Global';
 
       const payload: any = { id, data, created_by: currentUser.fullName, zone: realZone };
@@ -265,17 +304,41 @@ const App: React.FC = () => {
     } catch (e) { addToast("Error al borrar", "error"); }
   };
 
+  /**
+   * ✅ MODIFICADO: ahora soporta actualizar zone y lo aplica inmediatamente si el usuario afectado está logueado.
+   */
   const handleUpdateUser = async (email: string, updates: any) => {
     if (!checkPermission()) return;
     if (!supabase) return;
+
     try {
       const dbUpdates: any = {};
       if (updates.isApproved !== undefined) dbUpdates.is_approved = updates.isApproved;
       if (updates.isBlocked !== undefined) dbUpdates.is_blocked = updates.isBlocked;
+
+      // ✅ CLAVE: la columna real es "zone"
+      if (updates.zone !== undefined) dbUpdates.zone = updates.zone;
+
       await supabase.from('users').update(dbUpdates).eq('email', email);
-      setUserData(prev => ({ ...prev, users: prev.users.map(u => u.email === email ? { ...u, ...updates } : u) }));
+
+      // Actualiza lista de usuarios en memoria
+      setUserData(prev => ({
+        ...prev,
+        users: prev.users.map(u => u.email === email ? { ...u, ...updates } : u)
+      }));
+
+      // ✅ Aplicación inmediata: si el usuario modificado es el que está logueado, actualizamos currentUser y sessionStorage.
+      const currentEmail = (currentUser?.email || '').trim().toLowerCase();
+      if (currentEmail && currentEmail === email.trim().toLowerCase()) {
+        const newCurrent = { ...currentUser, ...updates };
+        setCurrentUser(newCurrent);
+        sessionStorage.setItem('xana_active_user', JSON.stringify(newCurrent));
+      }
+
       addToast("Usuario actualizado", "success");
-    } catch (e) { addToast("Error", "error"); }
+    } catch (e) {
+      addToast("Error", "error");
+    }
   };
 
   const handleEditAuditRequest = (audit: AuditState) => {
@@ -289,11 +352,11 @@ const App: React.FC = () => {
     const auditId = isEditing && auditToEdit?.id ? auditToEdit.id : `audit-${Date.now()}`;
     const score = calculateAuditScore(audit);
     const date = isEditing && auditToEdit?.date ? auditToEdit.date : new Date().toLocaleDateString('es-ES');
-    
+
     const completedAudit = { ...audit, id: auditId, date, score, createdBy: currentUser.fullName };
 
     setUserData(prev => {
-      const newAudits = isEditing 
+      const newAudits = isEditing
         ? prev.audits.map(a => a.id === auditId ? completedAudit : a)
         : [completedAudit, ...prev.audits];
       return { ...prev, audits: newAudits };
@@ -320,14 +383,36 @@ const App: React.FC = () => {
     });
   };
 
-  if (!currentUser && supabase) return <Login onLogin={(u) => { setCurrentUser(u); sessionStorage.setItem('xana_active_user', JSON.stringify(u)); }} />;
+  if (!currentUser && supabase) {
+    return (
+      <Login
+        onLogin={(u) => {
+          setCurrentUser(u);
+          sessionStorage.setItem('xana_active_user', JSON.stringify(u));
+        }}
+      />
+    );
+  }
 
   return (
     <div className="flex min-h-screen font-sans text-slate-900 overflow-x-hidden">
       <div className="fixed top-6 right-6 z-[250] space-y-3 pointer-events-none">
         {toasts.map(toast => (
-          <div key={toast.id} className={`flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border backdrop-blur-xl animate-in slide-in-from-right-10 duration-300 pointer-events-auto ${toast.type === 'success' ? 'bg-emerald-500 text-white' : toast.type === 'error' ? 'bg-red-600 text-white' : 'bg-slate-800 text-white'}`}>
-            {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : toast.type === 'error' ? <XCircle className="w-5 h-5" /> : <WifiOff className="w-5 h-5" />}
+          <div
+            key={toast.id}
+            className={`flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border backdrop-blur-xl animate-in slide-in-from-right-10 duration-300 pointer-events-auto ${toast.type === 'success'
+              ? 'bg-emerald-500 text-white'
+              : toast.type === 'error'
+                ? 'bg-red-600 text-white'
+                : 'bg-slate-800 text-white'
+              }`}
+          >
+            {toast.type === 'success'
+              ? <CheckCircle2 className="w-5 h-5" />
+              : toast.type === 'error'
+                ? <XCircle className="w-5 h-5" />
+                : <WifiOff className="w-5 h-5" />
+            }
             <span className="text-[10px] font-black uppercase tracking-widest">{toast.message}</span>
           </div>
         ))}
@@ -335,133 +420,375 @@ const App: React.FC = () => {
 
       {supabase && (
         <>
-          <Sidebar 
-            currentView={currentView} 
-            onNavigate={(view) => { if (view !== 'audit-wizard') setAuditToEdit(null); setCurrentView(view); }} 
-            user={currentUser} 
-            onLogout={() => { setCurrentUser(null); sessionStorage.removeItem('xana_active_user'); }} 
-            isSyncing={isSyncing} 
-            isOpen={isSidebarOpen} 
+          <Sidebar
+            currentView={currentView}
+            onNavigate={(view) => { if (view !== 'audit-wizard') setAuditToEdit(null); setCurrentView(view); }}
+            user={currentUser}
+            onLogout={() => { setCurrentUser(null); sessionStorage.removeItem('xana_active_user'); }}
+            isSyncing={isSyncing}
+            isOpen={isSidebarOpen}
             onClose={() => setIsSidebarOpen(false)}
-            // PASAMOS EL CONTROL DE MODO VIAJE A LA SIDEBAR
             isTravelMode={isTravelMode}
             onToggleTravelMode={() => setIsTravelMode(!isTravelMode)}
           />
-          
-          <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden fixed top-6 left-6 z-50 p-4 bg-slate-900/80 backdrop-blur-md text-white rounded-2xl shadow-2xl border border-white/10"><Menu className="w-6 h-6" /></button>
+
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="lg:hidden fixed top-6 left-6 z-50 p-4 bg-slate-900/80 backdrop-blur-md text-white rounded-2xl shadow-2xl border border-white/10"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
 
           <main className={`flex-1 transition-all duration-300 lg:ml-80 p-4 md:p-6 ${isSidebarOpen ? 'blur-sm pointer-events-none lg:blur-none lg:pointer-events-auto' : ''}`}>
-            
-            {/* 1. DASHBOARD */}
-            {currentView === 'dashboard' && <Dashboard onNavigate={setCurrentView} pharmacies={visiblePharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} onSelectAudit={(a) => { setSelectedAudit(a); setCurrentView('audit-results'); }} />}
-            
-            {/* 2. ASISTENTE IA */}
-            {currentView === 'ai-assistant' && !isReadOnly && <AIAssistant pharmacies={visiblePharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} pendingRecords={userData.pendingRecords} staffRecords={userData.staffRecords} schedule={userData.schedule} dailyBriefing={userData.dailyBriefing} onSaveSchedule={async (s) => { if(!checkPermission()) return; setUserData(prev => ({...prev, schedule: s})); if (s.length > 0) await saveToCloud('schedule', s[0].id, s[0]); }} onSaveBriefing={(b) => setUserData(prev => ({...prev, dailyBriefing: b}))} onAddPending={async (p) => { if(!checkPermission()) return; setUserData(prev => ({...prev, pendingRecords: [p, ...prev.pendingRecords]})); await saveToCloud('pending_tasks', p.id, p); }} />}
-            
-            {/* 3. AUDITORÍA */}
-            {currentView === 'audit-wizard' && <AuditWizard onCancel={() => { setAuditToEdit(null); setCurrentView('dashboard'); }} onFinish={handleFinishAudit} pharmacies={visiblePharmacies} initialAudit={auditToEdit} onAddPharmacy={async (p) => { if(!checkPermission()) return; setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] })); await supabase.from('pharmacies').insert({ id: p.id, name: p.name, address: p.address, zone: p.zone, status: p.status, risk: p.risk, corporate_phone: p.corporate_phone, photo: p.photo, location: p.location }); }} />}
-            
-            {currentView === 'audit-results' && selectedAudit && <AuditResults audit={selectedAudit} onBack={() => setCurrentView('dashboard')} onSaveReport={async (id, text) => { if(!checkPermission()) return; const updated = userData.audits.map(a => a.id === id ? {...a, reportText: text} : a); setUserData(prev => ({...prev, audits: updated})); const aud = updated.find(x => x.id === id); if(aud) await saveToCloud('audits', id, aud); }} />}
-            
-            {/* 4. VISITAS */}
-            {currentView === 'new-visit' && <NewVisit pharmacies={visiblePharmacies} onCancel={() => setCurrentView('dashboard')} onSave={async (r) => { if(!checkPermission()) return; const rec = { ...r, createdBy: currentUser.fullName }; setUserData(prev => ({...prev, managementRecords: [rec, ...prev.managementRecords]})); await saveToCloud('management_visits', rec.id, rec); setCurrentView('visit-log'); }} />}
-            
-            {/* 5. INVENTARIOS */}
-            {currentView === 'cctv-inventory' && <CCTVInventory pharmacies={visiblePharmacies} records={userData.cctvRecords} onBack={() => setCurrentView('dashboard')} onSave={async (r) => { if(!checkPermission()) return; const rec = { ...r, createdBy: currentUser.fullName }; setUserData(prev => ({...prev, cctvRecords: [...prev.cctvRecords, rec]})); await saveToCloud('cctv_records', rec.id, rec); }} onAddPharmacy={() => {}} />}
-            
-            {currentView === 'physical-inventory' && <PhysicalInventory pharmacies={visiblePharmacies} records={userData.physicalRecords} onBack={() => setCurrentView('dashboard')} onSave={async (r) => { if(!checkPermission()) return; const rec = { ...r, createdBy: currentUser.fullName }; setUserData(prev => ({...prev, physicalRecords: [...prev.physicalRecords, rec]})); await saveToCloud('physical_records', rec.id, rec); }} onAddPharmacy={() => {}} />}
-            
-            {/* 6. PENDIENTES Y OTROS */}
-            {currentView === 'pending-tasks' && <PendingTasks pharmacies={visiblePharmacies} records={userData.pendingRecords} onAdd={async (r) => { if(!checkPermission()) return; const rec = { ...r, createdBy: currentUser.fullName }; setUserData(prev => ({...prev, pendingRecords: [rec, ...prev.pendingRecords]})); await saveToCloud('pending_tasks', rec.id, rec); }} onUpdateStatus={async (id, status) => { if(!checkPermission()) return; const updated = userData.pendingRecords.map(r => r.id === id ? {...r, status} : r); setUserData(prev => ({...prev, pendingRecords: updated})); const p = updated.find(x => x.id === id); if(p) await saveToCloud('pending_tasks', id, p); }} onDelete={async (id) => { if(!checkPermission()) return; setUserData(prev => ({...prev, pendingRecords: prev.pendingRecords.filter(r => r.id !== id)})); await deleteFromCloud('pending_tasks', id); }} />}
-            
-            {currentView === 'delivery-receipts' && <DeliveryReceipts receipts={userData.deliveryReceipts} onAdd={async (r) => { if(!checkPermission()) return; const rec = { ...r, createdBy: currentUser.fullName }; setUserData(prev => ({...prev, deliveryReceipts: [rec, ...prev.deliveryReceipts]})); await saveToCloud('delivery_receipts', rec.id, rec); }} onDelete={async (id) => { if(!checkPermission()) return; setUserData(prev => ({...prev, deliveryReceipts: prev.deliveryReceipts.filter(r => r.id !== id)})); await deleteFromCloud('delivery_receipts', id); }} />}
-            
-            {currentView === 'asset-control' && <AssetControl pharmacies={visiblePharmacies} assets={userData.assets} loans={userData.loans} onAddAsset={async (a) => { if(!checkPermission()) return; setUserData(prev => ({...prev, assets: [...prev.assets, a]})); await saveToCloud('assets', a.id, a); }} onUpdateAsset={async (a) => { if(!checkPermission()) return; setUserData(prev => ({...prev, assets: prev.assets.map(x => x.id === a.id ? a : x)})); await saveToCloud('assets', a.id, a); }} onDeleteAsset={async (id) => { if(!checkPermission()) return; setUserData(prev => ({...prev, assets: prev.assets.filter(x => x.id !== id)})); await deleteFromCloud('assets', id); }} onSaveLoan={async (l) => { if(!checkPermission()) return; const ln = { ...l, createdBy: currentUser.fullName }; setUserData(prev => ({...prev, loans: [ln, ...prev.loans]})); await saveToCloud('loans', ln.id, ln); }} onReturnLoan={async (id, date, notes) => { if(!checkPermission()) return; const updated = userData.loans.map(l => l.id === id ? {...l, status: 'Devuelto' as const, actualReturnDate: date, notes: l.notes + " | RETORNO: " + notes} : l); setUserData(p => ({...p, loans: updated})); const ln = updated.find(x => x.id === id); if(ln) await saveToCloud('loans', id, ln); }} />}
-            
-            {currentView === 'visit-log' && <VisitLog pharmacies={visiblePharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} users={getFilteredUsers()} currentUser={currentUser} onDeleteAudit={id => { if(!checkPermission()) return; setUserData(p => ({...p, audits: p.audits.filter(x => x.id !== id)})); deleteFromCloud('audits', id); }} onDeleteCCTV={id => { if(!checkPermission()) return; setUserData(p => ({...p, cctvRecords: p.cctvRecords.filter(x => x.id !== id)})); deleteFromCloud('cctv_records', id); }} onDeletePhysical={id => { if(!checkPermission()) return; setUserData(p => ({...p, physicalRecords: p.physicalRecords.filter(x => x.id !== id)})); deleteFromCloud('physical_records', id); }} onDeleteManagement={id => { if(!checkPermission()) return; setUserData(p => ({...p, managementRecords: p.managementRecords.filter(x => x.id !== id)})); deleteFromCloud('management_visits', id); }} hasAdminPrivileges={isBoss} onEditAudit={handleEditAuditRequest} />}
-            
-            {currentView === 'monthly-summary' && <MonthlySummary pharmacies={visiblePharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} pendingRecords={userData.pendingRecords} cases={userData.cases} users={getFilteredUsers()} currentUser={currentUser} />}
-            
-            {currentView === 'management-report' && !isReadOnly && <ManagementReport pharmacies={visiblePharmacies} audits={userData.audits} cctvRecords={userData.cctvRecords} physicalRecords={userData.physicalRecords} managementRecords={userData.managementRecords} />}
-            
+
+            {currentView === 'dashboard' && (
+              <Dashboard
+                onNavigate={setCurrentView}
+                pharmacies={visiblePharmacies}
+                audits={userData.audits}
+                cctvRecords={userData.cctvRecords}
+                physicalRecords={userData.physicalRecords}
+                managementRecords={userData.managementRecords}
+                onSelectAudit={(a) => { setSelectedAudit(a); setCurrentView('audit-results'); }}
+              />
+            )}
+
+            {currentView === 'ai-assistant' && !isReadOnly && (
+              <AIAssistant
+                pharmacies={visiblePharmacies}
+                audits={userData.audits}
+                cctvRecords={userData.cctvRecords}
+                physicalRecords={userData.physicalRecords}
+                pendingRecords={userData.pendingRecords}
+                staffRecords={userData.staffRecords}
+                schedule={userData.schedule}
+                dailyBriefing={userData.dailyBriefing}
+                onSaveSchedule={async (s) => {
+                  if (!checkPermission()) return;
+                  setUserData(prev => ({ ...prev, schedule: s }));
+                  if (s.length > 0) await saveToCloud('schedule', s[0].id, s[0]);
+                }}
+                onSaveBriefing={(b) => setUserData(prev => ({ ...prev, dailyBriefing: b }))}
+                onAddPending={async (p) => {
+                  if (!checkPermission()) return;
+                  setUserData(prev => ({ ...prev, pendingRecords: [p, ...prev.pendingRecords] }));
+                  await saveToCloud('pending_tasks', p.id, p);
+                }}
+              />
+            )}
+
+            {currentView === 'audit-wizard' && (
+              <AuditWizard
+                onCancel={() => { setAuditToEdit(null); setCurrentView('dashboard'); }}
+                onFinish={handleFinishAudit}
+                pharmacies={visiblePharmacies}
+                initialAudit={auditToEdit}
+                onAddPharmacy={async (p) => {
+                  if (!checkPermission()) return;
+                  setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] }));
+                  await supabase.from('pharmacies').insert({
+                    id: p.id,
+                    name: p.name,
+                    address: p.address,
+                    zone: p.zone,
+                    status: p.status,
+                    risk: p.risk,
+                    corporate_phone: p.corporate_phone,
+                    photo: p.photo,
+                    location: p.location
+                  });
+                }}
+              />
+            )}
+
+            {currentView === 'audit-results' && selectedAudit && (
+              <AuditResults
+                audit={selectedAudit}
+                onBack={() => setCurrentView('dashboard')}
+                onSaveReport={async (id, text) => {
+                  if (!checkPermission()) return;
+                  const updated = userData.audits.map(a => a.id === id ? { ...a, reportText: text } : a);
+                  setUserData(prev => ({ ...prev, audits: updated }));
+                  const aud = updated.find(x => x.id === id);
+                  if (aud) await saveToCloud('audits', id, aud);
+                }}
+              />
+            )}
+
+            {currentView === 'new-visit' && (
+              <NewVisit
+                pharmacies={visiblePharmacies}
+                onCancel={() => setCurrentView('dashboard')}
+                onSave={async (r) => {
+                  if (!checkPermission()) return;
+                  const rec = { ...r, createdBy: currentUser.fullName };
+                  setUserData(prev => ({ ...prev, managementRecords: [rec, ...prev.managementRecords] }));
+                  await saveToCloud('management_visits', rec.id, rec);
+                  setCurrentView('visit-log');
+                }}
+              />
+            )}
+
+            {currentView === 'cctv-inventory' && (
+              <CCTVInventory
+                pharmacies={visiblePharmacies}
+                records={userData.cctvRecords}
+                onBack={() => setCurrentView('dashboard')}
+                onSave={async (r) => {
+                  if (!checkPermission()) return;
+                  const rec = { ...r, createdBy: currentUser.fullName };
+                  setUserData(prev => ({ ...prev, cctvRecords: [...prev.cctvRecords, rec] }));
+                  await saveToCloud('cctv_records', rec.id, rec);
+                }}
+                onAddPharmacy={() => { }}
+              />
+            )}
+
+            {currentView === 'physical-inventory' && (
+              <PhysicalInventory
+                pharmacies={visiblePharmacies}
+                records={userData.physicalRecords}
+                onBack={() => setCurrentView('dashboard')}
+                onSave={async (r) => {
+                  if (!checkPermission()) return;
+                  const rec = { ...r, createdBy: currentUser.fullName };
+                  setUserData(prev => ({ ...prev, physicalRecords: [...prev.physicalRecords, rec] }));
+                  await saveToCloud('physical_records', rec.id, rec);
+                }}
+                onAddPharmacy={() => { }}
+              />
+            )}
+
+            {currentView === 'pending-tasks' && (
+              <PendingTasks
+                pharmacies={visiblePharmacies}
+                records={userData.pendingRecords}
+                onAdd={async (r) => {
+                  if (!checkPermission()) return;
+                  const rec = { ...r, createdBy: currentUser.fullName };
+                  setUserData(prev => ({ ...prev, pendingRecords: [rec, ...prev.pendingRecords] }));
+                  await saveToCloud('pending_tasks', rec.id, rec);
+                }}
+                onUpdateStatus={async (id, status) => {
+                  if (!checkPermission()) return;
+                  const updated = userData.pendingRecords.map(r => r.id === id ? { ...r, status } : r);
+                  setUserData(prev => ({ ...prev, pendingRecords: updated }));
+                  const p = updated.find(x => x.id === id);
+                  if (p) await saveToCloud('pending_tasks', id, p);
+                }}
+                onDelete={async (id) => {
+                  if (!checkPermission()) return;
+                  setUserData(prev => ({ ...prev, pendingRecords: prev.pendingRecords.filter(r => r.id !== id) }));
+                  await deleteFromCloud('pending_tasks', id);
+                }}
+              />
+            )}
+
+            {currentView === 'delivery-receipts' && (
+              <DeliveryReceipts
+                receipts={userData.deliveryReceipts}
+                onAdd={async (r) => {
+                  if (!checkPermission()) return;
+                  const rec = { ...r, createdBy: currentUser.fullName };
+                  setUserData(prev => ({ ...prev, deliveryReceipts: [rec, ...prev.deliveryReceipts] }));
+                  await saveToCloud('delivery_receipts', rec.id, rec);
+                }}
+                onDelete={async (id) => {
+                  if (!checkPermission()) return;
+                  setUserData(prev => ({ ...prev, deliveryReceipts: prev.deliveryReceipts.filter(r => r.id !== id) }));
+                  await deleteFromCloud('delivery_receipts', id);
+                }}
+              />
+            )}
+
+            {currentView === 'asset-control' && (
+              <AssetControl
+                pharmacies={visiblePharmacies}
+                assets={userData.assets}
+                loans={userData.loans}
+                onAddAsset={async (a) => {
+                  if (!checkPermission()) return;
+                  setUserData(prev => ({ ...prev, assets: [...prev.assets, a] }));
+                  await saveToCloud('assets', a.id, a);
+                }}
+                onUpdateAsset={async (a) => {
+                  if (!checkPermission()) return;
+                  setUserData(prev => ({ ...prev, assets: prev.assets.map(x => x.id === a.id ? a : x) }));
+                  await saveToCloud('assets', a.id, a);
+                }}
+                onDeleteAsset={async (id) => {
+                  if (!checkPermission()) return;
+                  setUserData(prev => ({ ...prev, assets: prev.assets.filter(x => x.id !== id) }));
+                  await deleteFromCloud('assets', id);
+                }}
+                onSaveLoan={async (l) => {
+                  if (!checkPermission()) return;
+                  const ln = { ...l, createdBy: currentUser.fullName };
+                  setUserData(prev => ({ ...prev, loans: [ln, ...prev.loans] }));
+                  await saveToCloud('loans', ln.id, ln);
+                }}
+                onReturnLoan={async (id, date, notes) => {
+                  if (!checkPermission()) return;
+                  const updated = userData.loans.map(l => l.id === id ? { ...l, status: 'Devuelto' as const, actualReturnDate: date, notes: l.notes + " | RETORNO: " + notes } : l);
+                  setUserData(p => ({ ...p, loans: updated }));
+                  const ln = updated.find(x => x.id === id);
+                  if (ln) await saveToCloud('loans', id, ln);
+                }}
+              />
+            )}
+
+            {currentView === 'visit-log' && (
+              <VisitLog
+                pharmacies={visiblePharmacies}
+                audits={userData.audits}
+                cctvRecords={userData.cctvRecords}
+                physicalRecords={userData.physicalRecords}
+                managementRecords={userData.managementRecords}
+                users={getFilteredUsers()}
+                currentUser={currentUser}
+                onDeleteAudit={id => { if (!checkPermission()) return; setUserData(p => ({ ...p, audits: p.audits.filter(x => x.id !== id) })); deleteFromCloud('audits', id); }}
+                onDeleteCCTV={id => { if (!checkPermission()) return; setUserData(p => ({ ...p, cctvRecords: p.cctvRecords.filter(x => x.id !== id) })); deleteFromCloud('cctv_records', id); }}
+                onDeletePhysical={id => { if (!checkPermission()) return; setUserData(p => ({ ...p, physicalRecords: p.physicalRecords.filter(x => x.id !== id) })); deleteFromCloud('physical_records', id); }}
+                onDeleteManagement={id => { if (!checkPermission()) return; setUserData(p => ({ ...p, managementRecords: p.managementRecords.filter(x => x.id !== id) })); deleteFromCloud('management_visits', id); }}
+                hasAdminPrivileges={isBoss}
+                onEditAudit={handleEditAuditRequest}
+              />
+            )}
+
+            {currentView === 'monthly-summary' && (
+              <MonthlySummary
+                pharmacies={visiblePharmacies}
+                audits={userData.audits}
+                cctvRecords={userData.cctvRecords}
+                physicalRecords={userData.physicalRecords}
+                managementRecords={userData.managementRecords}
+                pendingRecords={userData.pendingRecords}
+                cases={userData.cases}
+                users={getFilteredUsers()}
+                currentUser={currentUser}
+              />
+            )}
+
+            {currentView === 'management-report' && !isReadOnly && (
+              <ManagementReport
+                pharmacies={visiblePharmacies}
+                audits={userData.audits}
+                cctvRecords={userData.cctvRecords}
+                physicalRecords={userData.physicalRecords}
+                managementRecords={userData.managementRecords}
+              />
+            )}
+
             {currentView === 'case-management' && (
-              <CaseManagement 
+              <CaseManagement
                 pharmacies={visiblePharmacies}
                 cases={userData.cases}
-                onAddCase={async (c) => { 
-                  if(!checkPermission()) return; 
-                  setUserData(prev => ({...prev, cases: [c, ...prev.cases]})); 
-                  await saveToCloud('cases', c.id, c); 
+                onAddCase={async (c) => {
+                  if (!checkPermission()) return;
+                  setUserData(prev => ({ ...prev, cases: [c, ...prev.cases] }));
+                  await saveToCloud('cases', c.id, c);
                 }}
-                onUpdateCase={async (c) => { 
-                  if(!checkPermission()) return; 
-                  setUserData(prev => ({...prev, cases: prev.cases.map(x => x.id === c.id ? c : x)})); 
-                  await saveToCloud('cases', c.id, c); 
+                onUpdateCase={async (c) => {
+                  if (!checkPermission()) return;
+                  setUserData(prev => ({ ...prev, cases: prev.cases.map(x => x.id === c.id ? c : x) }));
+                  await saveToCloud('cases', c.id, c);
                 }}
                 onDeleteCase={async (id) => {
-                  if(!checkPermission()) return;
-                  setUserData(prev => ({...prev, cases: prev.cases.filter(x => x.id !== id)}));
+                  if (!checkPermission()) return;
+                  setUserData(prev => ({ ...prev, cases: prev.cases.filter(x => x.id !== id) }));
                   await deleteFromCloud('cases', id);
                 }}
                 currentUser={currentUser}
                 hasAdminPrivileges={isBoss}
               />
             )}
-            
+
             {currentView === 'pharmacy-list' && (
-                <PharmacyList 
-                    pharmacies={visiblePharmacies} 
-                    staffRecords={userData.staffRecords} 
-                    onUpdate={async (p) => { 
-                        if(!checkPermission()) return; 
-                        setUserData(prev => ({ ...prev, pharmacies: prev.pharmacies.map(x => x.id === p.id ? p : x) })); 
-                        await supabase.from('pharmacies').upsert({ 
-                            id: p.id, 
-                            name: p.name, 
-                            address: p.address, 
-                            zone: p.zone, 
-                            status: p.status, 
-                            risk: p.risk, 
-                            corporate_phone: p.corporatePhone, 
-                            photo: p.photo, 
-                            location: p.location,
-                            has_security_officer: p.hasSecurityOfficer 
-                        }); 
-                    }} 
-                    onDelete={async (id) => { 
-                        if(!checkPermission()) return; 
-                        setUserData(prev => ({ ...prev, pharmacies: prev.pharmacies.filter(x => x.id !== id) })); 
-                        await supabase.from('pharmacies').delete().eq('id', id); 
-                    }} 
-                    onAdd={async (p) => { 
-                        if(!checkPermission()) return; 
-                        setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] })); 
-                        await supabase.from('pharmacies').insert({ 
-                            id: p.id, 
-                            name: p.name, 
-                            address: p.address, 
-                            zone: p.zone, 
-                            status: p.status, 
-                            risk: p.risk, 
-                            corporate_phone: p.corporatePhone, 
-                            photo: p.photo, 
-                            location: p.location,
-                            has_security_officer: p.hasSecurityOfficer 
-                        }); 
-                    }} 
-                    currentUser={currentUser}
-                    // AHORA PASAMOS EL ESTADO DEL MODO VIAJE A LA LISTA DE FARMACIAS TAMBIÉN
-                    isTravelMode={isTravelMode}
-                />
+              <PharmacyList
+                pharmacies={visiblePharmacies}
+                staffRecords={userData.staffRecords}
+                onUpdate={async (p) => {
+                  if (!checkPermission()) return;
+                  setUserData(prev => ({ ...prev, pharmacies: prev.pharmacies.map(x => x.id === p.id ? p : x) }));
+                  await supabase.from('pharmacies').upsert({
+                    id: p.id,
+                    name: p.name,
+                    address: p.address,
+                    zone: p.zone,
+                    status: p.status,
+                    risk: p.risk,
+                    corporate_phone: p.corporatePhone,
+                    photo: p.photo,
+                    location: p.location,
+                    has_security_officer: p.hasSecurityOfficer
+                  });
+                }}
+                onDelete={async (id) => {
+                  if (!checkPermission()) return;
+                  setUserData(prev => ({ ...prev, pharmacies: prev.pharmacies.filter(x => x.id !== id) }));
+                  await supabase.from('pharmacies').delete().eq('id', id);
+                }}
+                onAdd={async (p) => {
+                  if (!checkPermission()) return;
+                  setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] }));
+                  await supabase.from('pharmacies').insert({
+                    id: p.id,
+                    name: p.name,
+                    address: p.address,
+                    zone: p.zone,
+                    status: p.status,
+                    risk: p.risk,
+                    corporate_phone: p.corporatePhone,
+                    photo: p.photo,
+                    location: p.location,
+                    has_security_officer: p.hasSecurityOfficer
+                  });
+                }}
+                currentUser={currentUser}
+                isTravelMode={isTravelMode}
+              />
             )}
-            
-            {currentView === 'staff-directory' && <StaffDirectory pharmacies={visiblePharmacies} staffRecords={userData.staffRecords} readOnly={isReadOnly} onAddStaff={async (s) => { if(!checkPermission()) return; setUserData(prev => ({...prev, staffRecords: [s, ...prev.staffRecords]})); await saveToCloud('staff', s.id, s); }} onDeleteStaff={async (id) => { if(!checkPermission()) return; setUserData(prev => ({...prev, staffRecords: prev.staffRecords.filter(x => x.id !== id)})); await deleteFromCloud('staff', id); }} />}
-            
-            {currentView === 'support-directory' && <SupportDirectory pharmacies={visiblePharmacies} supportRecords={userData.supportRecords} onAddContact={async (c) => { if(!checkPermission()) return; setUserData(prev => ({...prev, supportRecords: [c, ...prev.supportRecords]})); await saveToCloud('support_contacts', c.id, c); }} onDeleteContact={async (id) => { if(!checkPermission()) return; setUserData(prev => ({...prev, supportRecords: prev.supportRecords.filter(x => x.id !== id)})); await deleteFromCloud('support_contacts', id); }} />}
-            
-            {currentView === 'access-management' && !isReadOnly && <AccessManagement users={userData.users} onApprove={(email) => handleUpdateUser(email, { isApproved: true, isBlocked: false })} onBlock={(email) => handleUpdateUser(email, { isBlocked: true })} onDelete={async (email) => { if(!checkPermission()) return; setUserData(prev => ({...prev, users: prev.users.filter(u => u.email !== email)})); await supabase.from('users').delete().eq('email', email); }} />}
-            
-            {currentView === 'settings' && <Settings user={currentUser} onLogout={() => { setCurrentUser(null); sessionStorage.removeItem('xana_active_user'); }} />}
+
+            {currentView === 'staff-directory' && (
+              <StaffDirectory
+                pharmacies={visiblePharmacies}
+                staffRecords={userData.staffRecords}
+                readOnly={isReadOnly}
+                onAddStaff={async (s) => { if (!checkPermission()) return; setUserData(prev => ({ ...prev, staffRecords: [s, ...prev.staffRecords] })); await saveToCloud('staff', s.id, s); }}
+                onDeleteStaff={async (id) => { if (!checkPermission()) return; setUserData(prev => ({ ...prev, staffRecords: prev.staffRecords.filter(x => x.id !== id) })); await deleteFromCloud('staff', id); }}
+              />
+            )}
+
+            {currentView === 'support-directory' && (
+              <SupportDirectory
+                pharmacies={visiblePharmacies}
+                supportRecords={userData.supportRecords}
+                onAddContact={async (c) => { if (!checkPermission()) return; setUserData(prev => ({ ...prev, supportRecords: [c, ...prev.supportRecords] })); await saveToCloud('support_contacts', c.id, c); }}
+                onDeleteContact={async (id) => { if (!checkPermission()) return; setUserData(prev => ({ ...prev, supportRecords: prev.supportRecords.filter(x => x.id !== id) })); await deleteFromCloud('support_contacts', id); }}
+              />
+            )}
+
+            {/* ✅ ACTUALIZADO: se pasa onUpdateZone */}
+            {currentView === 'access-management' && !isReadOnly && (
+              <AccessManagement
+                users={userData.users}
+                onApprove={(email) => handleUpdateUser(email, { isApproved: true, isBlocked: false })}
+                onBlock={(email) => handleUpdateUser(email, { isBlocked: true })}
+                onDelete={async (email) => {
+                  if (!checkPermission()) return;
+                  setUserData(prev => ({ ...prev, users: prev.users.filter(u => u.email !== email) }));
+                  await supabase.from('users').delete().eq('email', email);
+                }}
+                onUpdateZone={(email, zone) => handleUpdateUser(email, { zone })}
+              />
+            )}
+
+            {currentView === 'settings' && (
+              <Settings
+                user={currentUser}
+                onLogout={() => { setCurrentUser(null); sessionStorage.removeItem('xana_active_user'); }}
+              />
+            )}
           </main>
         </>
       )}
