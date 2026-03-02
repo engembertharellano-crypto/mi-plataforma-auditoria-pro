@@ -476,6 +476,7 @@ const App: React.FC = () => {
                   setSelectedAudit(a);
                   setCurrentView('audit-results');
                 }}
+                readOnly={isReadOnly} // ✅ NUEVO: oculta botones de acción en Dashboard
               />
             )}
 
@@ -675,7 +676,7 @@ const App: React.FC = () => {
               />
             )}
 
-            {/* ✅ CAMBIO AQUÍ: VisitLog recibe el catálogo completo para resolver nombres */}
+            {/* ✅ VisitLog recibe readOnly para ocultar edición */}
             {currentView === 'visit-log' && (
               <VisitLog
                 pharmacies={userData.pharmacies}
@@ -707,6 +708,7 @@ const App: React.FC = () => {
                 }}
                 hasAdminPrivileges={isBoss}
                 onEditAudit={handleEditAuditRequest}
+                readOnly={isReadOnly} // ✅ NUEVO
               />
             )}
 
