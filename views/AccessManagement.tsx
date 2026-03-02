@@ -1,18 +1,47 @@
-import React, { useState } from 'react';
-import { UserCheck, UserX, ShieldAlert, Mail, User, Clock, Trash2, CheckCircle2, AlertTriangle, X, ShieldOff, Ban } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  UserCheck, 
+  UserX, 
+  ShieldAlert, 
+  Mail, 
+  User, 
+  Clock, 
+  Trash2, 
+  CheckCircle2, 
+  X, 
+  ShieldOff, 
+  Ban,
+  Globe,
+  Save
+} from 'lucide-react';
 
 interface AccessManagementProps {
   users: any[];
   onApprove: (email: string) => void;
   onBlock: (email: string) => void;
   onDelete: (email: string) => void;
+
+  // ✅ NUEVO: cambiar zona (lo ejecuta App.tsx / Supabase)
+  onUpdateZone?: (email: string, zone: string) => void;
 }
 
-const AccessManagement: React.FC<AccessManagementProps> = ({ users, onApprove, onBlock, onDelete }) => {
+const AccessManagement: React.FC<AccessManagementProps> = ({ 
+  users, 
+  onApprove, 
+  onBlock, 
+  onDelete,
+  onUpdateZone
+}) => {
   const [managementRequest, setManagementRequest] = useState<any | null>(null);
+
+  // ✅ NUEVO: borrador de zona en modal
+  const [zoneDraft, setZoneDraft] = useState<string>('');
 
   const ADMIN_EMAILS = ['engemberth.arellano@gmail.com', 'gustavo.fernandez@dronena.com'];
   const ADMIN_ROLES = ['Super Usuario', 'Gerente Corporativo de Seguridad'];
+
+  // ✅ catálogo de zonas (usa el mismo criterio que en tu app)
+  const ZONES = ['Gran Caracas Llanos', 'Gran Caracas Oriente', 'Centro Occidente'];
 
   const isProtected = (user: any) => {
     return ADMIN_EMAILS.includes(user.email) || ADMIN_ROLES.includes(user.role);
@@ -21,6 +50,15 @@ const AccessManagement: React.FC<AccessManagementProps> = ({ users, onApprove, o
   const pendingUsers = users.filter(u => !u.isApproved && !isProtected(u) && !u.isBlocked);
   const activeUsers = users.filter(u => (u.isApproved || isProtected(u)) && !isProtected(u) && !u.isBlocked);
   const blockedUsers = users.filter(u => u.isBlocked && !isProtected(u));
+
+  // ✅ cuando abres el modal, precarga la zona actual
+  useEffect(() => {
+    if (managementRequest) {
+      setZoneDraft(managementRequest.zone || '');
+    } else {
+      setZoneDraft('');
+    }
+  }, [managementRequest]);
 
   const handleBlockAction = () => {
     if (managementRequest) {
@@ -34,6 +72,24 @@ const AccessManagement: React.FC<AccessManagementProps> = ({ users, onApprove, o
       onDelete(managementRequest.email);
       setManagementRequest(null);
     }
+  };
+
+  const handleZoneSave = () => {
+    if (!managementRequest) return;
+    if (!onUpdateZone) return;
+
+    const newZone = (zoneDraft || '').trim();
+    if (!newZone) return;
+
+    // Evita acción si no cambió
+    const current = (managementRequest.zone || '').trim();
+    if (newZone === current) {
+      setManagementRequest(null);
+      return;
+    }
+
+    onUpdateZone(managementRequest.email, newZone);
+    setManagementRequest(null);
   };
 
   return (
@@ -195,9 +251,51 @@ const AccessManagement: React.FC<AccessManagementProps> = ({ users, onApprove, o
                 <ShieldAlert className="w-12 h-12" />
              </div>
              <h3 className="text-3xl font-black text-slate-900 tracking-tighter mb-4 text-center">Protocolo de Seguridad</h3>
-             <p className="text-slate-500 font-medium mb-10 text-sm text-center leading-relaxed">
+             <p className="text-slate-500 font-medium mb-8 text-sm text-center leading-relaxed">
                Usted está gestionando el perfil de <strong>{managementRequest.fullName}</strong>.<br/>Elija el nivel de restricción requerido:
              </p>
+
+             {/* ✅ NUEVO: CAMBIO DE ZONA */}
+             {onUpdateZone && !isProtected(managementRequest) && (
+               <div className="mb-6 p-6 rounded-3xl border-2 border-slate-50 bg-slate-50/40">
+                 <div className="flex items-center gap-3 mb-4">
+                   <div className="p-3 bg-white rounded-2xl border border-slate-100 text-slate-600">
+                     <Globe className="w-5 h-5" />
+                   </div>
+                   <div>
+                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reasignación Territorial</p>
+                     <p className="text-sm font-black text-slate-800 uppercase tracking-tight">Actualizar Zona del Usuario</p>
+                   </div>
+                 </div>
+
+                 <select
+                   className="w-full px-5 py-4 rounded-2xl border-2 border-slate-100 bg-white font-black text-slate-800 outline-none focus:border-indigo-600 transition-all"
+                   value={zoneDraft}
+                   onChange={(e) => setZoneDraft(e.target.value)}
+                 >
+                   <option value="">Seleccione zona...</option>
+                   {ZONES.map(z => (
+                     <option key={z} value={z}>{z}</option>
+                   ))}
+                 </select>
+
+                 <button
+                   onClick={handleZoneSave}
+                   disabled={!zoneDraft || (zoneDraft || '').trim() === (managementRequest.zone || '').trim()}
+                   className={`mt-4 w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all ${
+                     !zoneDraft || (zoneDraft || '').trim() === (managementRequest.zone || '').trim()
+                       ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                       : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-xl shadow-indigo-200'
+                   }`}
+                 >
+                   <Save className="w-4 h-4" /> Guardar Zona
+                 </button>
+
+                 <p className="mt-3 text-[10px] text-slate-400 font-medium">
+                   Zona actual: <span className="font-black text-slate-600">{managementRequest.zone || 'No definida'}</span>
+                 </p>
+               </div>
+             )}
              
              <div className="space-y-4">
                 {!managementRequest.isBlocked && (
