@@ -476,7 +476,7 @@ const App: React.FC = () => {
                   setSelectedAudit(a);
                   setCurrentView('audit-results');
                 }}
-                readOnly={isReadOnly} // ✅ NUEVO: oculta botones de acción en Dashboard
+                readOnly={isReadOnly} // ✅ clave
               />
             )}
 
@@ -506,7 +506,7 @@ const App: React.FC = () => {
             )}
 
             {/* 3. AUDITORÍA */}
-            {currentView === 'audit-wizard' && (
+            {currentView === 'audit-wizard' && !isReadOnly && (
               <AuditWizard
                 onCancel={() => {
                   setAuditToEdit(null);
@@ -548,7 +548,7 @@ const App: React.FC = () => {
             )}
 
             {/* 4. VISITAS */}
-            {currentView === 'new-visit' && (
+            {currentView === 'new-visit' && !isReadOnly && (
               <NewVisit
                 pharmacies={visiblePharmacies}
                 onCancel={() => setCurrentView('dashboard')}
@@ -563,7 +563,7 @@ const App: React.FC = () => {
             )}
 
             {/* 5. INVENTARIOS */}
-            {currentView === 'cctv-inventory' && (
+            {currentView === 'cctv-inventory' && !isReadOnly && (
               <CCTVInventory
                 pharmacies={visiblePharmacies}
                 records={userData.cctvRecords}
@@ -578,7 +578,7 @@ const App: React.FC = () => {
               />
             )}
 
-            {currentView === 'physical-inventory' && (
+            {currentView === 'physical-inventory' && !isReadOnly && (
               <PhysicalInventory
                 pharmacies={visiblePharmacies}
                 records={userData.physicalRecords}
@@ -594,7 +594,7 @@ const App: React.FC = () => {
             )}
 
             {/* 6. PENDIENTES Y OTROS */}
-            {currentView === 'pending-tasks' && (
+            {currentView === 'pending-tasks' && !isReadOnly && (
               <PendingTasks
                 pharmacies={visiblePharmacies}
                 records={userData.pendingRecords}
@@ -619,7 +619,7 @@ const App: React.FC = () => {
               />
             )}
 
-            {currentView === 'delivery-receipts' && (
+            {currentView === 'delivery-receipts' && !isReadOnly && (
               <DeliveryReceipts
                 receipts={userData.deliveryReceipts}
                 onAdd={async (r) => {
@@ -636,7 +636,7 @@ const App: React.FC = () => {
               />
             )}
 
-            {currentView === 'asset-control' && (
+            {currentView === 'asset-control' && !isReadOnly && (
               <AssetControl
                 pharmacies={visiblePharmacies}
                 assets={userData.assets}
@@ -676,7 +676,7 @@ const App: React.FC = () => {
               />
             )}
 
-            {/* ✅ VisitLog recibe readOnly para ocultar edición */}
+            {/* VisitLog catálogo completo */}
             {currentView === 'visit-log' && (
               <VisitLog
                 pharmacies={userData.pharmacies}
@@ -708,7 +708,6 @@ const App: React.FC = () => {
                 }}
                 hasAdminPrivileges={isBoss}
                 onEditAudit={handleEditAuditRequest}
-                readOnly={isReadOnly} // ✅ NUEVO
               />
             )}
 
@@ -726,6 +725,7 @@ const App: React.FC = () => {
               />
             )}
 
+            {/* Reporte gerencial NO para directiva */}
             {currentView === 'management-report' && !isReadOnly && (
               <ManagementReport
                 pharmacies={visiblePharmacies}
@@ -806,7 +806,7 @@ const App: React.FC = () => {
               />
             )}
 
-            {currentView === 'staff-directory' && (
+            {currentView === 'staff-directory' && !isReadOnly && (
               <StaffDirectory
                 pharmacies={visiblePharmacies}
                 staffRecords={userData.staffRecords}
@@ -824,7 +824,7 @@ const App: React.FC = () => {
               />
             )}
 
-            {currentView === 'support-directory' && (
+            {currentView === 'support-directory' && !isReadOnly && (
               <SupportDirectory
                 pharmacies={visiblePharmacies}
                 supportRecords={userData.supportRecords}
@@ -854,7 +854,8 @@ const App: React.FC = () => {
               />
             )}
 
-            {currentView === 'settings' && (
+            {/* ✅ Directiva NO ve Settings. Cierra sesión desde Sidebar. */}
+            {currentView === 'settings' && !isReadOnly && (
               <Settings
                 user={currentUser}
                 onLogout={() => {
