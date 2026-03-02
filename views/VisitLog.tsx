@@ -22,6 +22,7 @@ interface VisitLogProps {
   onDeleteManagement: (id: string) => void;
   onEditAudit?: (audit: AuditState) => void;
   hasAdminPrivileges: boolean;
+  readOnly?: boolean; // ✅ NUEVO
 }
 
 const ZONES = ['Gran Caracas Llanos', 'Gran Caracas Oriente', 'Centro Occidente'];
@@ -33,7 +34,8 @@ const VisitLog: React.FC<VisitLogProps> = ({
   physicalRecords, 
   managementRecords, 
   currentUser,
-  onEditAudit
+  onEditAudit,
+  readOnly = false
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('Todos');
@@ -298,15 +300,18 @@ const VisitLog: React.FC<VisitLogProps> = ({
                         {record.pharmacy}
                       </div>
                       
-                      {/* LÁPIZ DE EDICIÓN INTEGRADO: Aparece solo si es Auditoría y el usuario es el creador */}
-                      {record.type === 'Auditoría' && onEditAudit && record.original.createdBy === currentUser?.fullName && (
-                        <button 
-                          onClick={() => onEditAudit(record.original)}
-                          className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100"
-                          title="Editar Auditoría"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
+                      {/* ✅ NO SE MUESTRA EN SOLO LECTURA */}
+                      {(!readOnly) &&
+                        record.type === 'Auditoría' &&
+                        onEditAudit &&
+                        record.original.createdBy === currentUser?.fullName && (
+                          <button 
+                            onClick={() => onEditAudit(record.original)}
+                            className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100"
+                            title="Editar Auditoría"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
                       )}
                     </div>
                   </td>
