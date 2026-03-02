@@ -47,6 +47,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggleTravelMode
 }) => {
 
+  const email = (user?.email || '').trim().toLowerCase();
+  const role = (user?.role || '').trim().toLowerCase();
+
+  const isDirectiva = email === 'directiva@xana.com';
+  const isAdmin = role === 'super usuario' || isDirectiva;
+
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'ai-assistant', label: 'Asistente IA', icon: BrainCircuit, highlight: true },
@@ -68,26 +74,21 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'settings', label: 'Configuración', icon: Settings },
   ];
 
-  // Directiva: se identifica EXACTAMENTE por este email (como ya lo haces en App)
-  const isDirectiva = (user?.email || '').trim().toLowerCase() === 'directiva@xana.com';
+  // ✅ LISTA BLANCA PARA DIRECTIVA: SOLO LO RELEVANTE (SIN OPERACIÓN)
+  const DIRECTIVA_ALLOWED: ViewName[] = [
+    'dashboard',
+    'visit-log',
+    'monthly-summary',
+    'case-management',
+    'settings'
+    // audit-results NO aparece en menú (se entra desde dashboard), se controla en App
+  ];
 
-  // Admin real: solo Super Usuario (para "Accesos")
-  const isAdmin = (user?.role || '').toString().trim().toLowerCase() === 'super usuario';
-
-  // Menú permitido para Directiva
-  const DIRECTIVA_ALLOWED: ViewName[] = ['dashboard', 'visit-log', 'monthly-summary', 'pharmacy-list'];
-
-  const shouldShowItem = (item: any) => {
-    // Si es directiva: solo los módulos permitidos (y NO settings, NO accesos, NO reportes)
-    if (isDirectiva) {
-      return DIRECTIVA_ALLOWED.includes(item.id as ViewName);
-    }
-
-    // Si el item es adminOnly, solo Super Usuario lo ve
+  const filteredMenuItems = menuItems.filter(item => {
     if (item.adminOnly && !isAdmin) return false;
-
+    if (isDirectiva) return DIRECTIVA_ALLOWED.includes(item.id as ViewName);
     return true;
-  };
+  });
 
   return (
     <>
@@ -105,7 +106,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         
-        {/* HEADER BRANDING ACTUALIZADO */}
+        {/* HEADER */}
         <div className="p-8 pb-4">
           <div className="mb-8 select-none">
             <h1 className="text-4xl font-black text-white tracking-tighter italic leading-none">
@@ -129,8 +130,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          {/* MODO VIAJE (NO para Directiva, NO para Admin) */}
-          {!isAdmin && !isDirectiva && (
+          {/* ✅ MODO VIAJE: NO APLICA A DIRECTIVA */}
+          {!isAdmin && (
             <button 
               onClick={onToggleTravelMode}
               className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${
@@ -153,7 +154,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               </div>
               
-              {/* Switch Visual */}
               <div className={`w-8 h-4 rounded-full relative transition-colors ${isTravelMode ? 'bg-white/30' : 'bg-slate-600'}`}>
                 <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all shadow-sm ${isTravelMode ? 'left-4.5' : 'left-0.5'}`}></div>
               </div>
@@ -167,29 +167,27 @@ const Sidebar: React.FC<SidebarProps> = ({
             Menú Principal
           </p>
           
-          {menuItems
-            .filter(shouldShowItem)
-            .map((item) => {
-              const isActive = currentView === item.id;
-              const Icon = item.icon;
-              
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => { onNavigate(item.id as ViewName); onClose(); }}
-                  className={`
-                    w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 group relative
-                    ${isActive 
-                      ? 'bg-gradient-to-r from-orange-600 to-orange-700 text-white shadow-lg shadow-orange-900/50 translate-x-1' 
-                      : 'text-slate-400 hover:bg-white/5 hover:text-white hover:translate-x-1'
-                    }
-                  `}
-                >
-                  <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-white'} ${item.highlight && !isActive ? 'text-blue-400 animate-pulse' : ''}`} />
-                  <span className="font-bold text-sm tracking-wide">{item.label}</span>
-                  {isActive && <div className="absolute right-3 w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>}
-                </button>
-              );
+          {filteredMenuItems.map((item) => {
+            const isActive = currentView === item.id;
+            const Icon = item.icon;
+            
+            return (
+              <button
+                key={item.id}
+                onClick={() => { onNavigate(item.id as ViewName); onClose(); }}
+                className={`
+                  w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 group relative
+                  ${isActive 
+                    ? 'bg-gradient-to-r from-orange-600 to-orange-700 text-white shadow-lg shadow-orange-900/50 translate-x-1' 
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white hover:translate-x-1'
+                  }
+                `}
+              >
+                <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-white'} ${item.highlight && !isActive ? 'text-blue-400 animate-pulse' : ''}`} />
+                <span className="font-bold text-sm tracking-wide">{item.label}</span>
+                {isActive && <div className="absolute right-3 w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>}
+              </button>
+            );
           })}
         </div>
 
