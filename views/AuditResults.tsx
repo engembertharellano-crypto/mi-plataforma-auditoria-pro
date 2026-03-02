@@ -126,8 +126,10 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
     const vaultDiff = (auditData.vaultCount?.ves.difference || 0) !== 0 || (auditData.vaultCount?.usd.difference || 0) !== 0;
     
     const riskPercentage = 100 - finalScore;
+
+    // ✅ AHORA EL RIESGO DEPENDE SOLO DEL PORCENTAJE
     let riskLevel = 'Bajo';
-    if (riskPercentage > 20 || vaultDiff) riskLevel = 'Medio';
+    if (riskPercentage > 20) riskLevel = 'Medio';
     if (riskPercentage > 50) riskLevel = 'Alto';
 
     return { 
