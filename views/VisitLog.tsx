@@ -22,7 +22,6 @@ interface VisitLogProps {
   onDeleteManagement: (id: string) => void;
   onEditAudit?: (audit: AuditState) => void;
   hasAdminPrivileges: boolean;
-  readOnly?: boolean; // ✅ NUEVO
 }
 
 const ZONES = ['Gran Caracas Llanos', 'Gran Caracas Oriente', 'Centro Occidente'];
@@ -34,20 +33,20 @@ const VisitLog: React.FC<VisitLogProps> = ({
   physicalRecords, 
   managementRecords, 
   currentUser,
-  onEditAudit,
-  readOnly = false
+  onEditAudit
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('Todos');
   const [filterZone, setFilterZone] = useState('Todas');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
-  // ✅ NUEVO: filtro por mes (por defecto, mes actual)
+  const isReadOnly = (currentUser?.email || '').trim().toLowerCase() === 'directiva@xana.com';
+
   const getCurrentMonthKey = () => {
     const now = new Date();
     const y = now.getFullYear();
     const m = String(now.getMonth() + 1).padStart(2, '0');
-    return `${y}-${m}`; // YYYY-MM
+    return `${y}-${m}`;
   };
   const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentMonthKey());
 
@@ -58,11 +57,9 @@ const VisitLog: React.FC<VisitLogProps> = ({
     return role.includes('gerente') || role.includes('lider') || role === 'super usuario' || email === 'directiva@xana.com';
   }, [currentUser]);
 
-  // Helper: convertir la fecha (dd/mm/yyyy o yyyy-mm-dd) a Date seguro
   const parseRecordDate = (raw: string) => {
     if (!raw) return null;
 
-    // Caso dd/mm/yyyy
     if (raw.includes('/')) {
       const parts = raw.split('/');
       if (parts.length === 3) {
@@ -73,7 +70,6 @@ const VisitLog: React.FC<VisitLogProps> = ({
       }
     }
 
-    // Caso yyyy-mm-dd o ISO
     const d = new Date(raw);
     return isNaN(d.getTime()) ? null : d;
   };
@@ -85,7 +81,6 @@ const VisitLog: React.FC<VisitLogProps> = ({
   };
 
   const monthLabel = (monthKey: string) => {
-    // monthKey = YYYY-MM
     const [y, m] = monthKey.split('-');
     const d = new Date(Number(y), Number(m) - 1, 1);
     return new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(d);
@@ -133,7 +128,6 @@ const VisitLog: React.FC<VisitLogProps> = ({
     });
   }, [audits, cctvRecords, physicalRecords, managementRecords, pharmacies]);
 
-  // ✅ NUEVO: lista de meses disponibles (basado en los registros)
   const availableMonths = useMemo(() => {
     const set = new Set<string>();
 
@@ -143,10 +137,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
       set.add(monthKeyFromDate(d));
     });
 
-    // Aseguramos que el mes actual siempre aparezca aunque no haya registros
     set.add(getCurrentMonthKey());
-
-    // Orden descendente (más reciente primero)
     return Array.from(set).sort((a, b) => b.localeCompare(a));
   }, [allRecords]);
 
@@ -155,7 +146,6 @@ const VisitLog: React.FC<VisitLogProps> = ({
     const matchesType = filterType === 'Todos' || rec.type === filterType;
     const matchesZone = !canFilterByZone || (filterZone === 'Todas' || rec.pharmacyZone === filterZone);
 
-    // ✅ NUEVO: filtro por mes en curso (por defecto) o meses anteriores
     let matchesMonth = true;
     if (selectedMonth !== 'Todos') {
       const d = parseRecordDate(rec.date);
@@ -183,7 +173,6 @@ const VisitLog: React.FC<VisitLogProps> = ({
         <p className="text-slate-300 font-bold uppercase tracking-widest text-sm">Trazabilidad y Reportes de Campo</p>
       </div>
 
-      {/* FILTROS */}
       <div className="bg-white p-4 rounded-[2rem] shadow-xl border border-slate-100 mb-8 flex flex-col md:flex-row items-center gap-4">
           <div className="relative group flex-1 w-full">
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -196,7 +185,6 @@ const VisitLog: React.FC<VisitLogProps> = ({
             />
           </div>
 
-          {/* ✅ NUEVO: selector de mes (por defecto mes en curso) */}
           <div className="relative w-full md:w-64">
             <CalendarDays className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <select
@@ -300,18 +288,15 @@ const VisitLog: React.FC<VisitLogProps> = ({
                         {record.pharmacy}
                       </div>
                       
-                      {/* ✅ NO SE MUESTRA EN SOLO LECTURA */}
-                      {(!readOnly) &&
-                        record.type === 'Auditoría' &&
-                        onEditAudit &&
-                        record.original.createdBy === currentUser?.fullName && (
-                          <button 
-                            onClick={() => onEditAudit(record.original)}
-                            className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100"
-                            title="Editar Auditoría"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
+                      {/* ✅ SOLO si NO es directiva */}
+                      {!isReadOnly && record.type === 'Auditoría' && onEditAudit && record.original.createdBy === currentUser?.fullName && (
+                        <button 
+                          onClick={() => onEditAudit(record.original)}
+                          className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100"
+                          title="Editar Auditoría"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
                       )}
                     </div>
                   </td>
