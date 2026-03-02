@@ -10,7 +10,7 @@ interface DashboardProps {
   physicalRecords: PhysicalInventoryRecord[];
   managementRecords: ManagementVisitRecord[];
   onSelectAudit: (audit: AuditState) => void;
-  readOnly?: boolean; // ✅ NUEVO: para Directiva / modo lectura
+  readOnly?: boolean; // ✅ NUEVO
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
@@ -67,7 +67,6 @@ const Dashboard: React.FC<DashboardProps> = ({
       
       {/* Header */}
       <div className="glass-card rounded-[2rem] p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
-        {/* Decorative background blur */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
         
         <div className="relative z-10">
@@ -78,7 +77,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           </p>
         </div>
 
-        {/* ✅ OCULTO PARA DIRECTIVA / SOLO LECTURA */}
+        {/* ✅ Directiva (readOnly) NO ve este botón */}
         {!readOnly && (
           <button 
             onClick={() => onNavigate('audit-wizard')}
@@ -94,7 +93,6 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Hero Stats Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Visit Card */}
         <div className="lg:col-span-2 bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] rounded-[2rem] p-10 shadow-2xl relative overflow-hidden group border border-slate-700/50">
           <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-orange-600/20 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3 group-hover:bg-orange-600/30 transition-colors duration-1000"></div>
           <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-blue-600/20 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/3"></div>
@@ -122,7 +120,6 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        {/* Quick Actions / Mini Stats */}
         <div className="space-y-6">
           <div 
              className="glass-card p-8 rounded-[2rem] hover:-translate-y-2 transition-all duration-300 cursor-pointer group border-l-4 border-l-blue-500" 
