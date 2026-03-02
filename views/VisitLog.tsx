@@ -3,7 +3,8 @@ import {
   Search, 
   Filter, 
   Globe,
-  Pencil // Importamos el lápiz
+  Pencil,
+  Trash2
 } from 'lucide-react';
 import { AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, Pharmacy } from '../types';
 
@@ -19,7 +20,7 @@ interface VisitLogProps {
   onDeleteCCTV: (id: string) => void;
   onDeletePhysical: (id: string) => void;
   onDeleteManagement: (id: string) => void;
-  onEditAudit?: (audit: AuditState) => void; // Esta es la función que activa la edición
+  onEditAudit?: (audit: AuditState) => void;
   hasAdminPrivileges: boolean;
 }
 
@@ -32,7 +33,8 @@ const VisitLog: React.FC<VisitLogProps> = ({
   physicalRecords, 
   managementRecords, 
   currentUser,
-  onEditAudit // La usamos aquí
+  onEditAudit,
+  onDeleteAudit
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('Todos');
@@ -100,6 +102,12 @@ const VisitLog: React.FC<VisitLogProps> = ({
     }
     return matchesSearch && matchesType && matchesZone && matchesDate;
   });
+
+  const handleDeleteAudit = (auditId: string) => {
+    const ok = window.confirm('¿Seguro que deseas eliminar esta auditoría? Esta acción no se puede deshacer.');
+    if (!ok) return;
+    onDeleteAudit(auditId);
+  };
 
   return (
     <div className="max-w-7xl mx-auto p-8 animate-in fade-in duration-500 pb-24">
@@ -176,54 +184,77 @@ const VisitLog: React.FC<VisitLogProps> = ({
                 <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Naturaleza</th>
                 <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Sede / Ubicación</th>
                 <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">OBSERVACIONES REGISTRADAS</th>
+                <th className="py-6 px-8 text-right text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filteredRecords.length > 0 ? filteredRecords.map((record) => (
-                <tr key={`${record.type}-${record.id}`} className="group hover:bg-slate-50/50 transition-colors">
-                  <td className="py-6 px-8 align-top">
-                    <span className="text-sm font-bold text-slate-800">{record.date}</span>
-                  </td>
-                  <td className="py-6 px-8 align-top">
-                    <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${
-                      record.type === 'Auditoría' ? 'bg-orange-100 text-orange-700' :
-                      record.type === 'Inventario CCTV' ? 'bg-blue-100 text-blue-700' :
-                      record.type === 'Infraestructura' ? 'bg-purple-100 text-purple-700' :
-                      'bg-slate-100 text-slate-600'
-                    }`}>
-                      {record.type.toUpperCase()}
-                    </span>
-                    <div className="mt-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest pl-1">
-                      {record.pharmacyZone}
-                    </div>
-                  </td>
-                  <td className="py-6 px-8 align-top">
-                    <div className="flex items-center gap-3">
-                      <div className="font-black text-slate-900 text-lg uppercase tracking-tight">
-                        {record.pharmacy}
+              {filteredRecords.length > 0 ? filteredRecords.map((record) => {
+                const isAudit = record.type === 'Auditoría';
+                const isCreator = record.original?.createdBy === currentUser?.fullName;
+                const canDeleteThisAudit = isAudit && isCreator;
+
+                return (
+                  <tr key={`${record.type}-${record.id}`} className="group hover:bg-slate-50/50 transition-colors">
+                    <td className="py-6 px-8 align-top">
+                      <span className="text-sm font-bold text-slate-800">{record.date}</span>
+                    </td>
+                    <td className="py-6 px-8 align-top">
+                      <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                        record.type === 'Auditoría' ? 'bg-orange-100 text-orange-700' :
+                        record.type === 'Inventario CCTV' ? 'bg-blue-100 text-blue-700' :
+                        record.type === 'Infraestructura' ? 'bg-purple-100 text-purple-700' :
+                        'bg-slate-100 text-slate-600'
+                      }`}>
+                        {record.type.toUpperCase()}
+                      </span>
+                      <div className="mt-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest pl-1">
+                        {record.pharmacyZone}
                       </div>
-                      
-                      {/* LÁPIZ DE EDICIÓN INTEGRADO: Aparece solo si es Auditoría y el usuario es el creador */}
-                      {record.type === 'Auditoría' && onEditAudit && record.original.createdBy === currentUser?.fullName && (
-                        <button 
-                          onClick={() => onEditAudit(record.original)}
-                          className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100"
-                          title="Editar Auditoría"
+                    </td>
+                    <td className="py-6 px-8 align-top">
+                      <div className="flex items-center gap-3">
+                        <div className="font-black text-slate-900 text-lg uppercase tracking-tight">
+                          {record.pharmacy}
+                        </div>
+                        
+                        {/* LÁPIZ DE EDICIÓN: solo si es Auditoría y el usuario es el creador */}
+                        {isAudit && onEditAudit && isCreator && (
+                          <button 
+                            onClick={() => onEditAudit(record.original)}
+                            className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100"
+                            title="Editar Auditoría"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-6 px-8 align-top">
+                      <p className="text-sm text-slate-600 font-medium leading-relaxed italic max-w-2xl whitespace-pre-wrap">
+                        {record.details}
+                      </p>
+                    </td>
+                    <td className="py-6 px-8 align-top text-right">
+                      {canDeleteThisAudit ? (
+                        <button
+                          onClick={() => handleDeleteAudit(record.id)}
+                          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 text-red-600 border border-red-100 hover:bg-red-600 hover:text-white transition-all shadow-sm"
+                          title="Eliminar Auditoría"
                         >
-                          <Pencil className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">Eliminar</span>
                         </button>
+                      ) : (
+                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+                          —
+                        </span>
                       )}
-                    </div>
-                  </td>
-                  <td className="py-6 px-8 align-top">
-                    <p className="text-sm text-slate-600 font-medium leading-relaxed italic max-w-2xl whitespace-pre-wrap">
-                      {record.details}
-                    </p>
-                  </td>
-                </tr>
-              )) : (
+                    </td>
+                  </tr>
+                );
+              }) : (
                 <tr>
-                  <td colSpan={4} className="py-20 text-center text-slate-400 font-medium">
+                  <td colSpan={5} className="py-20 text-center text-slate-400 font-medium">
                     No hay registros disponibles.
                   </td>
                 </tr>
