@@ -46,14 +46,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   isTravelMode,
   onToggleTravelMode
 }) => {
-
-  const email = (user?.email || '').trim().toLowerCase();
-  const role = (user?.role || '').trim().toLowerCase();
-
-  const isDirectiva = email === 'directiva@xana.com';
-  const isAdmin = role === 'super usuario' || isDirectiva;
-
-  const menuItems = [
+  
+  const menuItems: { id: ViewName; label: string; icon: any; highlight?: boolean; adminOnly?: boolean }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'ai-assistant', label: 'Asistente IA', icon: BrainCircuit, highlight: true },
     { id: 'visit-log', label: 'Bitácora', icon: CalendarDays },
@@ -74,19 +68,31 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'settings', label: 'Configuración', icon: Settings },
   ];
 
-  // ✅ LISTA BLANCA PARA DIRECTIVA: SOLO LO RELEVANTE (SIN OPERACIÓN)
+  const email = (user?.email || '').trim().toLowerCase();
+  const role = (user?.role || '').trim();
+  const isDirectiva = email === 'directiva@xana.com';
+
+  // Admin real (no directiva por email)
+  const isAdmin = role === 'Super Usuario';
+
+  // ✅ Lo que Directiva SÍ debe ver (sin Reporte Gerencial, sin Configuración)
   const DIRECTIVA_ALLOWED: ViewName[] = [
     'dashboard',
     'visit-log',
     'monthly-summary',
-    'case-management',
-    'settings'
-    // audit-results NO aparece en menú (se entra desde dashboard), se controla en App
+    'pharmacy-list',
+    'case-management'
   ];
 
-  const filteredMenuItems = menuItems.filter(item => {
+  const visibleMenuItems = menuItems.filter(item => {
+    // adminOnly solo para super usuario
     if (item.adminOnly && !isAdmin) return false;
-    if (isDirectiva) return DIRECTIVA_ALLOWED.includes(item.id as ViewName);
+
+    // Directiva: menú reducido (solo lectura + info relevante)
+    if (isDirectiva) {
+      return DIRECTIVA_ALLOWED.includes(item.id);
+    }
+
     return true;
   });
 
@@ -130,8 +136,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          {/* ✅ MODO VIAJE: NO APLICA A DIRECTIVA */}
-          {!isAdmin && (
+          {/* MODO VIAJE (solo para NO directiva y NO admin) */}
+          {!isDirectiva && !isAdmin && (
             <button 
               onClick={onToggleTravelMode}
               className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${
@@ -167,7 +173,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             Menú Principal
           </p>
           
-          {filteredMenuItems.map((item) => {
+          {visibleMenuItems.map((item) => {
             const isActive = currentView === item.id;
             const Icon = item.icon;
             
