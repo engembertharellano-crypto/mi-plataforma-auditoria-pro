@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { FileText, Video, Lock, Briefcase, MapPin, Plus, ArrowRight, TrendingUp, Activity, PieChart } from 'lucide-react';
 import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord } from '../types';
@@ -11,16 +10,18 @@ interface DashboardProps {
   physicalRecords: PhysicalInventoryRecord[];
   managementRecords: ManagementVisitRecord[];
   onSelectAudit: (audit: AuditState) => void;
+  readOnly?: boolean; // ✅ NUEVO: para Directiva / modo lectura
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   onNavigate, 
-  pharmacies, 
+  pharmacies,
   audits, 
   cctvRecords,
   physicalRecords,
   managementRecords,
-  onSelectAudit 
+  onSelectAudit,
+  readOnly = false
 }) => {
   const history = [...audits].reverse().slice(0, 5);
 
@@ -32,7 +33,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     if (!dateStr) return false;
     const parts = dateStr.split('/');
     if (parts.length !== 3) return false;
-    const day = parseInt(parts[0], 10);
     const month = parseInt(parts[1], 10) - 1;
     const year = parseInt(parts[2], 10);
     return month === currentMonth && year === currentYear;
@@ -77,15 +77,19 @@ const Dashboard: React.FC<DashboardProps> = ({
             Resumen de gestión - {monthName.charAt(0).toUpperCase() + monthName.slice(1)} {currentYear}
           </p>
         </div>
-        <button 
-          onClick={() => onNavigate('audit-wizard')}
-          className="relative z-10 group bg-slate-900 hover:bg-slate-800 text-white px-8 py-4 rounded-2xl shadow-xl shadow-slate-900/20 transition-all flex items-center gap-3 font-bold transform hover:-translate-y-1 active:translate-y-0 active:scale-95"
-        >
-          <div className="bg-orange-50 p-1.5 rounded-lg group-hover:rotate-90 transition-transform duration-300">
-            <Plus className="w-5 h-5" />
-          </div>
-          Nueva Auditoría
-        </button>
+
+        {/* ✅ OCULTO PARA DIRECTIVA / SOLO LECTURA */}
+        {!readOnly && (
+          <button 
+            onClick={() => onNavigate('audit-wizard')}
+            className="relative z-10 group bg-slate-900 hover:bg-slate-800 text-white px-8 py-4 rounded-2xl shadow-xl shadow-slate-900/20 transition-all flex items-center gap-3 font-bold transform hover:-translate-y-1 active:translate-y-0 active:scale-95"
+          >
+            <div className="bg-orange-50 p-1.5 rounded-lg group-hover:rotate-90 transition-transform duration-300">
+              <Plus className="w-5 h-5" />
+            </div>
+            Nueva Auditoría
+          </button>
+        )}
       </div>
 
       {/* Hero Stats Section */}
