@@ -4,8 +4,7 @@ import {
   Filter, 
   Globe,
   Pencil,
-  Trash2,
-  X
+  CalendarDays
 } from 'lucide-react';
 import { AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, Pharmacy } from '../types';
 
@@ -34,16 +33,21 @@ const VisitLog: React.FC<VisitLogProps> = ({
   physicalRecords, 
   managementRecords, 
   currentUser,
-  onEditAudit,
-  onDeleteAudit
+  onEditAudit
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('Todos');
   const [filterZone, setFilterZone] = useState('Todas');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
-  // Modal de eliminación (mismo patrón que PendingTasks)
-  const [deleteConfirmation, setDeleteConfirmation] = useState<{ id: string; title: string } | null>(null);
+  // ✅ NUEVO: filtro por mes (por defecto, mes actual)
+  const getCurrentMonthKey = () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`; // YYYY-MM
+  };
+  const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentMonthKey());
 
   const canFilterByZone = useMemo(() => {
     if (!currentUser) return false;
@@ -51,6 +55,39 @@ const VisitLog: React.FC<VisitLogProps> = ({
     const email = (currentUser.email || '').toLowerCase();
     return role.includes('gerente') || role.includes('lider') || role === 'super usuario' || email === 'directiva@xana.com';
   }, [currentUser]);
+
+  // Helper: convertir la fecha (dd/mm/yyyy o yyyy-mm-dd) a Date seguro
+  const parseRecordDate = (raw: string) => {
+    if (!raw) return null;
+
+    // Caso dd/mm/yyyy
+    if (raw.includes('/')) {
+      const parts = raw.split('/');
+      if (parts.length === 3) {
+        const [dd, mm, yyyy] = parts;
+        const iso = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+        const d = new Date(iso);
+        return isNaN(d.getTime()) ? null : d;
+      }
+    }
+
+    // Caso yyyy-mm-dd o ISO
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  const monthKeyFromDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  };
+
+  const monthLabel = (monthKey: string) => {
+    // monthKey = YYYY-MM
+    const [y, m] = monthKey.split('-');
+    const d = new Date(Number(y), Number(m) - 1, 1);
+    return new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(d);
+  };
 
   const allRecords = useMemo(() => {
     const format = (list: any[], type: string, dateKey: string) => 
@@ -86,32 +123,55 @@ const VisitLog: React.FC<VisitLogProps> = ({
       ...format(physicalRecords, 'Infraestructura', 'date'),
       ...format(managementRecords, 'Visita Gerencial', 'date')
     ].sort((a, b) => {
-       const dateA = new Date(a.date.includes('/') ? a.date.split('/').reverse().join('-') : a.date);
-       const dateB = new Date(b.date.includes('/') ? b.date.split('/').reverse().join('-') : b.date);
-       return dateB.getTime() - dateA.getTime();
+       const dateA = parseRecordDate(a.date);
+       const dateB = parseRecordDate(b.date);
+       const tA = dateA ? dateA.getTime() : 0;
+       const tB = dateB ? dateB.getTime() : 0;
+       return tB - tA;
     });
   }, [audits, cctvRecords, physicalRecords, managementRecords, pharmacies]);
+
+  // ✅ NUEVO: lista de meses disponibles (basado en los registros)
+  const availableMonths = useMemo(() => {
+    const set = new Set<string>();
+
+    allRecords.forEach(r => {
+      const d = parseRecordDate(r.date);
+      if (!d) return;
+      set.add(monthKeyFromDate(d));
+    });
+
+    // Aseguramos que el mes actual siempre aparezca aunque no haya registros
+    set.add(getCurrentMonthKey());
+
+    // Orden descendente (más reciente primero)
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [allRecords]);
 
   const filteredRecords = allRecords.filter(rec => {
     const matchesSearch = rec.pharmacy.toLowerCase().includes(searchTerm.toLowerCase()) || rec.type.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'Todos' || rec.type === filterType;
     const matchesZone = !canFilterByZone || (filterZone === 'Todas' || rec.pharmacyZone === filterZone);
 
+    // ✅ NUEVO: filtro por mes en curso (por defecto) o meses anteriores
+    let matchesMonth = true;
+    if (selectedMonth !== 'Todos') {
+      const d = parseRecordDate(rec.date);
+      if (!d) matchesMonth = false;
+      else matchesMonth = monthKeyFromDate(d) === selectedMonth;
+    }
+
     let matchesDate = true;
     if (dateRange.start && dateRange.end) {
-      const recDate = new Date(rec.date.includes('/') ? rec.date.split('/').reverse().join('-') : rec.date);
+      const recDate = parseRecordDate(rec.date);
       const start = new Date(dateRange.start);
       const end = new Date(dateRange.end);
-      matchesDate = recDate >= start && recDate <= end;
+      if (!recDate) matchesDate = false;
+      else matchesDate = recDate >= start && recDate <= end;
     }
-    return matchesSearch && matchesType && matchesZone && matchesDate;
-  });
 
-  const confirmDelete = () => {
-    if (!deleteConfirmation) return;
-    onDeleteAudit(deleteConfirmation.id);
-    setDeleteConfirmation(null);
-  };
+    return matchesSearch && matchesType && matchesZone && matchesMonth && matchesDate;
+  });
 
   return (
     <div className="max-w-7xl mx-auto p-8 animate-in fade-in duration-500 pb-24">
@@ -132,6 +192,29 @@ const VisitLog: React.FC<VisitLogProps> = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+          </div>
+
+          {/* ✅ NUEVO: selector de mes (por defecto mes en curso) */}
+          <div className="relative w-full md:w-64">
+            <CalendarDays className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <select
+              className="w-full pl-12 pr-10 py-4 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 appearance-none transition-all"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              title="Filtrar por mes"
+            >
+              <option value={getCurrentMonthKey()}>
+                Mes en curso — {monthLabel(getCurrentMonthKey())}
+              </option>
+              <option value="Todos">Todos los meses</option>
+              {availableMonths
+                .filter(m => m !== getCurrentMonthKey())
+                .map(m => (
+                  <option key={m} value={m}>
+                    {monthLabel(m)}
+                  </option>
+                ))}
+            </select>
           </div>
 
           <div className="relative w-full md:w-64">
@@ -188,78 +271,54 @@ const VisitLog: React.FC<VisitLogProps> = ({
                 <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Naturaleza</th>
                 <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Sede / Ubicación</th>
                 <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">OBSERVACIONES REGISTRADAS</th>
-                <th className="py-6 px-8 text-right text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filteredRecords.length > 0 ? filteredRecords.map((record) => {
-                const isAudit = record.type === 'Auditoría';
-                const isCreator = record.original?.createdBy === currentUser?.fullName;
-
-                return (
-                  <tr key={`${record.type}-${record.id}`} className="group hover:bg-slate-50/50 transition-colors">
-                    <td className="py-6 px-8 align-top">
-                      <span className="text-sm font-bold text-slate-800">{record.date}</span>
-                    </td>
-
-                    <td className="py-6 px-8 align-top">
-                      <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${
-                        record.type === 'Auditoría' ? 'bg-orange-100 text-orange-700' :
-                        record.type === 'Inventario CCTV' ? 'bg-blue-100 text-blue-700' :
-                        record.type === 'Infraestructura' ? 'bg-purple-100 text-purple-700' :
-                        'bg-slate-100 text-slate-600'
-                      }`}>
-                        {record.type.toUpperCase()}
-                      </span>
-                      <div className="mt-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest pl-1">
-                        {record.pharmacyZone}
+              {filteredRecords.length > 0 ? filteredRecords.map((record) => (
+                <tr key={`${record.type}-${record.id}`} className="group hover:bg-slate-50/50 transition-colors">
+                  <td className="py-6 px-8 align-top">
+                    <span className="text-sm font-bold text-slate-800">{record.date}</span>
+                  </td>
+                  <td className="py-6 px-8 align-top">
+                    <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                      record.type === 'Auditoría' ? 'bg-orange-100 text-orange-700' :
+                      record.type === 'Inventario CCTV' ? 'bg-blue-100 text-blue-700' :
+                      record.type === 'Infraestructura' ? 'bg-purple-100 text-purple-700' :
+                      'bg-slate-100 text-slate-600'
+                    }`}>
+                      {record.type.toUpperCase()}
+                    </span>
+                    <div className="mt-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest pl-1">
+                      {record.pharmacyZone}
+                    </div>
+                  </td>
+                  <td className="py-6 px-8 align-top">
+                    <div className="flex items-center gap-3">
+                      <div className="font-black text-slate-900 text-lg uppercase tracking-tight">
+                        {record.pharmacy}
                       </div>
-                    </td>
-
-                    <td className="py-6 px-8 align-top">
-                      <div className="flex items-center gap-3">
-                        <div className="font-black text-slate-900 text-lg uppercase tracking-tight">
-                          {record.pharmacy}
-                        </div>
-                        
-                        {/* LÁPIZ DE EDICIÓN: solo si es Auditoría y el usuario es el creador */}
-                        {isAudit && onEditAudit && isCreator && (
-                          <button 
-                            onClick={() => onEditAudit(record.original)}
-                            className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100"
-                            title="Editar Auditoría"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-
-                    <td className="py-6 px-8 align-top">
-                      <p className="text-sm text-slate-600 font-medium leading-relaxed italic max-w-2xl whitespace-pre-wrap">
-                        {record.details}
-                      </p>
-                    </td>
-
-                    <td className="py-6 px-8 align-top text-right">
-                      {/* Eliminar: solo si es Auditoría y el usuario es el creador */}
-                      {isAudit && isCreator ? (
-                        <button
-                          onClick={() => setDeleteConfirmation({ id: record.id, title: `Auditoría en ${record.pharmacy}` })}
-                          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all"
-                          title="Eliminar Auditoría"
+                      
+                      {/* LÁPIZ DE EDICIÓN INTEGRADO: Aparece solo si es Auditoría y el usuario es el creador */}
+                      {record.type === 'Auditoría' && onEditAudit && record.original.createdBy === currentUser?.fullName && (
+                        <button 
+                          onClick={() => onEditAudit(record.original)}
+                          className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100"
+                          title="Editar Auditoría"
                         >
-                          <Trash2 className="w-5 h-5" />
+                          <Pencil className="w-3.5 h-3.5" />
                         </button>
-                      ) : (
-                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">—</span>
                       )}
-                    </td>
-                  </tr>
-                );
-              }) : (
+                    </div>
+                  </td>
+                  <td className="py-6 px-8 align-top">
+                    <p className="text-sm text-slate-600 font-medium leading-relaxed italic max-w-2xl whitespace-pre-wrap">
+                      {record.details}
+                    </p>
+                  </td>
+                </tr>
+              )) : (
                 <tr>
-                  <td colSpan={5} className="py-20 text-center text-slate-400 font-medium">
+                  <td colSpan={4} className="py-20 text-center text-slate-400 font-medium">
                     No hay registros disponibles.
                   </td>
                 </tr>
@@ -268,48 +327,6 @@ const VisitLog: React.FC<VisitLogProps> = ({
           </table>
         </div>
       </div>
-
-      {/* DELETE MODAL (mismo estilo que PendingTasks) */}
-      {deleteConfirmation && (
-        <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-[110] flex items-center justify-center p-6">
-          <div className="bg-white rounded-[3rem] w-full max-w-md p-10 shadow-3xl animate-in zoom-in-95 duration-200 text-center border border-white/20">
-             <div className="w-20 h-20 bg-red-100 rounded-[2rem] flex items-center justify-center mb-6 mx-auto text-red-600 shadow-inner">
-                <Trash2 className="w-10 h-10" />
-             </div>
-
-             <h3 className="text-3xl font-black text-slate-900 tracking-tighter mb-3">¿Eliminar Auditoría?</h3>
-             <p className="text-slate-500 font-medium mb-10">
-               Estás por remover permanentemente "<strong>{deleteConfirmation.title}</strong>".
-             </p>
-             
-             <div className="flex gap-4">
-                <button 
-                  onClick={() => setDeleteConfirmation(null)}
-                  className="flex-1 py-4 rounded-2xl border-2 border-slate-100 text-slate-500 font-black uppercase tracking-widest text-[10px] hover:bg-slate-50 transition-all"
-                >
-                  Regresar
-                </button>
-                <button 
-                  onClick={confirmDelete}
-                  className="flex-1 py-4 rounded-2xl bg-red-600 text-white font-black uppercase tracking-widest text-[10px] shadow-xl shadow-red-200 transition-all transform active:scale-95"
-                >
-                  Eliminar Registro
-                </button>
-             </div>
-
-             {/* botón cerrar opcional, por si quieres (no cambia comportamiento) */}
-             <button
-               onClick={() => setDeleteConfirmation(null)}
-               className="absolute top-6 right-6 p-3 rounded-full hover:bg-slate-50 transition-all"
-               aria-label="Cerrar"
-               title="Cerrar"
-             >
-               <X className="w-5 h-5 text-slate-400" />
-             </button>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 };
