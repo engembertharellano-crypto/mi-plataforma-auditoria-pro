@@ -303,7 +303,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                 </div>
               </div>
               <div className="flex gap-4 w-full lg:w-auto">
-                <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-5 rounded-2xl text-center flex-1 lg:min-w-[140px] shadow-3xl"><p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">CUMPLIMIENTO</p><p className="text-5xl font-black text-orange-500 tracking-tighter">{calculatedData.finalScore.toFixed(0)}%</p></div>
+                <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-5 rounded-2xl text-center flex-1 lg:min-w-[140px] shadow-3xl"><p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">CUMPLIMIENTO</p><p className="text-5xl font-black text-orange-500 tracking-tighter">{calculatedData.finalScore.toFixed(2)}%</p></div>
                 <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-5 rounded-2xl text-center flex-1 lg:min-w-[140px] shadow-3xl"><p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">RIESGO</p><p className={`text-4xl font-black tracking-tighter ${calculatedData.riskLevel === 'Bajo' ? 'text-emerald-400' : calculatedData.riskLevel === 'Medio' ? 'text-orange-400' : 'text-red-400'}`}>{calculatedData.riskLevel}</p></div>
               </div>
             </div>
