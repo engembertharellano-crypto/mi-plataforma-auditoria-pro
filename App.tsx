@@ -383,7 +383,7 @@ const App: React.FC = () => {
       }
     });
 
-    return total > 0 ? Math.round((ok / total) * 100) : 0;
+    return total > 0 ? Number(((ok / total) * 100).toFixed(2)) : 0;
   };
 
   const getFilteredUsers = () => {
