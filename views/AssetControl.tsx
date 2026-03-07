@@ -65,7 +65,13 @@ const AssetControl: React.FC<AssetControlProps> = ({
 
   // Asset Form State
   const [assetFormData, setAssetFormData] = useState<Partial<Asset>>({
-    name: '', category: 'Llaves', description: '', pharmacyId: '', status: 'Disponible', photo: ''
+    name: '',
+    category: 'Llaves',
+    description: '',
+    pharmacyId: '',
+    status: 'Disponible',
+    photo: '',
+    createdAt: new Date().toLocaleDateString('es-ES')
   });
   const [tempComponents, setTempComponents] = useState<AssetComponent[]>([]);
   const [newCompName, setNewCompName] = useState('');
@@ -86,6 +92,26 @@ const AssetControl: React.FC<AssetControlProps> = ({
   const [cameraConfig, setCameraConfig] = useState<{ active: boolean, mode: 'asset' | 'loan' }>({ active: false, mode: 'asset' });
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
+
+  const formatDateForInput = (dateString?: string) => {
+    if (!dateString) return '';
+    const parts = dateString.split('/');
+    if (parts.length === 3) {
+      const [day, month, year] = parts;
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+    return dateString;
+  };
+
+  const formatDateFromInput = (dateString: string) => {
+    if (!dateString) return '';
+    const parts = dateString.split('-');
+    if (parts.length === 3) {
+      const [year, month, day] = parts;
+      return `${day}/${month}/${year}`;
+    }
+    return dateString;
+  };
 
   // --- LÓGICA DE INVENTARIO REAL ---
   const getAssetStock = (asset: Asset) => {
@@ -196,7 +222,15 @@ const AssetControl: React.FC<AssetControlProps> = ({
       setTempComponents([...asset.components]);
     } else {
       setEditingAssetId(null);
-      setAssetFormData({ name: '', category: 'Llaves', description: '', pharmacyId: '', status: 'Disponible', photo: '' });
+      setAssetFormData({
+        name: '',
+        category: 'Llaves',
+        description: '',
+        pharmacyId: '',
+        status: 'Disponible',
+        photo: '',
+        createdAt: new Date().toLocaleDateString('es-ES')
+      });
       setTempComponents([]);
     }
     setShowAssetModal(true);
@@ -225,8 +259,7 @@ const AssetControl: React.FC<AssetControlProps> = ({
       return;
     }
 
-    // Corregir desfase de fechas (UTC vs Local)
-    const dateParts = loanFormData.expectedReturnDate!.split('-'); // AAAA-MM-DD
+    const dateParts = loanFormData.expectedReturnDate!.split('-');
     const formattedExpDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
 
     const finalDept = loanFormData.department === 'Otros' ? (loanFormData.customDept || 'Otros') : loanFormData.department;
@@ -467,7 +500,6 @@ const AssetControl: React.FC<AssetControlProps> = ({
                        const asset = assets.find(a => a.id === loan.assetId);
                        const pharmacy = pharmacies.find(p => p.id === asset?.pharmacyId);
                        
-                       // Lógica de cálculo de retraso más robusta (Comparando fechas a medianoche)
                        const today = new Date();
                        today.setHours(0, 0, 0, 0);
 
@@ -564,10 +596,22 @@ const AssetControl: React.FC<AssetControlProps> = ({
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                    <div className="space-y-8">
                       <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Nombre del Activo</label><input type="text" className="w-full p-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-black text-slate-800 outline-none focus:border-orange-500" value={assetFormData.name} onChange={e => setAssetFormData({...assetFormData, name: e.target.value})} placeholder="Ej. Llavero Sede Caracas" /></div>
+                      
                       <div className="grid grid-cols-2 gap-4">
                         <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Categoría</label><select className="w-full p-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-black text-slate-800 outline-none focus:border-orange-500" value={assetFormData.category} onChange={e => setAssetFormData({...assetFormData, category: e.target.value as any})}><option value="Llaves">Llaves</option><option value="Equipos">Equipos</option><option value="Tokens">Tokens</option><option value="Otros">Otros</option></select></div>
                         <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Farmacia / Sede</label><select className="w-full p-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-black text-slate-800 outline-none focus:border-orange-500" value={assetFormData.pharmacyId} onChange={e => setAssetFormData({...assetFormData, pharmacyId: e.target.value})}><option value="">Sede General</option>{pharmacies.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
                       </div>
+
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Fecha de Creación</label>
+                        <input
+                          type="date"
+                          className="w-full p-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-black text-slate-800 outline-none focus:border-orange-500"
+                          value={formatDateForInput(assetFormData.createdAt)}
+                          onChange={e => setAssetFormData({ ...assetFormData, createdAt: formatDateFromInput(e.target.value) })}
+                        />
+                      </div>
+
                       <div className="space-y-4">
                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Evidencia Fotográfica</label>
                          <div className="aspect-video bg-slate-50 rounded-3xl border-4 border-dashed border-slate-100 overflow-hidden relative group">
@@ -630,7 +674,6 @@ const AssetControl: React.FC<AssetControlProps> = ({
                             <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Unidad / Dept.</label><select className="w-full p-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-black text-slate-800 outline-none focus:border-orange-500" value={loanFormData.department} onChange={e => setLoanFormData({...loanFormData, department: e.target.value as any})}><option value="Operaciones">Operaciones</option><option value="TI">TI</option><option value="Mantenimiento">Mantenimiento</option><option value="Otros">Otros</option></select></div>
                             <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Retorno Estimado</label><input type="date" className="w-full p-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-black text-slate-800 outline-none focus:border-orange-500" value={loanFormData.expectedReturnDate} onChange={e => setLoanFormData({...loanFormData, expectedReturnDate: e.target.value})} /></div>
                          </div>
-                         {/* Fix: use loanFormData.customDept instead of manualData.customDept */}
                          {loanFormData.department === 'Otros' && <div className="animate-in slide-in-from-top-2 duration-200"><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Especificar Departamento</label><input type="text" className="w-full p-4 bg-white border-2 border-slate-100 rounded-2xl font-black text-slate-800 outline-none focus:border-orange-500 shadow-sm" value={loanFormData.customDept} onChange={e => setLoanFormData({...loanFormData, customDept: e.target.value})} placeholder="Indique la unidad..." /></div>}
                       </div>
                       <div className="space-y-4">
