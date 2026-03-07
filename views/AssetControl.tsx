@@ -63,6 +63,26 @@ const AssetControl: React.FC<AssetControlProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [viewingPhoto, setViewingPhoto] = useState<string | null>(null);
 
+  const formatDateForInput = (dateString?: string) => {
+    if (!dateString) return '';
+    const parts = dateString.split('/');
+    if (parts.length === 3) {
+      const [day, month, year] = parts;
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+    return '';
+  };
+
+  const formatDateFromInput = (dateString: string) => {
+    if (!dateString) return '';
+    const parts = dateString.split('-');
+    if (parts.length === 3) {
+      const [year, month, day] = parts;
+      return `${day}/${month}/${year}`;
+    }
+    return dateString;
+  };
+
   // Asset Form State
   const [assetFormData, setAssetFormData] = useState<Partial<Asset>>({
     name: '',
@@ -79,7 +99,14 @@ const AssetControl: React.FC<AssetControlProps> = ({
 
   // Loan Form State
   const [loanFormData, setLoanFormData] = useState<Partial<AssetLoan> & { customDept?: string }>({
-    assetId: '', borrowerName: '', department: 'Operaciones', expectedReturnDate: '', notes: '', loanPhoto: '', customDept: ''
+    assetId: '',
+    borrowerName: '',
+    department: 'Operaciones',
+    loanDate: '',
+    expectedReturnDate: '',
+    notes: '',
+    loanPhoto: '',
+    customDept: ''
   });
   const [loanLentComponents, setLoanLentComponents] = useState<AssetComponent[]>([]);
   const [returnNotes, setReturnNotes] = useState('');
@@ -92,26 +119,6 @@ const AssetControl: React.FC<AssetControlProps> = ({
   const [cameraConfig, setCameraConfig] = useState<{ active: boolean, mode: 'asset' | 'loan' }>({ active: false, mode: 'asset' });
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
-
-  const formatDateForInput = (dateString?: string) => {
-    if (!dateString) return '';
-    const parts = dateString.split('/');
-    if (parts.length === 3) {
-      const [day, month, year] = parts;
-      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-    }
-    return dateString;
-  };
-
-  const formatDateFromInput = (dateString: string) => {
-    if (!dateString) return '';
-    const parts = dateString.split('-');
-    if (parts.length === 3) {
-      const [year, month, day] = parts;
-      return `${day}/${month}/${year}`;
-    }
-    return dateString;
-  };
 
   // --- LÓGICA DE INVENTARIO REAL ---
   const getAssetStock = (asset: Asset) => {
@@ -254,13 +261,16 @@ const AssetControl: React.FC<AssetControlProps> = ({
   };
 
   const handleAddLoan = () => {
-    if (!loanFormData.assetId || !loanFormData.borrowerName || !loanFormData.expectedReturnDate) {
+    if (!loanFormData.assetId || !loanFormData.borrowerName || !loanFormData.loanDate || !loanFormData.expectedReturnDate) {
       alert("Por favor complete los campos obligatorios.");
       return;
     }
 
-    const dateParts = loanFormData.expectedReturnDate!.split('-');
-    const formattedExpDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+    const loanDateParts = loanFormData.loanDate!.split('-');
+    const formattedLoanDate = `${loanDateParts[2]}/${loanDateParts[1]}/${loanDateParts[0]}`;
+
+    const expDateParts = loanFormData.expectedReturnDate!.split('-');
+    const formattedExpDate = `${expDateParts[2]}/${expDateParts[1]}/${expDateParts[0]}`;
 
     const finalDept = loanFormData.department === 'Otros' ? (loanFormData.customDept || 'Otros') : loanFormData.department;
     
@@ -269,7 +279,7 @@ const AssetControl: React.FC<AssetControlProps> = ({
       assetId: loanFormData.assetId!,
       borrowerName: loanFormData.borrowerName!,
       department: finalDept as any,
-      loanDate: new Date().toLocaleDateString('es-ES'),
+      loanDate: formattedLoanDate,
       expectedReturnDate: formattedExpDate,
       status: 'Activo',
       notes: loanFormData.notes || '',
@@ -278,7 +288,16 @@ const AssetControl: React.FC<AssetControlProps> = ({
     });
 
     setShowLoanModal(false);
-    setLoanFormData({ assetId: '', borrowerName: '', department: 'Operaciones', expectedReturnDate: '', notes: '', loanPhoto: '', customDept: '' });
+    setLoanFormData({
+      assetId: '',
+      borrowerName: '',
+      department: 'Operaciones',
+      loanDate: '',
+      expectedReturnDate: '',
+      notes: '',
+      loanPhoto: '',
+      customDept: ''
+    });
     setLoanLentComponents([]);
   };
 
@@ -670,10 +689,43 @@ const AssetControl: React.FC<AssetControlProps> = ({
                       </div>
                       <div className="space-y-6">
                          <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Responsable del Retiro</label><div className="relative"><User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" /><input type="text" className="w-full p-4 pl-12 bg-slate-50 border-2 border-slate-50 rounded-2xl font-black text-slate-800 outline-none focus:border-orange-500" value={loanFormData.borrowerName} onChange={e => setLoanFormData({...loanFormData, borrowerName: e.target.value})} placeholder="Nombre completo..." /></div></div>
-                         <div className="grid grid-cols-2 gap-4">
-                            <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Unidad / Dept.</label><select className="w-full p-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-black text-slate-800 outline-none focus:border-orange-500" value={loanFormData.department} onChange={e => setLoanFormData({...loanFormData, department: e.target.value as any})}><option value="Operaciones">Operaciones</option><option value="TI">TI</option><option value="Mantenimiento">Mantenimiento</option><option value="Otros">Otros</option></select></div>
-                            <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Retorno Estimado</label><input type="date" className="w-full p-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-black text-slate-800 outline-none focus:border-orange-500" value={loanFormData.expectedReturnDate} onChange={e => setLoanFormData({...loanFormData, expectedReturnDate: e.target.value})} /></div>
+                         
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Unidad / Dept.</label>
+                              <select
+                                className="w-full p-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-black text-slate-800 outline-none focus:border-orange-500"
+                                value={loanFormData.department}
+                                onChange={e => setLoanFormData({...loanFormData, department: e.target.value as any})}
+                              >
+                                <option value="Operaciones">Operaciones</option>
+                                <option value="TI">TI</option>
+                                <option value="Mantenimiento">Mantenimiento</option>
+                                <option value="Otros">Otros</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Fecha de Préstamo</label>
+                              <input
+                                type="date"
+                                className="w-full p-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-black text-slate-800 outline-none focus:border-orange-500"
+                                value={loanFormData.loanDate || ''}
+                                onChange={e => setLoanFormData({...loanFormData, loanDate: e.target.value})}
+                              />
+                            </div>
+
+                            <div className="md:col-span-2">
+                              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Retorno Estimado</label>
+                              <input
+                                type="date"
+                                className="w-full p-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-black text-slate-800 outline-none focus:border-orange-500"
+                                value={loanFormData.expectedReturnDate}
+                                onChange={e => setLoanFormData({...loanFormData, expectedReturnDate: e.target.value})}
+                              />
+                            </div>
                          </div>
+
                          {loanFormData.department === 'Otros' && <div className="animate-in slide-in-from-top-2 duration-200"><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Especificar Departamento</label><input type="text" className="w-full p-4 bg-white border-2 border-slate-100 rounded-2xl font-black text-slate-800 outline-none focus:border-orange-500 shadow-sm" value={loanFormData.customDept} onChange={e => setLoanFormData({...loanFormData, customDept: e.target.value})} placeholder="Indique la unidad..." /></div>}
                       </div>
                       <div className="space-y-4">
