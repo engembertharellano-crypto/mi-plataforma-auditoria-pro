@@ -78,25 +78,51 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
     }
   }, [initialAudit, pharmacies]);
 
+  const isHardwareStepComplete = () => {
+    return HARDWARE_CHECKLIST.every(item => {
+      const status = hardwareAnswers[item.id]?.status;
+      return status === 'Operativo' || status === 'Inactivo' || status === 'N/A';
+    });
+  };
+
+  const isProcessStepComplete = () => {
+    return PROCESS_CHECKLIST.every(item => {
+      const status = processAnswers[item.id]?.status;
+      return status === 'SI' || status === 'NO' || status === 'N/A';
+    });
+  };
+
   const handleNext = () => {
     if (step === 1 && !selectedPharmacy && !newPharmacyMode) return;
+
     if (step === 1 && newPharmacyMode) {
-       // Guardar nueva farmacia temporalmente
-       if (!newPharmacyData.name) return;
-       const newPharm: Pharmacy = {
-         id: `pharm-${Date.now()}`,
-         name: newPharmacyData.name || '',
-         address: newPharmacyData.address || '',
-         zone: newPharmacyData.zone || 'Gran Caracas Llanos',
-         status: 'Activa',
-         risk: 'Bajo',
-         corporatePhone: '',
-         photo: 'https://images.unsplash.com/photo-1586015555751-63c660067e81?auto=format&fit=crop&q=80&w=200'
-       };
-       onAddPharmacy(newPharm);
-       setSelectedPharmacy(newPharm);
-       setNewPharmacyMode(false);
+      // Guardar nueva farmacia temporalmente
+      if (!newPharmacyData.name) return;
+      const newPharm: Pharmacy = {
+        id: `pharm-${Date.now()}`,
+        name: newPharmacyData.name || '',
+        address: newPharmacyData.address || '',
+        zone: newPharmacyData.zone || 'Gran Caracas Llanos',
+        status: 'Activa',
+        risk: 'Bajo',
+        corporatePhone: '',
+        photo: 'https://images.unsplash.com/photo-1586015555751-63c660067e81?auto=format&fit=crop&q=80&w=200'
+      };
+      onAddPharmacy(newPharm);
+      setSelectedPharmacy(newPharm);
+      setNewPharmacyMode(false);
     }
+
+    if (step === 2 && !isHardwareStepComplete()) {
+      alert('Debes seleccionar un estado en todos los ítems de Seguridad Física antes de continuar.');
+      return;
+    }
+
+    if (step === 3 && !isProcessStepComplete()) {
+      alert('Debes seleccionar un estado en todos los ítems de Procesos y Protocolos antes de continuar.');
+      return;
+    }
+
     setStep(prev => prev + 1);
   };
 
@@ -123,7 +149,6 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
     onFinish(auditData);
   };
 
-  // ... (Resto de funciones auxiliares para inputs: handleHardwareChange, handleProcessChange, etc. se mantienen igual)
   const handleHardwareChange = (id: string, field: string, value: any) => {
     setHardwareAnswers(prev => ({
       ...prev,
@@ -138,7 +163,6 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
     }));
   };
 
-  // Renderizado Condicional de Pasos (Simplificado para brevedad, el UI es el mismo)
   return (
     <div className="max-w-4xl mx-auto p-6 pb-24 animate-in slide-in-from-bottom-4 duration-500">
       
@@ -172,7 +196,6 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
                   <p className="text-2xl font-black text-slate-800">{selectedPharmacy?.name}</p>
                </div>
             ) : (
-               // ... (Lógica de selección normal para nueva auditoría)
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  {pharmacies.map(p => (
                    <button 
@@ -202,7 +225,6 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
           <div className="space-y-6">
              <h3 className="text-xl font-black text-slate-800 uppercase flex items-center gap-2"><ShieldCheck className="w-6 h-6 text-orange-500" /> Seguridad Física</h3>
              <div className="h-[400px] overflow-y-auto pr-2 space-y-6 custom-scrollbar">
-                {/* Renderizado de categorías Hardware (igual que antes) */}
                 {Object.keys(HARDWARE_CHECKLIST.reduce((acc, i) => ({...acc, [i.category]: 1}), {})).map(cat => (
                    <div key={cat}>
                       <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 sticky top-0 bg-white py-2 z-10">{cat}</h4>
