@@ -5,7 +5,9 @@ import {
   Globe,
   Pencil,
   CalendarDays,
-  Trash2
+  Trash2,
+  AlertTriangle,
+  X
 } from 'lucide-react';
 import { AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, Pharmacy } from '../types';
 
@@ -45,6 +47,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
   const [filterType, setFilterType] = useState('Todos');
   const [filterZone, setFilterZone] = useState('Todas');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [recordToDelete, setRecordToDelete] = useState<any | null>(null);
 
   const isReadOnly = (currentUser?.email || '').trim().toLowerCase() === 'directiva@xana.com';
 
@@ -179,14 +182,22 @@ const VisitLog: React.FC<VisitLogProps> = ({
 
   const handleDeleteRecord = (record: any) => {
     if (!canDeleteRecord(record)) return;
+    setRecordToDelete(record);
+  };
 
-    const confirmed = window.confirm(`¿Deseas eliminar este registro de ${record.type}?`);
-    if (!confirmed) return;
+  const confirmDeleteRecord = () => {
+    if (!recordToDelete) return;
 
-    if (record.type === 'Auditoría') onDeleteAudit(record.id);
-    if (record.type === 'Inventario CCTV') onDeleteCCTV(record.id);
-    if (record.type === 'Infraestructura') onDeletePhysical(record.id);
-    if (record.type === 'Visita Gerencial') onDeleteManagement(record.id);
+    if (recordToDelete.type === 'Auditoría') onDeleteAudit(recordToDelete.id);
+    if (recordToDelete.type === 'Inventario CCTV') onDeleteCCTV(recordToDelete.id);
+    if (recordToDelete.type === 'Infraestructura') onDeletePhysical(recordToDelete.id);
+    if (recordToDelete.type === 'Visita Gerencial') onDeleteManagement(recordToDelete.id);
+
+    setRecordToDelete(null);
+  };
+
+  const closeDeleteModal = () => {
+    setRecordToDelete(null);
   };
 
   return (
@@ -350,6 +361,59 @@ const VisitLog: React.FC<VisitLogProps> = ({
           </table>
         </div>
       </div>
+
+      {recordToDelete && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white rounded-[2rem] shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 flex items-start justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-red-100 flex items-center justify-center">
+                  <AlertTriangle className="w-7 h-7 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">
+                    Confirmar eliminación
+                  </h3>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
+                    Esta acción no se puede deshacer
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={closeDeleteModal}
+                className="p-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all"
+                title="Cerrar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 mb-6">
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  ¿Deseas eliminar este registro de <span className="font-black text-slate-900">{recordToDelete.type}</span> de la sede{' '}
+                  <span className="font-black text-slate-900">{recordToDelete.pharmacy}</span>?
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 justify-end">
+                <button
+                  onClick={closeDeleteModal}
+                  className="px-5 py-3 rounded-xl bg-slate-100 text-slate-700 font-black uppercase tracking-widest text-[10px] hover:bg-slate-200 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmDeleteRecord}
+                  className="px-5 py-3 rounded-xl bg-red-600 text-white font-black uppercase tracking-widest text-[10px] hover:bg-red-700 transition-all shadow-lg"
+                >
+                  Sí, eliminar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
