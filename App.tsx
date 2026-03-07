@@ -77,7 +77,6 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  // ESTADO GLOBAL: MODO VIAJE
   const [isTravelMode, setIsTravelMode] = useState(false);
 
   const syncInProgress = useRef(false);
@@ -143,7 +142,6 @@ const App: React.FC = () => {
     return ['super usuario', 'gerente corporativo de seguridad', 'gerente de seguridad', 'lider de investigaciones'].includes(role);
   }, [currentUser]);
 
-  // --- FILTRO DINÁMICO CENTRALIZADO ---
   const visiblePharmacies = useMemo(() => {
     if (!userData.pharmacies) return [];
     if (isBoss || isTravelMode) {
@@ -189,7 +187,6 @@ const App: React.FC = () => {
         return data || [];
       };
 
-      // Siempre descargamos TODAS para tenerlas listas si activan el modo viaje
       const pharmQuery = supabase.from('pharmacies').select('*').order('name');
 
       const [pharms, auds, cctvs, phys, mgmts, pends, stfs, supps, recs, assts, lns, casesData, dbUsers, schs] =
@@ -351,7 +348,14 @@ const App: React.FC = () => {
     const score = calculateAuditScore(audit);
     const date = isEditing && auditToEdit?.date ? auditToEdit.date : new Date().toLocaleDateString('es-ES');
 
-    const completedAudit = { ...audit, id: auditId, date, score, createdBy: currentUser.fullName };
+    const completedAudit = {
+      ...audit,
+      id: auditId,
+      date,
+      score,
+      createdBy: currentUser.fullName,
+      reportLocked: (auditToEdit as any)?.reportLocked ?? false
+    };
 
     setUserData(prev => {
       const newAudits = isEditing
@@ -362,7 +366,7 @@ const App: React.FC = () => {
 
     await saveToCloud('audits', auditId, completedAudit);
     setAuditToEdit(null);
-    setSelectedAudit(completedAudit);
+    setSelectedAudit(completedAudit as any);
     setCurrentView('audit-results');
   };
 
@@ -505,7 +509,6 @@ const App: React.FC = () => {
               isSidebarOpen ? 'blur-sm pointer-events-none lg:blur-none lg:pointer-events-auto' : ''
             }`}
           >
-            {/* 1. DASHBOARD */}
             {currentView === 'dashboard' && (
               <Dashboard
                 onNavigate={setCurrentView}
@@ -522,7 +525,6 @@ const App: React.FC = () => {
               />
             )}
 
-            {/* 2. ASISTENTE IA */}
             {currentView === 'ai-assistant' && !isReadOnly && (
               <AIAssistant
                 pharmacies={visiblePharmacies}
@@ -547,7 +549,6 @@ const App: React.FC = () => {
               />
             )}
 
-            {/* 3. AUDITORÍA */}
             {currentView === 'audit-wizard' && !isReadOnly && (
               <AuditWizard
                 onCancel={() => {
@@ -579,17 +580,26 @@ const App: React.FC = () => {
               <AuditResults
                 audit={selectedAudit}
                 onBack={() => setCurrentView('dashboard')}
-                onSaveReport={async (id, text) => {
+                onSaveReport={async (id, text, lockReport = false) => {
                   if (!checkPermission()) return;
-                  const updated = userData.audits.map(a => (a.id === id ? { ...a, reportText: text } : a));
+
+                  const updated = userData.audits.map(a =>
+                    a.id === id
+                      ? { ...a, reportText: text, reportLocked: lockReport ? true : ((a as any).reportLocked ?? false) }
+                      : a
+                  );
+
                   setUserData(prev => ({ ...prev, audits: updated }));
+
                   const aud = updated.find(x => x.id === id);
-                  if (aud) await saveToCloud('audits', id, aud);
+                  if (aud) {
+                    if (selectedAudit?.id === id) setSelectedAudit(aud);
+                    await saveToCloud('audits', id, aud);
+                  }
                 }}
               />
             )}
 
-            {/* 4. VISITAS */}
             {currentView === 'new-visit' && !isReadOnly && (
               <NewVisit
                 pharmacies={visiblePharmacies}
@@ -604,7 +614,6 @@ const App: React.FC = () => {
               />
             )}
 
-            {/* 5. INVENTARIOS */}
             {currentView === 'cctv-inventory' && !isReadOnly && (
               <CCTVInventory
                 pharmacies={visiblePharmacies}
@@ -635,7 +644,6 @@ const App: React.FC = () => {
               />
             )}
 
-            {/* 6. PENDIENTES Y OTROS */}
             {currentView === 'pending-tasks' && !isReadOnly && (
               <PendingTasks
                 pharmacies={visiblePharmacies}
@@ -718,7 +726,6 @@ const App: React.FC = () => {
               />
             )}
 
-            {/* VisitLog catálogo completo */}
             {currentView === 'visit-log' && (
               <VisitLog
                 pharmacies={userData.pharmacies}
@@ -767,7 +774,6 @@ const App: React.FC = () => {
               />
             )}
 
-            {/* Reporte gerencial NO para directiva */}
             {currentView === 'management-report' && !isReadOnly && (
               <ManagementReport
                 pharmacies={visiblePharmacies}
@@ -896,7 +902,6 @@ const App: React.FC = () => {
               />
             )}
 
-            {/* ✅ Directiva NO ve Settings. Cierra sesión desde Sidebar. */}
             {currentView === 'settings' && !isReadOnly && (
               <Settings
                 user={currentUser}
