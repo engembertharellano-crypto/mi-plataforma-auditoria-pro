@@ -4,7 +4,8 @@ import {
   Filter, 
   Globe,
   Pencil,
-  CalendarDays
+  CalendarDays,
+  Trash2
 } from 'lucide-react';
 import { AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, Pharmacy } from '../types';
 
@@ -33,7 +34,12 @@ const VisitLog: React.FC<VisitLogProps> = ({
   physicalRecords, 
   managementRecords, 
   currentUser,
-  onEditAudit
+  onDeleteAudit,
+  onDeleteCCTV,
+  onDeletePhysical,
+  onDeleteManagement,
+  onEditAudit,
+  hasAdminPrivileges
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('Todos');
@@ -165,6 +171,24 @@ const VisitLog: React.FC<VisitLogProps> = ({
     return matchesSearch && matchesType && matchesZone && matchesMonth && matchesDate;
   });
 
+  const canDeleteRecord = (record: any) => {
+    if (isReadOnly) return false;
+    if (hasAdminPrivileges) return true;
+    return record.original?.createdBy === currentUser?.fullName;
+  };
+
+  const handleDeleteRecord = (record: any) => {
+    if (!canDeleteRecord(record)) return;
+
+    const confirmed = window.confirm(`¿Deseas eliminar este registro de ${record.type}?`);
+    if (!confirmed) return;
+
+    if (record.type === 'Auditoría') onDeleteAudit(record.id);
+    if (record.type === 'Inventario CCTV') onDeleteCCTV(record.id);
+    if (record.type === 'Infraestructura') onDeletePhysical(record.id);
+    if (record.type === 'Visita Gerencial') onDeleteManagement(record.id);
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-8 animate-in fade-in duration-500 pb-24">
       
@@ -288,7 +312,6 @@ const VisitLog: React.FC<VisitLogProps> = ({
                         {record.pharmacy}
                       </div>
                       
-                      {/* ✅ SOLO si NO es directiva */}
                       {!isReadOnly && record.type === 'Auditoría' && onEditAudit && record.original.createdBy === currentUser?.fullName && (
                         <button 
                           onClick={() => onEditAudit(record.original)}
@@ -296,6 +319,16 @@ const VisitLog: React.FC<VisitLogProps> = ({
                           title="Editar Auditoría"
                         >
                           <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      {!isReadOnly && record.type === 'Auditoría' && canDeleteRecord(record) && (
+                        <button
+                          onClick={() => handleDeleteRecord(record)}
+                          className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm border border-red-100"
+                          title="Eliminar Auditoría"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>
