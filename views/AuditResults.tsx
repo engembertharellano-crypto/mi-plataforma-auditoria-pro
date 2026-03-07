@@ -84,7 +84,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
           if (answer.status === 'Operativo') scoreSum += 1;
         }
       });
-      const compliance = validItems > 0 ? (scoreSum / validItems) : 1; 
+      const compliance = validItems > 0 ? (scoreSum / validItems) : 0;
       const weight = WEIGHTS.hardware.categories[cat as keyof typeof WEIGHTS.hardware.categories];
       const result = compliance * weight;
       hwResults[cat] = {
@@ -110,7 +110,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
           if (answer.status === 'SI') scoreSum += 1;
         }
       });
-      const compliance = validItems > 0 ? (scoreSum / validItems) : 1;
+      const compliance = validItems > 0 ? (scoreSum / validItems) : 0;
       const weight = WEIGHTS.process.categories[cat as keyof typeof WEIGHTS.process.categories];
       const result = compliance * weight;
       procResults[cat] = {
@@ -127,7 +127,6 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
     
     const riskPercentage = 100 - finalScore;
 
-    // ✅ AHORA EL RIESGO DEPENDE SOLO DEL PORCENTAJE
     let riskLevel = 'Bajo';
     if (riskPercentage > 20) riskLevel = 'Medio';
     if (riskPercentage > 50) riskLevel = 'Alto';
@@ -165,7 +164,6 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
         ? `INCIDENCIA EN BÓVEDA: Se detectó descuadre de efectivo (USD: ${auditData.vaultCount?.usd.difference}, VES: ${auditData.vaultCount?.ves.difference}).` 
         : "Integridad financiera en bóveda: CONFORME.";
 
-      // USAMOS EL PROMPT DETALLADO SIEMPRE, INCLUSO EN LA REGENERACIÓN
       const prompt = `Genera un INFORME DE AUDITORÍA DE SEGURIDAD CORPORATIVA formal, técnico y detallado.
       
       DATOS DEL REPORTE:
@@ -191,7 +189,6 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
         model: 'gemini-3-flash-preview', 
         contents: prompt,
         config: {
-          // Filtros desactivados para permitir reportes de seguridad reales
           safetySettings: [
             { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
             { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -231,7 +228,6 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
     }
   }, [calculatedData, audit.reportText]);
 
-  // Al regenerar, simplemente volvemos a llamar a la función (que ahora usa siempre el prompt completo)
   const handleRegenerate = () => {
     if (calculatedData) {
       generateExecutiveReport(audit, calculatedData);
@@ -273,7 +269,6 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
 
   return (
     <div className="max-w-6xl mx-auto pb-20 animate-in fade-in duration-500 px-4">
-      {/* Navigation */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
         <div className="flex gap-4 items-center">
           <button onClick={onBack} className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-5 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center gap-2 hover:bg-white/20 transition-all shadow-xl"><ArrowLeft className="w-4 h-4" /> Volver</button>
@@ -343,7 +338,6 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                 <div className="text-right"><p className="text-6xl font-black tracking-tighter text-white">{calculatedData.finalScore.toFixed(2)}%</p></div>
               </div>
 
-              {/* ARQUEO DE BÓVEDA: CUADRO CORPORATIVO DEBAJO DEL PUNTAJE */}
               {audit.vaultCount && (
                 <div className="mt-8 pt-8 border-t border-slate-100">
                   <div className="bg-slate-50 rounded-[2.5rem] p-10 border border-slate-200 shadow-sm">
@@ -364,7 +358,6 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {/* USD Block */}
                         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-inner flex flex-col justify-between group hover:border-emerald-200 transition-colors">
                            <div className="flex justify-between items-center mb-6">
                               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dólares (USD)</p>
@@ -383,7 +376,6 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                            </div>
                         </div>
 
-                        {/* VES Block */}
                         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-inner flex flex-col justify-between group hover:border-blue-200 transition-colors">
                            <div className="flex justify-between items-center mb-6">
                               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bolívares (VES)</p>
@@ -433,7 +425,6 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                 <div><h2 className="text-xl font-black text-slate-900 tracking-tight uppercase">Informe Ejecutivo</h2><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Acta de Control y Gestión</p></div>
               </div>
               <div className="flex gap-2">
-                {/* BOTÓN REGENERAR CON IA */}
                 <button 
                   onClick={handleRegenerate}
                   className="px-4 py-2 bg-orange-50 text-orange-700 rounded-lg font-black uppercase tracking-widest text-[9px] flex items-center gap-2 border border-orange-100 hover:bg-orange-100 transition-all"
@@ -470,7 +461,6 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
              <div><h2 className="text-2xl font-black tracking-tighter flex items-center gap-4"><List className="w-8 h-8 text-orange-500" />Evidencia Detallada</h2></div>
            </div>
            <div className="p-8 space-y-12">
-             {/* Arqueo Detallado en Evidencia */}
              {audit.vaultCount && (
                <div>
                   <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-6 flex items-center gap-4"><Banknote className="w-4 h-4" /> Desglose de Efectivo</h3>
