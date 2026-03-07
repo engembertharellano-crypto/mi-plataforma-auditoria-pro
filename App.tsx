@@ -178,7 +178,7 @@ const App: React.FC = () => {
         email === 'directiva@xana.com';
 
       const getTableData = async (table: string) => {
-        let q = supabase.from(table).select('*');
+        let q = supabase!.from(table).select('*');
         if (!userIsBoss && !['pharmacies', 'users'].includes(table)) {
           q = q.eq('created_by', user.fullName);
         }
@@ -187,7 +187,7 @@ const App: React.FC = () => {
         return data || [];
       };
 
-      const pharmQuery = supabase.from('pharmacies').select('*').order('name');
+      const pharmQuery = supabase!.from('pharmacies').select('*').order('name');
 
       const [pharms, auds, cctvs, phys, mgmts, pends, stfs, supps, recs, assts, lns, casesData, dbUsers, schs] =
         await Promise.all([
@@ -203,7 +203,7 @@ const App: React.FC = () => {
           getTableData('assets'),
           getTableData('loans'),
           getTableData('cases'),
-          supabase.from('users').select('*'),
+          supabase!.from('users').select('*'),
           getTableData('schedule')
         ]);
 
@@ -293,7 +293,7 @@ const App: React.FC = () => {
       const pharmacyId = data.pharmacyId || (data.pharmacy && data.pharmacy.id);
       if (pharmacyId) payload.pharmacy_id = pharmacyId;
 
-      const { error } = await supabase.from(table).upsert(payload);
+      const { error } = await supabase!.from(table).upsert(payload);
       if (error) throw error;
       addToast("Guardado", "success");
     } catch (e) {
@@ -306,7 +306,7 @@ const App: React.FC = () => {
     if (!supabase) return;
 
     try {
-      await supabase.from(table).delete().eq('id', id);
+      await supabase!.from(table).delete().eq('id', id);
       addToast("Eliminado Correctamente", "success");
     } catch (e) {
       addToast("Error al borrar", "error");
@@ -322,7 +322,7 @@ const App: React.FC = () => {
       if (updates.isApproved !== undefined) dbUpdates.is_approved = updates.isApproved;
       if (updates.isBlocked !== undefined) dbUpdates.is_blocked = updates.isBlocked;
 
-      await supabase.from('users').update(dbUpdates).eq('email', email);
+      await supabase!.from('users').update(dbUpdates).eq('email', email);
 
       setUserData(prev => ({
         ...prev,
@@ -561,14 +561,14 @@ const App: React.FC = () => {
                 onAddPharmacy={async (p) => {
                   if (!checkPermission()) return;
                   setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] }));
-                  await supabase.from('pharmacies').insert({
+                  await supabase!.from('pharmacies').insert({
                     id: p.id,
                     name: p.name,
                     address: p.address,
                     zone: p.zone,
                     status: p.status,
                     risk: p.risk,
-                    corporate_phone: p.corporatePhone,
+                    corporatePhone: p.corporatePhone,
                     photo: p.photo,
                     location: p.location
                   });
@@ -815,14 +815,14 @@ const App: React.FC = () => {
                 onUpdate={async (p) => {
                   if (!checkPermission()) return;
                   setUserData(prev => ({ ...prev, pharmacies: prev.pharmacies.map(x => (x.id === p.id ? p : x)) }));
-                  await supabase.from('pharmacies').upsert({
+                  await supabase!.from('pharmacies').upsert({
                     id: p.id,
                     name: p.name,
                     address: p.address,
                     zone: p.zone,
                     status: p.status,
                     risk: p.risk,
-                    corporate_phone: p.corporatePhone,
+                    corporatePhone: p.corporatePhone,
                     photo: p.photo,
                     location: p.location,
                     has_security_officer: p.hasSecurityOfficer
@@ -831,19 +831,19 @@ const App: React.FC = () => {
                 onDelete={async (id) => {
                   if (!checkPermission()) return;
                   setUserData(prev => ({ ...prev, pharmacies: prev.pharmacies.filter(x => x.id !== id) }));
-                  await supabase.from('pharmacies').delete().eq('id', id);
+                  await supabase!.from('pharmacies').delete().eq('id', id);
                 }}
                 onAdd={async (p) => {
                   if (!checkPermission()) return;
                   setUserData(prev => ({ ...prev, pharmacies: [...prev.pharmacies, p] }));
-                  await supabase.from('pharmacies').insert({
+                  await supabase!.from('pharmacies').insert({
                     id: p.id,
                     name: p.name,
                     address: p.address,
                     zone: p.zone,
                     status: p.status,
                     risk: p.risk,
-                    corporate_phone: p.corporatePhone,
+                    corporatePhone: p.corporatePhone,
                     photo: p.photo,
                     location: p.location,
                     has_security_officer: p.hasSecurityOfficer
@@ -897,7 +897,7 @@ const App: React.FC = () => {
                 onDelete={async (email) => {
                   if (!checkPermission()) return;
                   setUserData(prev => ({ ...prev, users: prev.users.filter(u => u.email !== email) }));
-                  await supabase.from('users').delete().eq('email', email);
+                  await supabase!.from('users').delete().eq('email', email);
                 }}
               />
             )}
