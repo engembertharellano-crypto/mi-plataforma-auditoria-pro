@@ -13,7 +13,6 @@ export interface Pharmacy {
     lat: number;
     lng: number;
   } | null;
-  // --- NUEVO CAMPO AGREGADO ---
   hasSecurityOfficer?: boolean;
 }
 
@@ -72,6 +71,7 @@ export interface AuditState {
   score?: number;
   reportText?: string;
   createdBy?: string;
+  reportLocked?: boolean;
 }
 
 export interface CCTVInventoryRecord {
@@ -245,8 +245,6 @@ export interface AssetLoan {
   loanPhoto?: string;
 }
 
-// --- GESTIÓN DE CASOS ---
-
 export interface CaseTimelineEntry {
   id: string;
   date: string;
@@ -260,21 +258,13 @@ export interface CaseRecord {
   status: 'Abierto' | 'En Proceso' | 'Cerrado';
   priority: 'Alta' | 'Media' | 'Baja';
   date: string;
-  
-  // Origen
   reporterName: string;
   channel: 'Llamada' | 'WhatsApp' | 'Correo' | 'Verbal' | 'Sistema';
-  
-  // Ubicación Flexible
   locationType: 'Farmacia' | 'Corporativo' | 'CEDIS' | 'Otro';
   locationName: string;
   pharmacyId?: string;
-  
-  // Contenido
   title: string;
   description: string;
-  
-  // Ciclo de vida
   timeline: CaseTimelineEntry[];
   conclusion?: string;
   closedDate?: string;
