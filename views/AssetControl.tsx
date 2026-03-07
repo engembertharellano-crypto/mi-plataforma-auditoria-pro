@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Key, 
   Plus, 
@@ -22,9 +22,7 @@ import {
   Zap,
   ChevronRight,
   Truck,
-  Info,
   RefreshCw,
-  AlertTriangle,
   Pencil,
   LogOut,
   Loader2,
@@ -40,8 +38,11 @@ interface AssetControlProps {
   onUpdateAsset: (asset: Asset) => void;
   onDeleteAsset: (id: string) => void;
   onSaveLoan: (loan: AssetLoan) => void;
+  onUpdateLoan: (loan: AssetLoan) => void;
   onReturnLoan: (loanId: string, actualReturnDate: string, notes: string) => void;
 }
+
+const KNOWN_DEPARTMENTS = ['Operaciones', 'TI', 'Mantenimiento', 'Otros'] as const;
 
 const AssetControl: React.FC<AssetControlProps> = ({ 
   pharmacies, 
@@ -51,12 +52,16 @@ const AssetControl: React.FC<AssetControlProps> = ({
   onUpdateAsset, 
   onDeleteAsset, 
   onSaveLoan, 
+  onUpdateLoan,
   onReturnLoan 
 }) => {
   const [activeTab, setActiveTab] = useState<'inventory' | 'active-loans' | 'history'>('active-loans');
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [editingAssetId, setEditingAssetId] = useState<string | null>(null);
+
   const [showLoanModal, setShowLoanModal] = useState(false);
+  const [editingLoanId, setEditingLoanId] = useState<string | null>(null);
+
   const [showReturnModal, setShowReturnModal] = useState<AssetLoan | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [showPermanentExitConfirm, setShowPermanentExitConfirm] = useState<string | null>(null);
@@ -81,6 +86,10 @@ const AssetControl: React.FC<AssetControlProps> = ({
       return `${day}/${month}/${year}`;
     }
     return dateString;
+  };
+
+  const isKnownDepartment = (dept?: string) => {
+    return KNOWN_DEPARTMENTS.includes((dept as any) || '');
   };
 
   // Asset Form State
@@ -120,6 +129,11 @@ const AssetControl: React.FC<AssetControlProps> = ({
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
 
+  const currentEditingLoan = useMemo(
+    () => loans.find(l => l.id === editingLoanId) || null,
+    [loans, editingLoanId]
+  );
+
   // --- LÓGICA DE INVENTARIO REAL ---
   const getAssetStock = (asset: Asset) => {
     const activeLoansForAsset = loans.filter(l => l.assetId === asset.id && l.status === 'Activo');
@@ -134,15 +148,48 @@ const AssetControl: React.FC<AssetControlProps> = ({
     return { components: currentComponents, totalAvailable };
   };
 
-  useEffect(() => {
-    if (loanFormData.assetId) {
-      const selectedAsset = assets.find(a => a.id === loanFormData.assetId);
-      if (selectedAsset) {
-        const stock = getAssetStock(selectedAsset);
-        setLoanLentComponents(stock.components.map(c => ({ ...c })));
-      }
+  const getLoanEditorStock = (asset: Asset, loanBeingEdited?: AssetLoan | null) => {
+    const baseStock = getAssetStock(asset);
+
+    if (!loanBeingEdited || loanBeingEdited.assetId !== asset.id) {
+      return baseStock.components.map(c => ({ ...c }));
     }
-  }, [loanFormData.assetId, assets, loans]);
+
+    return asset.components.map(origComp => {
+      const currentAvailable = baseStock.components.find(c => c.name === origComp.name)?.quantity || 0;
+      const alreadyAssignedInThisLoan =
+        loanBeingEdited.lentComponents.find(c => c.name === origComp.name)?.quantity || 0;
+
+      return {
+        ...origComp,
+        quantity: currentAvailable + alreadyAssignedInThisLoan
+      };
+    });
+  };
+
+  useEffect(() => {
+    if (!loanFormData.assetId) return;
+
+    const selectedAsset = assets.find(a => a.id === loanFormData.assetId);
+    if (!selectedAsset) return;
+
+    if (editingLoanId && currentEditingLoan) {
+      const editableStock = getLoanEditorStock(selectedAsset, currentEditingLoan);
+      const mergedComponents = editableStock.map(stockComp => {
+        const existingInLoan = currentEditingLoan.lentComponents.find(c => c.name === stockComp.name);
+        return {
+          id: stockComp.id,
+          name: stockComp.name,
+          quantity: existingInLoan ? existingInLoan.quantity : 0
+        };
+      });
+      setLoanLentComponents(mergedComponents);
+      return;
+    }
+
+    const stock = getAssetStock(selectedAsset);
+    setLoanLentComponents(stock.components.map(c => ({ ...c })));
+  }, [loanFormData.assetId, assets, loans, editingLoanId, currentEditingLoan]);
 
   // --- SISTEMA DE CÁMARA ROBUSTO ---
   useEffect(() => {
@@ -245,6 +292,7 @@ const AssetControl: React.FC<AssetControlProps> = ({
 
   const handleSaveAsset = () => {
     if (!assetFormData.name) return;
+
     const finalAsset: Asset = {
       id: editingAssetId || `asset-${Date.now()}`,
       name: assetFormData.name!,
@@ -256,38 +304,13 @@ const AssetControl: React.FC<AssetControlProps> = ({
       photo: assetFormData.photo,
       createdAt: assetFormData.createdAt || new Date().toLocaleDateString('es-ES')
     };
+
     editingAssetId ? onUpdateAsset(finalAsset) : onAddAsset(finalAsset);
     setShowAssetModal(false);
   };
 
-  const handleAddLoan = () => {
-    if (!loanFormData.assetId || !loanFormData.borrowerName || !loanFormData.loanDate || !loanFormData.expectedReturnDate) {
-      alert("Por favor complete los campos obligatorios.");
-      return;
-    }
-
-    const loanDateParts = loanFormData.loanDate!.split('-');
-    const formattedLoanDate = `${loanDateParts[2]}/${loanDateParts[1]}/${loanDateParts[0]}`;
-
-    const expDateParts = loanFormData.expectedReturnDate!.split('-');
-    const formattedExpDate = `${expDateParts[2]}/${expDateParts[1]}/${expDateParts[0]}`;
-
-    const finalDept = loanFormData.department === 'Otros' ? (loanFormData.customDept || 'Otros') : loanFormData.department;
-    
-    onSaveLoan({
-      id: `loan-${Date.now()}`,
-      assetId: loanFormData.assetId!,
-      borrowerName: loanFormData.borrowerName!,
-      department: finalDept as any,
-      loanDate: formattedLoanDate,
-      expectedReturnDate: formattedExpDate,
-      status: 'Activo',
-      notes: loanFormData.notes || '',
-      lentComponents: loanLentComponents.filter(c => c.quantity > 0),
-      loanPhoto: loanFormData.loanPhoto
-    });
-
-    setShowLoanModal(false);
+  const resetLoanForm = () => {
+    setEditingLoanId(null);
     setLoanFormData({
       assetId: '',
       borrowerName: '',
@@ -299,6 +322,80 @@ const AssetControl: React.FC<AssetControlProps> = ({
       customDept: ''
     });
     setLoanLentComponents([]);
+  };
+
+  const handleOpenLoanModal = (loan?: AssetLoan) => {
+    if (loan) {
+      const departmentIsKnown = isKnownDepartment(loan.department);
+
+      setEditingLoanId(loan.id);
+      setLoanFormData({
+        assetId: loan.assetId,
+        borrowerName: loan.borrowerName,
+        department: departmentIsKnown ? loan.department : 'Otros',
+        customDept: departmentIsKnown ? '' : loan.department,
+        loanDate: formatDateForInput(loan.loanDate),
+        expectedReturnDate: formatDateForInput(loan.expectedReturnDate),
+        notes: loan.notes || '',
+        loanPhoto: loan.loanPhoto || ''
+      });
+    } else {
+      resetLoanForm();
+    }
+
+    setShowLoanModal(true);
+  };
+
+  const handleSaveLoan = () => {
+    if (!loanFormData.assetId || !loanFormData.borrowerName || !loanFormData.loanDate || !loanFormData.expectedReturnDate) {
+      alert("Por favor complete los campos obligatorios.");
+      return;
+    }
+
+    const loanDateParts = loanFormData.loanDate.split('-');
+    const formattedLoanDate = `${loanDateParts[2]}/${loanDateParts[1]}/${loanDateParts[0]}`;
+
+    const expDateParts = loanFormData.expectedReturnDate.split('-');
+    const formattedExpDate = `${expDateParts[2]}/${expDateParts[1]}/${expDateParts[0]}`;
+
+    const finalDept =
+      loanFormData.department === 'Otros'
+        ? (loanFormData.customDept || 'Otros')
+        : loanFormData.department;
+
+    const finalLentComponents = loanLentComponents.filter(c => c.quantity > 0);
+
+    if (editingLoanId && currentEditingLoan) {
+      const updatedLoan: AssetLoan = {
+        ...currentEditingLoan,
+        assetId: loanFormData.assetId,
+        borrowerName: loanFormData.borrowerName,
+        department: finalDept as any,
+        loanDate: formattedLoanDate,
+        expectedReturnDate: formattedExpDate,
+        notes: loanFormData.notes || '',
+        lentComponents: finalLentComponents,
+        loanPhoto: loanFormData.loanPhoto
+      };
+
+      onUpdateLoan(updatedLoan);
+    } else {
+      onSaveLoan({
+        id: `loan-${Date.now()}`,
+        assetId: loanFormData.assetId,
+        borrowerName: loanFormData.borrowerName,
+        department: finalDept as any,
+        loanDate: formattedLoanDate,
+        expectedReturnDate: formattedExpDate,
+        status: 'Activo',
+        notes: loanFormData.notes || '',
+        lentComponents: finalLentComponents,
+        loanPhoto: loanFormData.loanPhoto
+      });
+    }
+
+    setShowLoanModal(false);
+    resetLoanForm();
   };
 
   const handleFinalizeTransferFromReturn = () => {
@@ -323,6 +420,22 @@ const AssetControl: React.FC<AssetControlProps> = ({
     a.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     (pharmacies.find(p => p.id === a.pharmacyId)?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const filteredActiveLoans = loans.filter(l => {
+    if (l.status !== 'Activo') return false;
+
+    const asset = assets.find(a => a.id === l.assetId);
+    const pharmacy = pharmacies.find(p => p.id === asset?.pharmacyId);
+
+    const haystack = [
+      asset?.name || '',
+      pharmacy?.name || '',
+      l.borrowerName || '',
+      l.department || ''
+    ].join(' ').toLowerCase();
+
+    return haystack.includes(searchTerm.toLowerCase());
+  });
 
   // --- LÓGICA DE HISTORIAL DE MOVIMIENTOS ---
   const allHistory = [...loans].sort((a, b) => {
@@ -353,7 +466,7 @@ const AssetControl: React.FC<AssetControlProps> = ({
              <Archive className="w-4 h-4" /> Registrar Activo
            </button>
            <button 
-             onClick={() => setShowLoanModal(true)}
+             onClick={() => handleOpenLoanModal()}
              className="bg-orange-600 text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 shadow-xl shadow-orange-600/20 hover:bg-orange-500 transition-all"
            >
              <ArrowUpRight className="w-4 h-4" /> Nuevo Préstamo
@@ -396,7 +509,7 @@ const AssetControl: React.FC<AssetControlProps> = ({
       {/* ACTIVE LOANS VIEW */}
       {activeTab === 'active-loans' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-           {loans.filter(l => l.status === 'Activo').map(loan => {
+           {filteredActiveLoans.map(loan => {
              const asset = assets.find(a => a.id === loan.assetId);
              const pharmacy = pharmacies.find(p => p.id === asset?.pharmacyId);
              return (
@@ -404,8 +517,9 @@ const AssetControl: React.FC<AssetControlProps> = ({
                   {loan.loanPhoto || asset?.photo ? (
                     <div className="h-44 relative group/img overflow-hidden">
                        <img src={loan.loanPhoto || asset?.photo} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="Asset" />
-                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-3">
                           <button onClick={() => setViewingPhoto((loan.loanPhoto || asset?.photo) || null)} className="bg-white/20 backdrop-blur-md p-3 rounded-full text-white"><Maximize2 className="w-5 h-5" /></button>
+                          <button onClick={() => handleOpenLoanModal(loan)} className="bg-white/20 backdrop-blur-md p-3 rounded-full text-white"><Pencil className="w-5 h-5" /></button>
                        </div>
                        <div className="absolute top-4 left-4">
                           <span className="bg-orange-600 text-white px-3 py-1 rounded-lg text-[9px] font-black uppercase shadow-lg">En Tránsito</span>
@@ -439,14 +553,20 @@ const AssetControl: React.FC<AssetControlProps> = ({
                               <p className="text-[9px] font-bold text-orange-600 uppercase tracking-widest mt-1">{loan.department}</p>
                            </div>
                         </div>
-                        <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
+                        <div className="flex flex-col gap-1 text-[10px] font-bold text-slate-400 uppercase">
+                           <span>Préstamo: <span className="text-slate-800">{loan.loanDate}</span></span>
                            <span>Retorno: <span className="text-slate-800">{loan.expectedReturnDate}</span></span>
-                           <Clock className="w-3.5 h-3.5" />
                         </div>
                      </div>
                   </div>
-                  <div className="p-4 bg-slate-50/50 border-t border-slate-50">
-                    <button onClick={() => setShowReturnModal(loan)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-slate-800 transition-all flex items-center justify-center gap-2"><CheckCircle2 className="w-4 h-4" /> Recibir Devolución</button>
+                  <div className="p-4 bg-slate-50/50 border-t border-slate-50 flex gap-3">
+                    <button
+                      onClick={() => handleOpenLoanModal(loan)}
+                      className="flex-1 py-4 bg-white border border-slate-200 text-slate-700 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Pencil className="w-4 h-4" /> Editar
+                    </button>
+                    <button onClick={() => setShowReturnModal(loan)} className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-slate-800 transition-all flex items-center justify-center gap-2"><CheckCircle2 className="w-4 h-4" /> Recibir Devolución</button>
                   </div>
                </div>
              );
@@ -659,16 +779,24 @@ const AssetControl: React.FC<AssetControlProps> = ({
         </div>
       )}
 
-      {/* LOAN MODAL (ASIGNAR PRÉSTAMO) */}
+      {/* LOAN MODAL (ASIGNAR / EDITAR PRÉSTAMO) */}
       {showLoanModal && (
         <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-[150] flex items-center justify-center p-6">
           <div className="bg-white rounded-[3.5rem] w-full max-w-5xl shadow-3xl animate-in zoom-in-95 duration-200 overflow-hidden border border-white/20 flex flex-col max-h-[90vh]">
              <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
                 <div className="flex items-center gap-4">
                    <div className="p-3 bg-orange-600 rounded-2xl text-white shadow-xl"><ArrowUpRight className="w-6 h-6" /></div>
-                   <h3 className="text-2xl font-black text-slate-800 tracking-tighter uppercase">Formalizar Préstamo</h3>
+                   <h3 className="text-2xl font-black text-slate-800 tracking-tighter uppercase">{editingLoanId ? 'Modificar Préstamo' : 'Formalizar Préstamo'}</h3>
                 </div>
-                <button onClick={() => setShowLoanModal(false)} className="p-2 hover:bg-white rounded-full text-slate-300"><X className="w-7 h-7" /></button>
+                <button
+                  onClick={() => {
+                    setShowLoanModal(false);
+                    resetLoanForm();
+                  }}
+                  className="p-2 hover:bg-white rounded-full text-slate-300"
+                >
+                  <X className="w-7 h-7" />
+                </button>
              </div>
              <div className="p-12 overflow-y-auto flex-1 custom-scrollbar">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
@@ -681,10 +809,15 @@ const AssetControl: React.FC<AssetControlProps> = ({
                           onChange={e => setLoanFormData({...loanFormData, assetId: e.target.value})}
                         >
                           <option value="">--- Seleccionar Activo ---</option>
-                          {assets.filter(a => getAssetStock(a).totalAvailable > 0).map(a => {
-                            const p = pharmacies.find(ph => ph.id === a.pharmacyId);
-                            return <option key={a.id} value={a.id}>{a.name} ({p ? p.name : 'Sede General'})</option>;
-                          })}
+                          {assets
+                            .filter(a => {
+                              if (editingLoanId && currentEditingLoan?.assetId === a.id) return true;
+                              return getAssetStock(a).totalAvailable > 0;
+                            })
+                            .map(a => {
+                              const p = pharmacies.find(ph => ph.id === a.pharmacyId);
+                              return <option key={a.id} value={a.id}>{a.name} ({p ? p.name : 'Sede General'})</option>;
+                            })}
                         </select>
                       </div>
                       <div className="space-y-6">
@@ -747,7 +880,10 @@ const AssetControl: React.FC<AssetControlProps> = ({
                            <div className="space-y-4">
                               {loanLentComponents.map((c, idx) => {
                                  const asset = assets.find(a => a.id === loanFormData.assetId);
-                                 const currentStock = asset ? getAssetStock(asset).components.find(orig => orig.name === c.name)?.quantity || 0 : 0;
+                                 const currentStock = asset
+                                   ? getLoanEditorStock(asset, editingLoanId ? currentEditingLoan : null).find(orig => orig.name === c.name)?.quantity || 0
+                                   : 0;
+
                                  return (
                                    <div key={idx} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
                                       <div className="flex items-center gap-4"><div className={`w-3 h-3 rounded-full ${c.quantity > 0 ? 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]' : 'bg-slate-200'}`}></div><div><span className={`text-sm font-black uppercase tracking-tight ${c.quantity > 0 ? 'text-slate-800' : 'text-slate-300'}`}>{c.name}</span><p className="text-[8px] font-black text-slate-400 mt-0.5">DISPONIBLE: {currentStock}</p></div></div>
@@ -766,7 +902,7 @@ const AssetControl: React.FC<AssetControlProps> = ({
                    </div>
                 </div>
              </div>
-             <div className="p-10 border-t border-slate-100 flex justify-end gap-6 bg-slate-50/50 shrink-0"><button onClick={() => setShowLoanModal(false)} className="px-10 py-4 text-slate-400 font-black uppercase text-[10px]">Cancelar</button><button onClick={handleAddLoan} className="flex-1 py-4 bg-orange-600 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl shadow-orange-600/20 hover:bg-orange-500 transition-all">Emitir Custodia</button></div>
+             <div className="p-10 border-t border-slate-100 flex justify-end gap-6 bg-slate-50/50 shrink-0"><button onClick={() => { setShowLoanModal(false); resetLoanForm(); }} className="px-10 py-4 text-slate-400 font-black uppercase text-[10px]">Cancelar</button><button onClick={handleSaveLoan} className="flex-1 py-4 bg-orange-600 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl shadow-orange-600/20 hover:bg-orange-500 transition-all">{editingLoanId ? 'Actualizar Custodia' : 'Emitir Custodia'}</button></div>
           </div>
         </div>
       )}
