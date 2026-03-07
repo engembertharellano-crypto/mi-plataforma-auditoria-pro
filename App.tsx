@@ -38,6 +38,7 @@ import {
   AssetLoan,
   CaseRecord
 } from './types';
+import { HARDWARE_CHECKLIST, PROCESS_CHECKLIST } from './constants';
 import { supabase } from './lib/supabase';
 
 const DATA_VERSION = "11.21-TRAVEL-MODE-FINAL";
@@ -366,24 +367,65 @@ const App: React.FC = () => {
   };
 
   const calculateAuditScore = (audit: AuditState) => {
-    let total = 0;
-    let ok = 0;
+    const hardwareWeights = {
+      '1. ALARMAS Y DISPOSITIVOS': 0.10,
+      '2. SISTEMAS CCTV': 0.40,
+      '3. CAJAS FUERTES': 0.10,
+      '4. ACCESOS Y PROTECTORES': 0.30,
+      '5. OTROS': 0.10,
+    };
 
-    Object.values(audit.hardwareAnswers).forEach((a: any) => {
-      if (a.status !== 'N/A') {
-        total++;
-        if (a.status === 'Operativo') ok++;
-      }
+    const processWeights = {
+      '1. CAJA (10%)': 0.10,
+      '2. ADMINISTRATIVO (25%)': 0.25,
+      '3. INVENTARIO (50%)': 0.50,
+      '4. PREVENCIÓN (15%)': 0.15,
+    };
+
+    let totalHwScore = 0;
+    Object.keys(hardwareWeights).forEach(cat => {
+      const items = HARDWARE_CHECKLIST.filter(i => i.category === cat);
+      if (items.length === 0) return;
+
+      let validItems = 0;
+      let scoreSum = 0;
+
+      items.forEach(item => {
+        const answer = audit.hardwareAnswers[item.id];
+        if (answer?.status && answer.status !== 'N/A') {
+          validItems++;
+          if (answer.status === 'Operativo') scoreSum += 1;
+        }
+      });
+
+      const compliance = validItems > 0 ? (scoreSum / validItems) : 0;
+      const weight = hardwareWeights[cat as keyof typeof hardwareWeights];
+      totalHwScore += compliance * weight;
     });
 
-    Object.values(audit.processAnswers).forEach((a: any) => {
-      if (a.status !== 'N/A') {
-        total++;
-        if (a.status === 'SI') ok++;
-      }
+    let totalProcScore = 0;
+    Object.keys(processWeights).forEach(cat => {
+      const items = PROCESS_CHECKLIST.filter(i => i.category === cat);
+      if (items.length === 0) return;
+
+      let validItems = 0;
+      let scoreSum = 0;
+
+      items.forEach(item => {
+        const answer = audit.processAnswers[item.id];
+        if (answer?.status && answer.status !== 'N/A') {
+          validItems++;
+          if (answer.status === 'SI') scoreSum += 1;
+        }
+      });
+
+      const compliance = validItems > 0 ? (scoreSum / validItems) : 0;
+      const weight = processWeights[cat as keyof typeof processWeights];
+      totalProcScore += compliance * weight;
     });
 
-    return total > 0 ? Number(((ok / total) * 100).toFixed(2)) : 0;
+    const finalScore = (totalHwScore * 100 * 0.40) + (totalProcScore * 100 * 0.60);
+    return Number(finalScore.toFixed(2));
   };
 
   const getFilteredUsers = () => {
@@ -476,7 +518,7 @@ const App: React.FC = () => {
                   setSelectedAudit(a);
                   setCurrentView('audit-results');
                 }}
-                readOnly={isReadOnly} // ✅ clave
+                readOnly={isReadOnly}
               />
             )}
 
