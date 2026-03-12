@@ -111,7 +111,9 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       cctv: cctvRecords.filter(r => pharmacyIds.has(String(r.pharmacyId))),
       physical: physicalRecords.filter(r => pharmacyIds.has(String(r.pharmacyId))),
       management: managementRecords.filter(r => pharmacyIds.has(String(r.pharmacyId))),
-      cases: cases 
+      cases: selectedZone === 'Todas'
+        ? cases
+        : cases.filter(c => c.pharmacyId && pharmacyIds.has(String(c.pharmacyId)))
     };
   }, [selectedZone, pharmacies, audits, cctvRecords, physicalRecords, managementRecords, cases]);
 
@@ -238,20 +240,23 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const caseTypeCounts: Record<string, number> = {};
   currentCases.forEach(c => {
-    let type = c.type;
-    if (!type || type === 'General' || type === '') {
-      const titleLower = (c.title || '').toLowerCase();
-      if (titleLower.includes('cámara') || titleLower.includes('cctv') || titleLower.includes('dvr')) {
-        type = 'Falla Técnica CCTV';
-      } else if (titleLower.includes('hurto') || titleLower.includes('robo')) {
-        type = 'Delito contra la Propiedad';
-      } else if (titleLower.includes('procedimiento') || titleLower.includes('protocolo')) {
-        type = 'Falla de Procedimiento';
-      } else {
-        type = 'Pendiente de Clasificar';
-      }
+    let inferredType = '';
+
+    const titleLower = (c.title || '').toLowerCase();
+    const descriptionLower = (c.description || '').toLowerCase();
+    const combinedText = `${titleLower} ${descriptionLower}`;
+
+    if (combinedText.includes('cámara') || combinedText.includes('camara') || combinedText.includes('cctv') || combinedText.includes('dvr')) {
+      inferredType = 'Falla Técnica CCTV';
+    } else if (combinedText.includes('hurto') || combinedText.includes('robo')) {
+      inferredType = 'Delito contra la Propiedad';
+    } else if (combinedText.includes('procedimiento') || combinedText.includes('protocolo')) {
+      inferredType = 'Falla de Procedimiento';
+    } else {
+      inferredType = 'Pendiente de Clasificar';
     }
-    caseTypeCounts[type] = (caseTypeCounts[type] || 0) + 1;
+
+    caseTypeCounts[inferredType] = (caseTypeCounts[inferredType] || 0) + 1;
   });
   const topCaseType = Object.entries(caseTypeCounts).sort((a, b) => b[1] - a[1])[0];
 
