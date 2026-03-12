@@ -504,9 +504,12 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
               <div className="flex items-center justify-between pt-4 border-t border-slate-100/50">
                 <span
                   className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide border shadow-sm ${
-                    pharmacy.risk === 'Bajo' ? 'bg-emerald-50 text-emerald-600' :
-                    pharmacy.risk === 'Medio' ? 'bg-orange-50 text-orange-600' :
-                    'bg-red-50 text-red-600'
+                    pharmacy.risk === 'Bajo' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                    pharmacy.risk === 'Moderado' ? 'bg-yellow-50 text-yellow-600 border-yellow-100' :
+                    pharmacy.risk === 'Medio' ? 'bg-orange-50 text-orange-600 border-orange-100' :
+                    pharmacy.risk === 'Alto' ? 'bg-red-50 text-red-600 border-red-100' :
+                    pharmacy.risk === 'Extremo' ? 'bg-red-100 text-red-800 border-red-200' :
+                    'bg-slate-50 text-slate-500 border-slate-100'
                   }`}
                 >
                   {pharmacy.risk ? `Riesgo ${pharmacy.risk}` : 'Sin Evaluar'}
