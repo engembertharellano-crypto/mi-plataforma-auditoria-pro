@@ -23,7 +23,24 @@ const Dashboard: React.FC<DashboardProps> = ({
   onSelectAudit,
   readOnly = false
 }) => {
-  const history = [...audits].slice(0, 5);
+  const parseAuditDate = (dateStr?: string) => {
+    if (!dateStr) return new Date(0);
+
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const year = parseInt(parts[2], 10);
+      return new Date(year, month, day);
+    }
+
+    const fallback = new Date(dateStr);
+    return isNaN(fallback.getTime()) ? new Date(0) : fallback;
+  };
+
+  const history = [...audits]
+    .sort((a, b) => parseAuditDate(b.date).getTime() - parseAuditDate(a.date).getTime())
+    .slice(0, 5);
 
   const now = new Date();
   const currentMonth = now.getMonth();
@@ -77,7 +94,6 @@ const Dashboard: React.FC<DashboardProps> = ({
           </p>
         </div>
 
-        {/* ✅ Directiva (readOnly) NO ve este botón */}
         {!readOnly && (
           <button 
             onClick={() => onNavigate('audit-wizard')}
