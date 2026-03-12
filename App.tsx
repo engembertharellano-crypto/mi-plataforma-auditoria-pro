@@ -419,8 +419,9 @@ const App: React.FC = () => {
       totalProcScore += compliance * weight;
     });
 
-    const finalScore = (totalHwScore * 100 * 0.40) + (totalProcScore * 100 * 0.60);
-    return Number(finalScore.toFixed(2));
+    const rawScore = (totalHwScore * 100 * 0.40) + (totalProcScore * 100 * 0.60);
+    const finalScore = Math.max(0, Math.min(100, Number(rawScore.toFixed(2))));
+    return finalScore;
   };
 
   const getRiskLevel = (score: number): 'Bajo' | 'Moderado' | 'Medio' | 'Alto' | 'Extremo' => {
