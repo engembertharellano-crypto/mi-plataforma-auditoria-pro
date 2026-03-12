@@ -23,7 +23,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   onSelectAudit,
   readOnly = false
 }) => {
-  const history = [...audits].reverse().slice(0, 5);
+  const history = [...audits].slice(0, 5);
 
   const now = new Date();
   const currentMonth = now.getMonth();
