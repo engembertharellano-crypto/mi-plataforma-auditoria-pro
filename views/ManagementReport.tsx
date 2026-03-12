@@ -59,6 +59,23 @@ const ManagementReport: React.FC<ManagementReportProps> = ({
     return (parseInt(parts[1], 10) - 1) === currentMonth && parseInt(parts[2], 10) === currentYear;
   };
 
+  const getRiskLevel = (score: number): 'Bajo' | 'Moderado' | 'Medio' | 'Alto' | 'Extremo' => {
+    if (score >= 95) return 'Bajo';
+    if (score >= 85) return 'Moderado';
+    if (score >= 75) return 'Medio';
+    if (score >= 65) return 'Alto';
+    return 'Extremo';
+  };
+
+  const getRiskColor = (score: number) => {
+    const risk = getRiskLevel(score);
+    if (risk === 'Bajo') return '#10b981';
+    if (risk === 'Moderado') return '#22c55e';
+    if (risk === 'Medio') return '#f59e0b';
+    if (risk === 'Alto') return '#f97316';
+    return '#ef4444';
+  };
+
   const monthlyAudits = audits.filter(a => isSelectedMonth(a.date));
   const monthlyCCTV = cctvRecords.filter(r => isSelectedMonth(r.date));
   const monthlyPhysical = physicalRecords.filter(r => isSelectedMonth(r.date));
@@ -288,7 +305,7 @@ const ManagementReport: React.FC<ManagementReportProps> = ({
                   <td style="font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #f1f5f9;">${a.pharmacy?.name}</td>
                   <td style="color: #64748b; border-bottom: 1px solid #f1f5f9;">${a.date}</td>
                   <td style="font-weight: bold; border-bottom: 1px solid #f1f5f9;">${a.score?.toFixed(2)}%</td>
-                  <td align="right" style="font-weight: bold; color: ${a.score && a.score >= 90 ? '#10b981' : '#ef4444'}; border-bottom: 1px solid #f1f5f9;">${a.score && a.score >= 90 ? 'BAJO RIESGO' : 'CONTROL REQUERIDO'}</td>
+                  <td align="right" style="font-weight: bold; color: ${getRiskColor(a.score || 0)}; border-bottom: 1px solid #f1f5f9;">${getRiskLevel(a.score || 0).toUpperCase()}</td>
                 </tr>
               `).join('') : `<tr><td colspan="4" align="center" style="color: #cbd5e1; padding: 40px;">SIN ACTIVIDADES DE AUDITORÍA EN ESTE PERIODO</td></tr>`}
             </tbody>
