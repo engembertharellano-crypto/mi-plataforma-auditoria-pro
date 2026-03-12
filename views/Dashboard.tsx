@@ -209,9 +209,11 @@ const Dashboard: React.FC<DashboardProps> = ({
             <tbody>
               {history.map((audit) => {
                 const score = audit.score || 0;
-                let auditRiskLabel = 'Alto';
-                if (score >= 90) auditRiskLabel = 'Bajo';
-                else if (score >= 80) auditRiskLabel = 'Medio';
+                let auditRiskLabel = 'Extremo';
+                if (score >= 95) auditRiskLabel = 'Bajo';
+                else if (score >= 85) auditRiskLabel = 'Moderado';
+                else if (score >= 75) auditRiskLabel = 'Medio';
+                else if (score >= 65) auditRiskLabel = 'Alto';
 
                 return (
                   <tr 
@@ -228,7 +230,17 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <span className="font-black text-slate-800 min-w-[45px] text-right">{score}%</span>
                         <div className="flex-1 max-w-[100px] h-2.5 bg-slate-100 rounded-full overflow-hidden shadow-inner">
                            <div 
-                             className={`h-full rounded-full shadow-sm transition-all duration-500 ${score >= 90 ? 'bg-emerald-500' : score >= 80 ? 'bg-orange-400' : 'bg-red-500'}`} 
+                             className={`h-full rounded-full shadow-sm transition-all duration-500 ${
+                               score >= 95
+                                 ? 'bg-emerald-500'
+                                 : score >= 85
+                                 ? 'bg-yellow-400'
+                                 : score >= 75
+                                 ? 'bg-orange-400'
+                                 : score >= 65
+                                 ? 'bg-red-500'
+                                 : 'bg-red-700'
+                             }`} 
                              style={{width: `${score}%`}}
                            ></div>
                         </div>
@@ -237,8 +249,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <td className="p-6">
                       <span className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide border shadow-sm ${
                         auditRiskLabel === 'Bajo' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
+                        auditRiskLabel === 'Moderado' ? 'bg-yellow-50 text-yellow-600 border-yellow-100' :
                         auditRiskLabel === 'Medio' ? 'bg-orange-50 text-orange-600 border-orange-100' :
-                        'bg-red-50 text-red-600 border-red-100'
+                        auditRiskLabel === 'Alto' ? 'bg-red-50 text-red-600 border-red-100' :
+                        'bg-red-100 text-red-800 border-red-200'
                       }`}>
                         {auditRiskLabel}
                       </span>
