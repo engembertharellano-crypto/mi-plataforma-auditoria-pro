@@ -84,6 +84,10 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
     setReportText(audit.reportText || '');
   }, [audit.reportText, audit.id]);
 
+  useEffect(() => {
+    hasGenerated.current = false;
+  }, [audit.id]);
+
   const calculateScores = (auditData: AuditState) => {
     const hwCategories = Object.keys(WEIGHTS.hardware.categories);
     const hwResults: any = {};
@@ -92,8 +96,10 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
     hwCategories.forEach(cat => {
       const items = HARDWARE_CHECKLIST.filter(i => i.category === cat);
       if (items.length === 0) return;
+
       let validItems = 0;
       let scoreSum = 0;
+
       items.forEach(item => {
         const answer = auditData.hardwareAnswers[item.id] || { quantity: item.expected, status: 'N/A', notes: '' };
         if (answer.status && answer.status !== 'N/A') {
@@ -101,25 +107,31 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
           if (answer.status === 'Operativo') scoreSum += 1;
         }
       });
+
       const compliance = validItems > 0 ? (scoreSum / validItems) : 0;
       const weight = WEIGHTS.hardware.categories[cat as keyof typeof WEIGHTS.hardware.categories];
       const result = compliance * weight;
+
       hwResults[cat] = {
         compliance: compliance * 100,
         weight: weight * 100,
         result: result * 100
       };
+
       totalHwScore += result;
     });
 
     const procCategories = Object.keys(WEIGHTS.process.categories);
     const procResults: any = {};
     let totalProcScore = 0;
+
     procCategories.forEach(cat => {
       const items = PROCESS_CHECKLIST.filter(i => i.category === cat);
       if (items.length === 0) return;
+
       let validItems = 0;
       let scoreSum = 0;
+
       items.forEach(item => {
         const answer = auditData.processAnswers[item.id] || { status: 'N/A', notes: '' };
         if (answer.status && answer.status !== 'N/A') {
@@ -127,22 +139,25 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
           if (answer.status === 'SI') scoreSum += 1;
         }
       });
+
       const compliance = validItems > 0 ? (scoreSum / validItems) : 0;
       const weight = WEIGHTS.process.categories[cat as keyof typeof WEIGHTS.process.categories];
       const result = compliance * weight;
+
       procResults[cat] = {
         compliance: compliance * 100,
         weight: weight * 100,
         result: result * 100
       };
+
       totalProcScore += result;
     });
 
     let finalScore = (totalHwScore * 100 * WEIGHTS.hardware.globalWeight) + (totalProcScore * 100 * WEIGHTS.process.globalWeight);
+    finalScore = Math.max(0, Math.min(100, Number(finalScore.toFixed(2))));
     
     const vaultDiff = (auditData.vaultCount?.ves.difference || 0) !== 0 || (auditData.vaultCount?.usd.difference || 0) !== 0;
-    
-    const riskPercentage = 100 - finalScore;
+    const riskPercentage = Number((100 - finalScore).toFixed(2));
 
     let riskLevel = 'Extremo';
     if (finalScore >= 95) riskLevel = 'Bajo';
@@ -240,7 +255,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
   useEffect(() => {
     if (!audit) return;
     setCalculatedData(calculateScores(audit));
-  }, [audit.id]);
+  }, [audit]);
 
   useEffect(() => {
     if (
@@ -254,7 +269,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
       hasGenerated.current = true;
       generateExecutiveReport(audit, calculatedData);
     }
-  }, [calculatedData, audit.reportText, isAuthor, isReportLocked]);
+  }, [calculatedData, audit, audit.reportText, isAuthor, isReportLocked, isGenerating]);
 
   const handleRegenerate = () => {
     if (calculatedData && canEditReport) {
