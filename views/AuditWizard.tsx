@@ -104,7 +104,7 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
         address: newPharmacyData.address || '',
         zone: newPharmacyData.zone || 'Gran Caracas Llanos',
         status: 'Activa',
-        risk: 'Bajo',
+        risk: undefined,
         corporatePhone: '',
         photo: 'https://images.unsplash.com/photo-1586015555751-63c660067e81?auto=format&fit=crop&q=80&w=200'
       };
