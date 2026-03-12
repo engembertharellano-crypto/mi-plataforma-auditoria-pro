@@ -423,19 +423,33 @@ const App: React.FC = () => {
     return Number(finalScore.toFixed(2));
   };
 
+  const getRiskLevel = (score: number): 'Bajo' | 'Moderado' | 'Medio' | 'Alto' | 'Extremo' => {
+    if (score >= 95) return 'Bajo';
+    if (score >= 85) return 'Moderado';
+    if (score >= 75) return 'Medio';
+    if (score >= 65) return 'Alto';
+    return 'Extremo';
+  };
+
   const handleFinishAudit = async (audit: AuditState) => {
     if (!checkPermission()) return;
 
     const isEditing = !!auditToEdit;
     const auditId = isEditing && auditToEdit?.id ? auditToEdit.id : `audit-${Date.now()}`;
     const score = calculateAuditScore(audit);
+    const risk = getRiskLevel(score);
     const date = isEditing && auditToEdit?.date ? auditToEdit.date : new Date().toLocaleDateString('es-ES');
+
+    const updatedPharmacy = audit.pharmacy
+      ? { ...audit.pharmacy, risk }
+      : audit.pharmacy;
 
     const completedAudit: any = {
       ...audit,
       id: auditId,
       date,
       score,
+      pharmacy: updatedPharmacy,
       createdBy: currentUser.fullName,
       reportLocked: (auditToEdit as any)?.reportLocked ?? false
     };
@@ -444,8 +458,28 @@ const App: React.FC = () => {
       const newAudits = isEditing
         ? prev.audits.map(a => (a.id === auditId ? completedAudit : a))
         : [completedAudit, ...prev.audits];
-      return { ...prev, audits: newAudits };
+
+      const newPharmacies = updatedPharmacy
+        ? prev.pharmacies.map(p => (p.id === updatedPharmacy.id ? updatedPharmacy : p))
+        : prev.pharmacies;
+
+      return { ...prev, audits: newAudits, pharmacies: newPharmacies };
     });
+
+    if (updatedPharmacy) {
+      await sb.from('pharmacies').upsert({
+        id: updatedPharmacy.id,
+        name: updatedPharmacy.name,
+        address: updatedPharmacy.address,
+        zone: updatedPharmacy.zone,
+        status: updatedPharmacy.status,
+        risk: updatedPharmacy.risk,
+        corporate_phone: updatedPharmacy.corporatePhone,
+        photo: updatedPharmacy.photo,
+        location: updatedPharmacy.location,
+        has_security_officer: updatedPharmacy.hasSecurityOfficer
+      });
+    }
 
     await saveToCloud('audits', auditId, completedAudit);
     setAuditToEdit(null);
