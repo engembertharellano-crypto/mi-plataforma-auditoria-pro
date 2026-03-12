@@ -6,7 +6,7 @@ export interface Pharmacy {
   address: string;
   zone?: string;
   status?: string;
-  risk?: 'Bajo' | 'Medio' | 'Alto';
+  risk?: 'Bajo' | 'Moderado' | 'Medio' | 'Alto' | 'Extremo';
   corporatePhone?: string;
   photo?: string;
   location?: {
