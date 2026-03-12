@@ -89,6 +89,14 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     return ['Todas', ...Array.from(uniqueZones)];
   }, [pharmacies]);
 
+  const getRiskLevel = (score: number): 'Bajo' | 'Moderado' | 'Medio' | 'Alto' | 'Extremo' => {
+    if (score >= 95) return 'Bajo';
+    if (score >= 85) return 'Moderado';
+    if (score >= 75) return 'Medio';
+    if (score >= 65) return 'Alto';
+    return 'Extremo';
+  };
+
   // --- FILTRO DE DATA ---
   const filteredData = useMemo(() => {
     const filteredPharmacies = selectedZone === 'Todas' 
@@ -477,6 +485,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                     <div>
                       <p className="font-bold text-slate-800 text-xs uppercase">{a.pharmacy?.name}</p>
                       <p className="text-[10px] text-emerald-600 font-bold">{a.date}</p>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase">{getRiskLevel(a.score || 0)}</p>
                     </div>
                   </div>
                   <span className="text-xl font-black text-emerald-600">{a.score}%</span>
@@ -497,6 +506,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                     <div>
                       <p className="font-bold text-slate-800 text-xs uppercase">{a.pharmacy?.name}</p>
                       <p className="text-[10px] text-red-600 font-bold">{a.date}</p>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase">{getRiskLevel(a.score || 0)}</p>
                     </div>
                   </div>
                   <span className="text-xl font-black text-red-600">{a.score}%</span>
