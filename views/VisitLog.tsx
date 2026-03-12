@@ -51,6 +51,14 @@ const VisitLog: React.FC<VisitLogProps> = ({
 
   const isReadOnly = (currentUser?.email || '').trim().toLowerCase() === 'directiva@xana.com';
 
+  const getRiskLevel = (score: number): 'Bajo' | 'Moderado' | 'Medio' | 'Alto' | 'Extremo' => {
+    if (score >= 95) return 'Bajo';
+    if (score >= 85) return 'Moderado';
+    if (score >= 75) return 'Medio';
+    if (score >= 65) return 'Alto';
+    return 'Extremo';
+  };
+
   const getCurrentMonthKey = () => {
     const now = new Date();
     const y = now.getFullYear();
@@ -103,7 +111,9 @@ const VisitLog: React.FC<VisitLogProps> = ({
 
         let textoObservacion = "";
         if (type === 'Auditoría') {
-          textoObservacion = `Nivel de cumplimiento: ${item.score}%. El análisis detallado de los hallazgos y métricas se encuentra disponible en el Dashboard.`;
+          const score = item.score || 0;
+          const riskLevel = getRiskLevel(score);
+          textoObservacion = `Nivel de cumplimiento: ${score}%. Nivel de riesgo: ${riskLevel}. El análisis detallado de los hallazgos y métricas se encuentra disponible en el Dashboard.`;
         } 
         else if (type === 'Inventario CCTV' || type === 'Infraestructura') {
           textoObservacion = item.observations || item.notes || item.comments || "Sin observaciones registradas.";
