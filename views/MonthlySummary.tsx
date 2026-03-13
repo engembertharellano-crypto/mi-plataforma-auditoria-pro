@@ -130,21 +130,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     return 'Extremo';
   };
 
-  const getCaseTypeLabel = (type: string) => {
-    switch (type) {
-      case 'Falla Técnica CCTV':
-        return 'Fallas técnicas de CCTV';
-      case 'Delito contra la Propiedad':
-        return 'Hurto o robo';
-      case 'Falla de Procedimiento':
-        return 'Incumplimientos de procedimiento';
-      case 'Pendiente de Clasificar':
-        return 'Casos sin clasificar';
-      default:
-        return type;
-    }
-  };
-
   // --- FILTRO DE DATA ---
   const filteredData = useMemo(() => {
     const filteredPharmacies = selectedZone === 'Todas' 
@@ -195,6 +180,10 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const totalActivities = currentAudits.length + currentCCTV.length + currentPhysical.length + currentManagement.length;
 
+  // =========================================================================
+  // CÁLCULO DE DETALLES (QUÉ FALLÓ)
+  // =========================================================================
+
   // 1. CCTV
   let cctvTotal = 0; 
   let cctvOk = 0;
@@ -214,7 +203,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const cctvHealth = cctvTotal > 0 ? Math.round((cctvOk / cctvTotal) * 100) : 0;
 
-  // 2. INFRAESTRUCTURA
+  // 2. INFRAESTRUCTURA (Con Nombres de Fallas)
   let infraTotal = 0; 
   let infraOk = 0;
   
@@ -248,9 +237,12 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const infraHealth = infraTotal > 0 ? Math.round((infraOk / infraTotal) * 100) : 0;
 
+  // Lista completa sin recortar
   const infraFailureList = Object.entries(infraFailures)
     .filter(([_, count]) => count > 0)
     .map(([name, count]) => `${count} ${name}${count > 1 ? 's' : ''}`);
+
+  // =========================================================================
 
   // --- ORDENAMIENTO ---
   const sortedAudits = [...currentAudits].sort((a, b) => (a.score || 0) - (b.score || 0));
@@ -294,14 +286,14 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     } else if (combinedText.includes('procedimiento') || combinedText.includes('protocolo')) {
       inferredType = 'Falla de Procedimiento';
     } else {
-      inferredType = 'Pendiente de Clasificar';
+      inferredType = 'Otros incidentes registrados';
     }
 
     caseTypeCounts[inferredType] = (caseTypeCounts[inferredType] || 0) + 1;
   });
   const topCaseType = Object.entries(caseTypeCounts).sort((a, b) => b[1] - a[1])[0];
 
-  const highPriorityOpenCases = currentCases.filter(c => c.priority === 'Alta' && c.status !== 'Cerrado');
+  const highPriorityOpen = currentCases.filter(c => c.priority === 'Alta' && c.status !== 'Cerrado').length;
 
   return (
     <div className="max-w-[1600px] mx-auto p-6 md:p-10 pb-20 animate-in fade-in duration-500">
@@ -340,6 +332,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       {/* KPI CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         
+        {/* KPI 1 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-blue-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Promedio Auditoría</p>
@@ -352,6 +345,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
+        {/* KPI 2 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-emerald-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Cobertura Mensual</p>
@@ -364,6 +358,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
+        {/* KPI 3 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-purple-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Eficiencia Resolución</p>
@@ -376,6 +371,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
+        {/* KPI 4 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-orange-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Actividad Total</p>
@@ -391,6 +387,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       {/* ESTADO DE FUERZA (CCTV + INFRAESTRUCTURA) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
         
+        {/* Blindaje CCTV */}
         <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between relative overflow-hidden">
           <div className="flex items-center gap-4 relative z-10">
             <div className="w-12 h-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-400">
@@ -417,6 +414,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
+        {/* Infraestructura */}
         <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between relative overflow-hidden">
           <div className="flex items-center gap-4 relative z-10">
             <div className="w-12 h-12 bg-teal-500/20 rounded-2xl flex items-center justify-center text-teal-400">
@@ -484,7 +482,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Incidente más reportado en casos</p>
                 <p className="text-white font-bold leading-tight text-sm">
-                  {topCaseType ? getCaseTypeLabel(topCaseType[0]) : "Sin casos registrados"}
+                  {topCaseType ? topCaseType[0] : "Sin casos registrados"}
                 </p>
                 <p className="text-xs text-blue-400 mt-1">
                   {topCaseType ? `${topCaseType[1]} caso(s) registrados` : "Sin reportes"}
@@ -499,9 +497,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Casos de alta prioridad aún sin cerrar</p>
                 <p className="text-white font-bold leading-tight text-sm">
-                  {highPriorityOpenCases.length > 0
-                    ? `${highPriorityOpenCases.length} caso(s) abiertos`
-                    : "Sin casos urgentes pendientes"}
+                  {highPriorityOpen > 0 ? `${highPriorityOpen} caso(s) abiertos` : "Sin casos abiertos"}
                 </p>
               </div>
             </div>
