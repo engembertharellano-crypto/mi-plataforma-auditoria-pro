@@ -139,24 +139,9 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       case 'Falla de Procedimiento':
         return 'Incumplimientos de procedimiento';
       case 'Pendiente de Clasificar':
-        return 'Casos sin clasificación definida';
+        return 'Casos sin clasificar';
       default:
         return type;
-    }
-  };
-
-  const getCaseTypeDescription = (type: string) => {
-    switch (type) {
-      case 'Falla Técnica CCTV':
-        return 'Incluye reportes vinculados a cámaras, DVR, grabación, monitoreo o fallas del sistema CCTV.';
-      case 'Delito contra la Propiedad':
-        return 'Incluye reportes relacionados con hurto, robo o afectación patrimonial en sede.';
-      case 'Falla de Procedimiento':
-        return 'Incluye reportes asociados a incumplimientos operativos, controles internos o protocolos de seguridad.';
-      case 'Pendiente de Clasificar':
-        return 'Corresponde a casos cargados sin una tipificación clara o todavía no clasificados.';
-      default:
-        return 'Sin detalle adicional.';
     }
   };
 
@@ -210,10 +195,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const totalActivities = currentAudits.length + currentCCTV.length + currentPhysical.length + currentManagement.length;
 
-  // =========================================================================
-  // CÁLCULO DE DETALLES (QUÉ FALLÓ)
-  // =========================================================================
-
   // 1. CCTV
   let cctvTotal = 0; 
   let cctvOk = 0;
@@ -233,7 +214,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const cctvHealth = cctvTotal > 0 ? Math.round((cctvOk / cctvTotal) * 100) : 0;
 
-  // 2. INFRAESTRUCTURA (Con Nombres de Fallas)
+  // 2. INFRAESTRUCTURA
   let infraTotal = 0; 
   let infraOk = 0;
   
@@ -270,8 +251,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   const infraFailureList = Object.entries(infraFailures)
     .filter(([_, count]) => count > 0)
     .map(([name, count]) => `${count} ${name}${count > 1 ? 's' : ''}`);
-
-  // =========================================================================
 
   // --- ORDENAMIENTO ---
   const sortedAudits = [...currentAudits].sort((a, b) => (a.score || 0) - (b.score || 0));
@@ -503,14 +482,12 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                 <Target className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Situación más reportada en casos</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Incidente más reportado en casos</p>
                 <p className="text-white font-bold leading-tight text-sm">
                   {topCaseType ? getCaseTypeLabel(topCaseType[0]) : "Sin casos registrados"}
                 </p>
                 <p className="text-xs text-blue-400 mt-1">
-                  {topCaseType
-                    ? `${topCaseType[1]} caso(s). ${getCaseTypeDescription(topCaseType[0])}`
-                    : "No hay casos registrados en el período analizado."}
+                  {topCaseType ? `${topCaseType[1]} caso(s) registrados` : "Sin reportes"}
                 </p>
               </div>
             </div>
@@ -525,11 +502,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                   {highPriorityOpenCases.length > 0
                     ? `${highPriorityOpenCases.length} caso(s) abiertos`
                     : "Sin casos urgentes pendientes"}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">
-                  {highPriorityOpenCases.length > 0
-                    ? "Son casos marcados con prioridad Alta que todavía continúan abiertos o en proceso."
-                    : "No hay casos de prioridad Alta pendientes de cierre en este momento."}
                 </p>
               </div>
             </div>
