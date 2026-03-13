@@ -48,9 +48,14 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  const [formData, setFormData] = useState<Partial<CaseRecord> & { dateStr: string }>({
+  const now = new Date();
+  const defaultDate = now.toLocaleDateString('sv-SE');
+  const defaultTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+  const [formData, setFormData] = useState<Partial<CaseRecord> & { dateStr: string; timeStr: string }>({
     id: '', 
-    dateStr: new Date().toLocaleDateString('sv-SE'), 
+    dateStr: defaultDate,
+    timeStr: defaultTime,
     priority: 'Media', 
     channel: 'WhatsApp', 
     locationType: 'Farmacia', 
@@ -62,11 +67,36 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
   
   const [selectedPharmacyId, setSelectedPharmacyId] = useState('');
   const [newTimelineNote, setNewTimelineNote] = useState('');
+  const [timelineDateStr, setTimelineDateStr] = useState(defaultDate);
+  const [timelineTimeStr, setTimelineTimeStr] = useState(defaultTime);
+
   const [conclusionText, setConclusionText] = useState('');
+  const [closingDateStr, setClosingDateStr] = useState(defaultDate);
+  const [closingTimeStr, setClosingTimeStr] = useState(defaultTime);
+
   const [isClosing, setIsClosing] = useState(false);
   const [isEditingId, setIsEditingId] = useState(false);
   const [tempOfficialId, setTempOfficialId] = useState('');
 
+  const buildISODateTime = (dateStr: string, timeStr: string) => {
+    if (!dateStr) return new Date().toISOString();
+
+    const safeTime = timeStr && timeStr.trim() ? timeStr : '00:00';
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const [hours, minutes] = safeTime.split(':').map(Number);
+
+    const combinedDate = new Date(
+      year,
+      (month || 1) - 1,
+      day || 1,
+      hours || 0,
+      minutes || 0,
+      0
+    );
+
+    return combinedDate.toISOString();
+  };
+  
   const filteredCases = cases.filter(c => {
     const matchesStatus = filterStatus === 'Activos' ? c.status !== 'Cerrado' : c.status === 'Cerrado';
     const term = searchTerm.toLowerCase();
@@ -94,23 +124,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
        return alert("Especifique el nombre de la ubicación");
     }
 
-    const now = new Date();
-    let creationDate: string;
-
-    if (formData.dateStr) {
-      const [year, month, day] = formData.dateStr.split('-').map(Number);
-      const combinedDate = new Date(
-        year, 
-        month - 1, 
-        day, 
-        now.getHours(), 
-        now.getMinutes(), 
-        now.getSeconds()
-      );
-      creationDate = combinedDate.toISOString();
-    } else {
-      creationDate = now.toISOString();
-    }
+    const creationDate = buildISODateTime(formData.dateStr, formData.timeStr);
 
     const newCase: CaseRecord = {
       id: internalId,
@@ -131,10 +145,15 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
 
     onAddCase(newCase);
     setView('list');
+
+    const resetNow = new Date();
+    const resetDate = resetNow.toLocaleDateString('sv-SE');
+    const resetTime = `${String(resetNow.getHours()).padStart(2, '0')}:${String(resetNow.getMinutes()).padStart(2, '0')}`;
     
     setFormData({ 
       id: '', 
-      dateStr: new Date().toLocaleDateString('sv-SE'), 
+      dateStr: resetDate,
+      timeStr: resetTime,
       priority: 'Media', 
       channel: 'WhatsApp', 
       locationType: 'Farmacia', 
@@ -164,30 +183,59 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
 
   const handleAddTimeline = () => {
     if (!selectedCase || !newTimelineNote.trim()) return;
+
+    const entryDate = buildISODateTime(timelineDateStr, timelineTimeStr);
+
     const newEntry: CaseTimelineEntry = {
       id: Date.now().toString(),
-      date: new Date().toISOString(),
+      date: entryDate,
       note: newTimelineNote,
       author: currentUser.fullName
     };
-    const updatedCase = { ...selectedCase, status: 'En Proceso' as const, timeline: [newEntry, ...selectedCase.timeline] };
+
+    const updatedCase = { 
+      ...selectedCase, 
+      status: 'En Proceso' as const, 
+      timeline: [newEntry, ...selectedCase.timeline] 
+    };
+
     onUpdateCase(updatedCase);
     setSelectedCase(updatedCase);
     setNewTimelineNote('');
+
+    const resetNow = new Date();
+    setTimelineDateStr(resetNow.toLocaleDateString('sv-SE'));
+    setTimelineTimeStr(`${String(resetNow.getHours()).padStart(2, '0')}:${String(resetNow.getMinutes()).padStart(2, '0')}`);
   };
 
   const handleCloseCase = () => {
     if (!selectedCase || !conclusionText.trim()) return alert("Debe ingresar una conclusión.");
+
+    const closingDateISO = buildISODateTime(closingDateStr, closingTimeStr);
+
     const closingEntry: CaseTimelineEntry = {
       id: Date.now().toString(),
-      date: new Date().toISOString(),
+      date: closingDateISO,
       note: `CASO CERRADO. Conclusión: ${conclusionText}`,
       author: currentUser.fullName
     };
-    const updatedCase = { ...selectedCase, status: 'Cerrado' as const, conclusion: conclusionText, closedDate: new Date().toISOString(), timeline: [closingEntry, ...selectedCase.timeline] };
+
+    const updatedCase = { 
+      ...selectedCase, 
+      status: 'Cerrado' as const, 
+      conclusion: conclusionText, 
+      closedDate: closingDateISO, 
+      timeline: [closingEntry, ...selectedCase.timeline] 
+    };
+
     onUpdateCase(updatedCase);
     setSelectedCase(updatedCase);
     setIsClosing(false);
+    setConclusionText('');
+
+    const resetNow = new Date();
+    setClosingDateStr(resetNow.toLocaleDateString('sv-SE'));
+    setClosingTimeStr(`${String(resetNow.getHours()).padStart(2, '0')}:${String(resetNow.getMinutes()).padStart(2, '0')}`);
   };
 
   const getPriorityColor = (p: string) => {
@@ -248,7 +296,19 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
              {filteredCases.map(c => (
                 <div 
                   key={c.id} 
-                  onClick={() => { setSelectedCase(c); setView('detail'); }}
+                  onClick={() => { 
+                    setSelectedCase(c); 
+                    setView('detail');
+
+                    const nowDetail = new Date();
+                    const detailDate = nowDetail.toLocaleDateString('sv-SE');
+                    const detailTime = `${String(nowDetail.getHours()).padStart(2, '0')}:${String(nowDetail.getMinutes()).padStart(2, '0')}`;
+
+                    setTimelineDateStr(detailDate);
+                    setTimelineTimeStr(detailTime);
+                    setClosingDateStr(detailDate);
+                    setClosingTimeStr(detailTime);
+                  }}
                   className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all cursor-pointer group relative overflow-hidden"
                 >
                    <div className={`absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 rounded-full opacity-10 ${c.priority === 'Alta' ? 'bg-red-500' : 'bg-slate-500'}`}></div>
@@ -281,15 +341,26 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
            <div className="space-y-6">
               
               <div>
-                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fecha del Incidente</label>
-                 <div className="relative">
-                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input 
-                      type="date" 
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 rounded-xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500"
-                      value={formData.dateStr}
-                      onChange={(e) => setFormData({...formData, dateStr: e.target.value})}
-                    />
+                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fecha y hora del incidente</label>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="relative">
+                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input 
+                        type="date" 
+                        className="w-full pl-12 pr-4 py-3 bg-slate-50 rounded-xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500"
+                        value={formData.dateStr}
+                        onChange={(e) => setFormData({...formData, dateStr: e.target.value})}
+                      />
+                    </div>
+                    <div className="relative">
+                      <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input 
+                        type="time" 
+                        className="w-full pl-12 pr-4 py-3 bg-slate-50 rounded-xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500"
+                        value={formData.timeStr}
+                        onChange={(e) => setFormData({...formData, timeStr: e.target.value})}
+                      />
+                    </div>
                  </div>
               </div>
 
@@ -382,7 +453,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
                        {selectedCase.status !== 'Cerrado' ? (
                           <button onClick={() => setIsClosing(true)} className="w-full py-3 border-2 border-slate-100 text-slate-600 rounded-xl font-bold uppercase text-xs hover:bg-slate-50 transition-all">Cerrar Caso</button>
                        ) : (
-                          <div className="p-4 bg-slate-100 rounded-xl"><p className="text-[10px] font-black text-slate-500 uppercase mb-1">Conclusión Final</p><p className="text-sm font-medium text-slate-700">{selectedCase.conclusion}</p><p className="text-[10px] text-slate-400 mt-2 text-right">Cerrado el {new Date(selectedCase.closedDate!).toLocaleDateString()}</p></div>
+                          <div className="p-4 bg-slate-100 rounded-xl"><p className="text-[10px] font-black text-slate-500 uppercase mb-1">Conclusión Final</p><p className="text-sm font-medium text-slate-700">{selectedCase.conclusion}</p><p className="text-[10px] text-slate-400 mt-2 text-right">Cerrado el {new Date(selectedCase.closedDate!).toLocaleString()}</p></div>
                        )}
                        {canDelete && (
                          <button onClick={() => setShowDeleteModal(true)} className="w-full py-3 bg-red-50 text-red-600 rounded-xl font-bold uppercase text-xs hover:bg-red-100 flex items-center justify-center gap-2">
@@ -399,12 +470,63 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
                {selectedCase.status !== 'Cerrado' && !isClosing && (
                   <div className="bg-white p-4 rounded-[2rem] shadow-lg border border-slate-100 flex gap-4 items-start">
                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0"><MessageSquare className="w-5 h-5 text-slate-500" /></div>
-                     <div className="flex-1"><textarea placeholder="Escriba un nuevo avance, gestión o nota..." className="w-full bg-transparent outline-none text-slate-700 font-medium resize-none h-20 placeholder-slate-400" value={newTimelineNote} onChange={(e) => setNewTimelineNote(e.target.value)} /><div className="flex justify-end mt-2"><button onClick={handleAddTimeline} disabled={!newTimelineNote.trim()} className="px-6 py-2 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed">Registrar Avance</button></div></div>
+                     <div className="flex-1">
+                        <textarea placeholder="Escriba un nuevo avance, gestión o nota..." className="w-full bg-transparent outline-none text-slate-700 font-medium resize-none h-20 placeholder-slate-400" value={newTimelineNote} onChange={(e) => setNewTimelineNote(e.target.value)} />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                          <div className="relative">
+                            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                            <input
+                              type="date"
+                              className="w-full pl-12 pr-4 py-3 bg-slate-50 rounded-xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-orange-500"
+                              value={timelineDateStr}
+                              onChange={(e) => setTimelineDateStr(e.target.value)}
+                            />
+                          </div>
+                          <div className="relative">
+                            <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                            <input
+                              type="time"
+                              className="w-full pl-12 pr-4 py-3 bg-slate-50 rounded-xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-orange-500"
+                              value={timelineTimeStr}
+                              onChange={(e) => setTimelineTimeStr(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end mt-3">
+                          <button onClick={handleAddTimeline} disabled={!newTimelineNote.trim()} className="px-6 py-2 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed">Registrar Avance</button>
+                        </div>
+                     </div>
                   </div>
                )}
                {isClosing && (
                   <div className="bg-red-50 p-6 rounded-[2rem] border border-red-100 animate-in fade-in slide-in-from-top-2">
-                     <h4 className="text-lg font-black text-red-800 uppercase mb-2">Cierre de Caso</h4><p className="text-sm text-red-600 mb-4">Para cerrar el caso, es obligatorio indicar la conclusión o resolución final.</p><textarea className="w-full p-4 bg-white rounded-xl outline-none text-slate-700 border border-red-200 focus:border-red-500 h-24 resize-none mb-4" placeholder="Escriba la conclusión final..." value={conclusionText} onChange={(e) => setConclusionText(e.target.value)} /><div className="flex justify-end gap-3"><button onClick={() => setIsClosing(false)} className="px-4 py-2 text-slate-500 font-bold text-xs uppercase">Cancelar</button><button onClick={handleCloseCase} className="px-6 py-2 bg-red-600 text-white rounded-lg font-bold text-xs uppercase shadow-lg hover:bg-red-700">Confirmar Cierre</button></div>
+                     <h4 className="text-lg font-black text-red-800 uppercase mb-2">Cierre de Caso</h4>
+                     <p className="text-sm text-red-600 mb-4">Para cerrar el caso, es obligatorio indicar la conclusión o resolución final.</p>
+                     <textarea className="w-full p-4 bg-white rounded-xl outline-none text-slate-700 border border-red-200 focus:border-red-500 h-24 resize-none mb-4" placeholder="Escriba la conclusión final..." value={conclusionText} onChange={(e) => setConclusionText(e.target.value)} />
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                        <div className="relative">
+                          <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                          <input
+                            type="date"
+                            className="w-full pl-12 pr-4 py-3 bg-white rounded-xl font-bold text-slate-700 outline-none border border-red-200 focus:border-red-500"
+                            value={closingDateStr}
+                            onChange={(e) => setClosingDateStr(e.target.value)}
+                          />
+                        </div>
+                        <div className="relative">
+                          <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                          <input
+                            type="time"
+                            className="w-full pl-12 pr-4 py-3 bg-white rounded-xl font-bold text-slate-700 outline-none border border-red-200 focus:border-red-500"
+                            value={closingTimeStr}
+                            onChange={(e) => setClosingTimeStr(e.target.value)}
+                          />
+                        </div>
+                     </div>
+                     <div className="flex justify-end gap-3">
+                        <button onClick={() => setIsClosing(false)} className="px-4 py-2 text-slate-500 font-bold text-xs uppercase">Cancelar</button>
+                        <button onClick={handleCloseCase} className="px-6 py-2 bg-red-600 text-white rounded-lg font-bold text-xs uppercase shadow-lg hover:bg-red-700">Confirmar Cierre</button>
+                     </div>
                   </div>
                )}
                <div className="space-y-6 relative before:absolute before:left-5 before:top-4 before:bottom-4 before:w-0.5 before:bg-white/10">
