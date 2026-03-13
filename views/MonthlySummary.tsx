@@ -28,12 +28,45 @@ import {
 } from '../types';
 
 const QUESTION_MAP: Record<string, string> = {
-  'p1.1': 'Uniforme y Presencia',
-  'p1.2': 'Libro de Novedades',
-  'p1.3': 'Control de Accesos',
-  'p1.4': 'Reporte de Novedades',
-  'p2.1': 'Limpieza y Orden',
-  'p2.2': 'Iluminación Perimetral',
+  'p1.1': 'Retiro de dinero de cajas para fondo aprobado',
+  'p1.2': 'Gerente/Senior verifica cuadre y firma conformidad',
+  'p2.1': 'Cierre de control de efectivo y reporte diario',
+  'p2.2': 'Entrega de control de efectivo entre Gerente y Senior',
+  'p2.3': 'Registro y soporte de faltantes/sobrantes firmado',
+  'p2.4': 'Control de devoluciones autorizadas por Gerente',
+  'p2.5': 'Control de transacciones canceladas (anulaciones)',
+  'p2.6': 'Dinero resguardado en lugares seguros',
+  'p2.7': 'Remesa de efectivo en zonas previstas',
+  'p3.1': 'Recepción adecuada de mercancía de proveedores',
+  'p3.2': 'Reclamo generado por discrepancias de inventario',
+  'p3.3': 'Control de registro de productos dañados/usados',
+  'p3.4': 'Proveedores sin libre acceso a áreas internas',
+  'p4.1': 'Revisión de pertenencias del personal al salir',
+  'p4.2': 'Revisión aleatoria de bolsas de basura',
+  'p4.3': 'Llaves entregadas a APV nocturno en sobre sellado',
+  'p4.4': 'Vigilantes cumplen actividades y puestos',
+  'p4.5': 'Apertura/Cierre por personal autorizado (no APV)',
+
+  'h1.1': 'Pulsadores anti robo',
+  'h1.2': 'Router para transmisión de datos',
+  'h1.3': 'Sistema de protección contra incendios',
+  'h2.1': 'Dispositivos de grabación DVR/NVR y periféricos',
+  'h2.2': 'Monitores',
+  'h2.3': 'Cámaras de misceláneos / OTC',
+  'h2.4': 'Cámaras de farmacia detrás de línea de cajas',
+  'h2.5': 'Cámaras de otras áreas',
+  'h3.1': 'Cajas de resguardo de efectivo',
+  'h4.1': 'Santa María',
+  'h4.2': 'Puertas de entrada',
+  'h4.3': 'Ventanas de turno',
+  'h4.4': 'Candados para Santa María',
+  'h4.5': 'Llaves para bajar Santa María',
+  'h4.6': 'Manilla para bajar Santa María',
+  'h4.7': 'Llaves para puertas de acceso',
+  'h4.8': 'Candados para puertas de acceso',
+  'h5.1': 'Lámparas de iluminación de periferia',
+  'h5.2': 'Espejos convexos',
+
   'cctv': 'Sistema CCTV',
   'dvr': 'Grabador DVR',
   'alarma': 'Sistema de Alarma',
@@ -432,12 +465,12 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Hallazgo más Repetido</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Incumplimiento más repetido en auditorías</p>
                 <p className="text-white font-bold leading-tight text-sm">
                   {topFailure ? topFailure[0] : "Sin hallazgos recurrentes"}
                 </p>
                 <p className="text-xs text-orange-400 mt-1">
-                  {topFailure ? `${topFailure[1]} veces detectado` : "Excelente cumplimiento"}
+                  {topFailure ? `Detectado en ${topFailure[1]} auditoría(s)` : "Excelente cumplimiento"}
                 </p>
               </div>
             </div>
@@ -447,12 +480,12 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                 <Target className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tipología Predominante</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tipo de caso más reportado</p>
                 <p className="text-white font-bold leading-tight text-sm">
                   {topCaseType ? topCaseType[0] : "Sin actividad delictiva"}
                 </p>
                 <p className="text-xs text-blue-400 mt-1">
-                  {topCaseType ? `Principal causa (${topCaseType[1]})` : "Sin reportes"}
+                  {topCaseType ? `${topCaseType[1]} caso(s) clasificados en esta categoría` : "Sin reportes"}
                 </p>
               </div>
             </div>
@@ -462,7 +495,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                 <Zap className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Urgencia Operativa</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Casos urgentes abiertos</p>
                 <p className="text-white font-bold leading-tight text-sm">
                   {highPriorityOpen > 0 ? `${highPriorityOpen} Casos de Alta Prioridad` : "Sin urgencias activas"}
                 </p>
