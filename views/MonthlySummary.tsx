@@ -130,6 +130,14 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     return 'Extremo';
   };
 
+  const getRiskColorClass = (risk: string) => {
+    if (risk === 'Bajo') return 'text-emerald-400';
+    if (risk === 'Moderado') return 'text-yellow-400';
+    if (risk === 'Medio') return 'text-orange-400';
+    if (risk === 'Alto') return 'text-red-400';
+    return 'text-red-500';
+  };
+
   // --- FILTRO DE DATA ---
   const filteredData = useMemo(() => {
     const filteredPharmacies = selectedZone === 'Todas' 
@@ -271,27 +279,12 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   });
   const topFailure = Object.entries(failureCounts).sort((a, b) => b[1] - a[1])[0];
 
-  const caseTypeCounts: Record<string, number> = {};
-  currentCases.forEach(c => {
-    let inferredType = '';
-
-    const titleLower = (c.title || '').toLowerCase();
-    const descriptionLower = (c.description || '').toLowerCase();
-    const combinedText = `${titleLower} ${descriptionLower}`;
-
-    if (combinedText.includes('cámara') || combinedText.includes('camara') || combinedText.includes('cctv') || combinedText.includes('dvr')) {
-      inferredType = 'Falla Técnica CCTV';
-    } else if (combinedText.includes('hurto') || combinedText.includes('robo')) {
-      inferredType = 'Delito contra la Propiedad';
-    } else if (combinedText.includes('procedimiento') || combinedText.includes('protocolo')) {
-      inferredType = 'Falla de Procedimiento';
-    } else {
-      inferredType = 'Otros incidentes registrados';
-    }
-
-    caseTypeCounts[inferredType] = (caseTypeCounts[inferredType] || 0) + 1;
+  const riskCounts: Record<string, number> = {};
+  currentAudits.forEach(audit => {
+    const risk = getRiskLevel(audit.score || 0);
+    riskCounts[risk] = (riskCounts[risk] || 0) + 1;
   });
-  const topCaseType = Object.entries(caseTypeCounts).sort((a, b) => b[1] - a[1])[0];
+  const predominantRisk = Object.entries(riskCounts).sort((a, b) => b[1] - a[1])[0];
 
   const highPriorityOpen = currentCases.filter(c => c.priority === 'Alta' && c.status !== 'Cerrado').length;
 
@@ -480,12 +473,12 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                 <Target className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Incidente más reportado en casos</p>
-                <p className="text-white font-bold leading-tight text-sm">
-                  {topCaseType ? topCaseType[0] : "Sin casos registrados"}
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Nivel de riesgo predominante</p>
+                <p className={`font-bold leading-tight text-sm ${predominantRisk ? getRiskColorClass(predominantRisk[0]) : 'text-white'}`}>
+                  {predominantRisk ? predominantRisk[0] : "Sin auditorías registradas"}
                 </p>
                 <p className="text-xs text-blue-400 mt-1">
-                  {topCaseType ? `${topCaseType[1]} caso(s) registrados` : "Sin reportes"}
+                  {predominantRisk ? `${predominantRisk[1]} auditoría(s) en este nivel` : "Sin datos suficientes"}
                 </p>
               </div>
             </div>
