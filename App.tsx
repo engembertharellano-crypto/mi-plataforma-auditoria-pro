@@ -302,7 +302,7 @@ const App: React.FC = () => {
         });
 
       setUserData(prev => {
-        const cloudPharms = ((pharms as any).data || []).map((p: any) => ({
+        const cloudPharms = (pharms.data || []).map((p: any) => ({
           id: p.id,
           name: p.name,
           address: p.address,
@@ -333,7 +333,7 @@ const App: React.FC = () => {
           loans: process(lns),
           cases: process(casesData),
           schedule: process(schs),
-          users: (((dbUsers as any).data) || []).map((u: any) => ({
+          users: ((dbUsers.data) || []).map((u: any) => ({
             ...u,
             fullName: u.full_name,
             isApproved: u.is_approved,
