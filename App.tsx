@@ -187,7 +187,7 @@ const App: React.FC = () => {
         currentUser.zone ||
         'Global';
 
-      const payload: any = { id, data, created_by: currentUser.fullName, zone: realZone };
+      const payload: any = { id, data, created_by: currentUser.fullName || currentUser.email, zone: realZone };
 
       const pharmacyId = data.pharmacyId || (data.pharmacy && data.pharmacy.id);
       if (pharmacyId) payload.pharmacy_id = pharmacyId;
@@ -451,7 +451,7 @@ const App: React.FC = () => {
       date,
       score,
       pharmacy: updatedPharmacy,
-      createdBy: currentUser.fullName,
+      createdBy: currentUser.fullName || currentUser.email,
       reportLocked: (auditToEdit as any)?.reportLocked ?? false
     };
 
@@ -676,7 +676,7 @@ const App: React.FC = () => {
             onCancel={() => setCurrentView('dashboard')}
             onSave={async (r) => {
               if (!checkPermission()) return;
-              const rec = { ...r, createdBy: currentUser.fullName };
+              const rec = { ...r, createdBy: currentUser.fullName || currentUser.email };
               setUserData(prev => ({ ...prev, managementRecords: [rec, ...prev.managementRecords] }));
               await saveToCloud('management_visits', rec.id, rec);
               setCurrentView('visit-log');
@@ -691,7 +691,7 @@ const App: React.FC = () => {
             onBack={() => setCurrentView('dashboard')}
             onSave={async (r) => {
               if (!checkPermission()) return;
-              const rec = { ...r, createdBy: currentUser.fullName };
+              const rec = { ...r, createdBy: currentUser.fullName || currentUser.email };
               setUserData(prev => ({ ...prev, cctvRecords: [...prev.cctvRecords, rec] }));
               await saveToCloud('cctv_records', rec.id, rec);
             }}
@@ -706,7 +706,7 @@ const App: React.FC = () => {
             onBack={() => setCurrentView('dashboard')}
             onSave={async (r) => {
               if (!checkPermission()) return;
-              const rec = { ...r, createdBy: currentUser.fullName };
+              const rec = { ...r, createdBy: currentUser.fullName || currentUser.email };
               setUserData(prev => ({ ...prev, physicalRecords: [...prev.physicalRecords, rec] }));
               await saveToCloud('physical_records', rec.id, rec);
             }}
@@ -720,7 +720,7 @@ const App: React.FC = () => {
             records={userData.pendingRecords}
             onAdd={async (r) => {
               if (!checkPermission()) return;
-              const rec = { ...r, createdBy: currentUser.fullName };
+              const rec = { ...r, createdBy: currentUser.fullName || currentUser.email };
               setUserData(prev => ({ ...prev, pendingRecords: [rec, ...prev.pendingRecords] }));
               await saveToCloud('pending_tasks', rec.id, rec);
             }}
@@ -744,7 +744,7 @@ const App: React.FC = () => {
             receipts={userData.deliveryReceipts}
             onAdd={async (r) => {
               if (!checkPermission()) return;
-              const rec = { ...r, createdBy: currentUser.fullName };
+              const rec = { ...r, createdBy: currentUser.fullName || currentUser.email };
               setUserData(prev => ({ ...prev, deliveryReceipts: [rec, ...prev.deliveryReceipts] }));
               await saveToCloud('delivery_receipts', rec.id, rec);
             }}
@@ -778,7 +778,7 @@ const App: React.FC = () => {
             }}
             onSaveLoan={async (l) => {
               if (!checkPermission()) return;
-              const ln = { ...l, createdBy: currentUser.fullName };
+              const ln = { ...l, createdBy: currentUser.fullName || currentUser.email };
               setUserData(prev => ({ ...prev, loans: [ln, ...prev.loans] }));
               await saveToCloud('loans', ln.id, ln);
             }}
