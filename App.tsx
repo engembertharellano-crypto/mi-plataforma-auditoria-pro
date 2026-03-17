@@ -138,9 +138,20 @@ const App: React.FC = () => {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
   }, []);
 
+  // --- PARCHE DE SEGURIDAD PARA LOCALSTORAGE ---
   useEffect(() => {
-    localStorage.setItem('xana_hybrid_cache', JSON.stringify(userData));
+    try {
+      localStorage.setItem('xana_hybrid_cache', JSON.stringify(userData));
+    } catch (error: any) {
+      if (error.name === 'QuotaExceededError' || error.code === 22) {
+        console.warn("⚠️ Cache excedida. Limpiando para evitar bloqueo de App.");
+        // Si se llena, borramos la caché local. La app seguirá funcionando porque 
+        // los datos están en el estado `userData` de React y se recuperarán de la nube en el próximo sync.
+        localStorage.removeItem('xana_hybrid_cache');
+      }
+    }
   }, [userData]);
+  // ---------------------------------------------
 
   useEffect(() => {
     const sessionUser = sessionStorage.getItem('xana_active_user');
@@ -315,7 +326,6 @@ const App: React.FC = () => {
           hasSecurityOfficer: (p as any).has_security_officer ?? (p as any).hasSecurityOfficer
         }));
 
-        // Si por alguna razón no llega data nueva y ya tenías local, no lo borramos
         if (cloudPharms.length === 0 && prev.pharmacies.length > 0 && !(pharms as any).data) return prev;
 
         return {
@@ -496,7 +506,6 @@ const App: React.FC = () => {
     });
   };
 
-  // ✅ 2) Si supabase no está configurado, mostramos mensaje (evita estados raros)
   if (!sb) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white p-6">
@@ -510,7 +519,6 @@ const App: React.FC = () => {
     );
   }
 
-  // ✅ 3) Login siempre, sin depender de narrowing raro de TS
   if (!currentUser) {
     return (
       <Login
