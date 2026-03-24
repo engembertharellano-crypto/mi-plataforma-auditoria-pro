@@ -415,7 +415,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
     <div className="max-w-7xl mx-auto p-8 animate-in fade-in duration-500 pb-20">
       <div className="flex justify-between items-center mb-10">
         <div>
-          <h2 className="text-4xl font-black text-white tracking-tight drop-shadow-md">Sedes</h2>
+          <h2 className="text-4xl font-black text-white tracking-normal drop-shadow-md">Sedes</h2>
           <p className="text-slate-300 mt-1 font-medium">
             {isAdmin ? 'Administración Global' : (isTravelMode ? 'Directorio Nacional' : `Zona: ${currentUser?.zone}`)}
           </p>
@@ -547,8 +547,8 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
                 <Globe className="w-7 h-7" />
               </div>
               <div>
-                <h3 className="text-2xl font-black tracking-tighter uppercase">Mapa de Cobertura</h3>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                <h3 className="text-2xl font-black tracking-normal uppercase">Mapa de Cobertura</h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.18em]">
                   {isAdmin ? 'Red Nacional de Sedes' : (isTravelMode ? 'Directorio Nacional (Modo Viaje)' : `Sedes de Zona: ${currentUser?.zone}`)}
                 </p>
               </div>
@@ -753,7 +753,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
                     <Store className="w-7 h-7" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-black text-slate-800 tracking-tight">{viewingPharmacy.name}</h3>
+                    <h3 className="text-2xl font-black text-slate-800 tracking-normal">{viewingPharmacy.name}</h3>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{viewingPharmacy.zone}</p>
                   </div>
                 </div>
@@ -840,7 +840,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
                           <Users className="w-4 h-4 text-indigo-500" />
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Fuerza de Trabajo</p>
                         </div>
-                        <p className="text-slate-800 font-black text-lg tracking-tighter leading-none">{staffCount}</p>
+                        <p className="text-slate-800 font-black text-lg tracking-normal leading-none">{staffCount}</p>
                         <p className="text-slate-400 font-bold text-[9px] uppercase mt-1">Colaboradores</p>
                       </div>
                     </div>
@@ -961,7 +961,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[180] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl text-center">
             <Trash2 className="w-12 h-12 text-red-600 mx-auto mb-4" />
-            <h3 className="text-2xl font-black mb-2 tracking-tight">¿Eliminar {deleteConfirmation.name}?</h3>
+            <h3 className="text-2xl font-black mb-2 tracking-normal">¿Eliminar {deleteConfirmation.name}?</h3>
             <p className="text-slate-500 mb-6">Esta acción borrará permanentemente la sede y todos sus registros asociados.</p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteConfirmation(null)} className="flex-1 py-3 rounded-xl border font-bold">Cancelar</button>
