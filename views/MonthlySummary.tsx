@@ -298,8 +298,8 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
             <BarChart3 className="w-7 h-7 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-black text-white tracking-tighter uppercase drop-shadow-md">Resumen Estadístico</h1>
-            <p className="text-slate-300 font-bold text-xs uppercase tracking-widest">Métricas Clave de Rendimiento</p>
+            <h1 className="text-3xl font-black text-white tracking-normal uppercase drop-shadow-md">Resumen Estadístico</h1>
+            <p className="text-slate-300 font-bold text-xs uppercase tracking-[0.18em]">Métricas Clave de Rendimiento</p>
           </div>
         </div>
 
@@ -330,7 +330,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-blue-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Promedio Auditoría</p>
           <div className="flex items-end gap-3 relative z-10">
-            <span className="text-5xl font-black text-slate-800 tracking-tighter">{avgAuditScore}%</span>
+            <span className="text-5xl font-black text-slate-800 tracking-normal">{avgAuditScore}%</span>
             <TrendingUp className={`w-6 h-6 mb-2 ${avgAuditScore >= 80 ? 'text-emerald-500' : 'text-orange-500'}`} />
           </div>
           <div className="w-full bg-slate-100 h-1.5 rounded-full mt-4 overflow-hidden">
@@ -343,7 +343,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-emerald-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Cobertura Mensual</p>
           <div className="flex items-end gap-3 relative z-10">
-            <span className="text-5xl font-black text-slate-800 tracking-tighter">{coverage}%</span>
+            <span className="text-5xl font-black text-slate-800 tracking-normal">{coverage}%</span>
             <MapPin className="w-6 h-6 mb-2 text-emerald-500" />
           </div>
           <div className="mt-4 text-xs font-bold text-slate-400">
@@ -356,7 +356,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           <div className="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-purple-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Eficiencia Resolución</p>
           <div className="flex items-end gap-3 relative z-10">
-            <span className="text-5xl font-black text-slate-800 tracking-tighter">{efficiency}%</span>
+            <span className="text-5xl font-black text-slate-800 tracking-normal">{efficiency}%</span>
             <Briefcase className="w-6 h-6 mb-2 text-purple-500" />
           </div>
           <div className="mt-4 text-xs font-bold text-slate-400">
@@ -369,7 +369,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-orange-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Actividad Total</p>
           <div className="flex items-end gap-3 relative z-10">
-            <span className="text-5xl font-black text-slate-800 tracking-tighter">{totalActivities}</span>
+            <span className="text-5xl font-black text-slate-800 tracking-normal">{totalActivities}</span>
             <Calendar className="w-6 h-6 mb-2 text-orange-500" />
           </div>
           <p className="mt-4 text-xs font-bold text-slate-400">Registros este mes</p>
@@ -387,7 +387,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
               <Camera className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-white font-black uppercase text-sm">Blindaje CCTV</p>
+              <p className="text-white font-black uppercase text-sm tracking-normal">Blindaje CCTV</p>
               <p className="text-slate-400 text-xs font-bold">Operatividad Tecnológica</p>
             </div>
           </div>
@@ -414,7 +414,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
               <BrickWall className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-white font-black uppercase text-sm">Estado Infraestructura</p>
+              <p className="text-white font-black uppercase text-sm tracking-normal">Estado Infraestructura</p>
               <p className="text-slate-400 text-xs font-bold">Condiciones Físicas</p>
             </div>
           </div>
@@ -447,7 +447,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
         <div className="bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-800 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
           
-          <h3 className="text-lg font-black text-white uppercase mb-8 flex items-center gap-3 relative z-10">
+          <h3 className="text-lg font-black text-white uppercase tracking-normal mb-8 flex items-center gap-3 relative z-10">
             <Siren className="w-6 h-6 text-red-500 animate-pulse" /> Inteligencia de Riesgos
           </h3>
           
@@ -502,7 +502,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
           
           <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-            <h3 className="text-lg font-black text-slate-800 uppercase mb-6 flex items-center gap-2">
+            <h3 className="text-lg font-black text-slate-800 uppercase tracking-normal mb-6 flex items-center gap-2">
               <Trophy className="w-5 h-5 text-emerald-500" /> Top Rendimiento
             </h3>
             <div className="space-y-4">
@@ -511,7 +511,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white font-bold text-xs"><Building2 className="w-4 h-4"/></div>
                     <div>
-                      <p className="font-bold text-slate-800 text-xs uppercase">{a.pharmacy?.name}</p>
+                      <p className="font-bold text-slate-800 text-xs uppercase tracking-normal">{a.pharmacy?.name}</p>
                       <p className="text-[10px] text-emerald-600 font-bold">{a.date}</p>
                       <p className="text-[10px] text-slate-500 font-bold uppercase">{getRiskLevel(a.score || 0)}</p>
                     </div>
@@ -523,7 +523,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
 
           <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-            <h3 className="text-lg font-black text-slate-800 uppercase mb-6 flex items-center gap-2">
+            <h3 className="text-lg font-black text-slate-800 uppercase tracking-normal mb-6 flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-red-500" /> Puntos Críticos
             </h3>
             <div className="space-y-4">
@@ -532,7 +532,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white font-bold text-xs"><AlertTriangle className="w-4 h-4"/></div>
                     <div>
-                      <p className="font-bold text-slate-800 text-xs uppercase">{a.pharmacy?.name}</p>
+                      <p className="font-bold text-slate-800 text-xs uppercase tracking-normal">{a.pharmacy?.name}</p>
                       <p className="text-[10px] text-red-600 font-bold">{a.date}</p>
                       <p className="text-[10px] text-slate-500 font-bold uppercase">{getRiskLevel(a.score || 0)}</p>
                     </div>
