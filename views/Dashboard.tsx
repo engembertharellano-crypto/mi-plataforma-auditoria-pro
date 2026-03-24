@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Video, Lock, Briefcase, MapPin, Plus, ArrowRight, TrendingUp, Activity, PieChart } from 'lucide-react';
+import { FileText, Briefcase, MapPin, Plus, ArrowRight, TrendingUp, Activity, PieChart } from 'lucide-react';
 import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord } from '../types';
 
 interface DashboardProps {
@@ -56,27 +56,27 @@ const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const auditsCount = audits.filter(a => isCurrentMonth(a.date)).length;
-  const cctvCount = cctvRecords.filter(r => isCurrentMonth(r.date)).length;
-  const physicalCount = physicalRecords.filter(r => isCurrentMonth(r.date)).length;
   const managementCount = managementRecords.filter(r => isCurrentMonth(r.date)).length;
 
-  const uniqueVisitKeys = new Set<string>();
-  const addToSet = (items: any[]) => {
+  const visitedPharmacyIds = new Set<string>();
+  const addVisitedPharmacies = (items: any[]) => {
     items.forEach(item => {
-      const date = item.date;
       const pharmId = (item.pharmacy && item.pharmacy.id) ? item.pharmacy.id : item.pharmacyId;
-      if (date && pharmId && isCurrentMonth(date)) {
-        uniqueVisitKeys.add(`${date}-${pharmId}`);
+      if (pharmId && isCurrentMonth(item.date)) {
+        visitedPharmacyIds.add(String(pharmId));
       }
     });
   };
 
-  addToSet(audits);
-  addToSet(cctvRecords);
-  addToSet(physicalRecords);
-  addToSet(managementRecords);
+  addVisitedPharmacies(audits);
+  addVisitedPharmacies(managementRecords);
 
-  const totalUniqueVisits = uniqueVisitKeys.size;
+  const totalUniqueVisits = visitedPharmacyIds.size;
+  const totalPharmacies = pharmacies.length;
+  const coveragePercentage = totalPharmacies > 0
+    ? Math.round((totalUniqueVisits / totalPharmacies) * 100)
+    : 0;
+
   const monthName = now.toLocaleDateString('es-ES', { month: 'long' });
 
   return (
@@ -130,7 +130,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                  <span className="text-xl text-slate-400 font-medium">sedes visitadas</span>
                </div>
                <div className="w-full bg-slate-700/30 h-3 rounded-full mt-8 overflow-hidden backdrop-blur-sm border border-white/5">
-                  <div className="bg-gradient-to-r from-orange-500 via-red-500 to-orange-500 h-full rounded-full w-3/4 animate-[shimmer_2s_linear_infinite] shadow-[0_0_20px_rgba(249,115,22,0.5)] bg-[length:200%_100%]"></div>
+                  <div
+                    className="bg-gradient-to-r from-orange-500 via-red-500 to-orange-500 h-full rounded-full animate-[shimmer_2s_linear_infinite] shadow-[0_0_20px_rgba(249,115,22,0.5)] bg-[length:200%_100%]"
+                    style={{ width: `${coveragePercentage}%` }}
+                  ></div>
                </div>
              </div>
           </div>
@@ -147,7 +150,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
                 <span className="text-[10px] font-black text-slate-400 bg-slate-100/50 px-3 py-1 rounded-full border border-slate-100 uppercase">Este Mes</span>
              </div>
-             <p className="text-5xl font-black text-slate-800 mb-1">{auditsCount + cctvCount + physicalCount + managementCount}</p>
+             <p className="text-5xl font-black text-slate-800 mb-1">{auditsCount + managementCount}</p>
              <p className="text-slate-500 font-bold text-sm">Actividades Totales</p>
           </div>
 
@@ -158,7 +161,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
                 <span className="text-[10px] font-black text-slate-400 bg-slate-100/50 px-3 py-1 rounded-full border border-slate-100 uppercase">KPI</span>
              </div>
-             <p className="text-5xl font-black text-slate-800 mb-1">{(auditsCount * 1.5).toFixed(0)}%</p>
+             <p className="text-5xl font-black text-slate-800 mb-1">{coveragePercentage}%</p>
              <p className="text-slate-500 font-bold text-sm">Índice de Cobertura</p>
           </div>
         </div>
@@ -173,11 +176,9 @@ const Dashboard: React.FC<DashboardProps> = ({
           Desglose de Gestión
         </h3>
         
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-2 gap-6">
           {[
             { label: 'Auditorías', count: auditsCount, icon: FileText, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200' },
-            { label: 'Inventario CCTV', count: cctvCount, icon: Video, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
-            { label: 'Inventario Físico', count: physicalCount, icon: Lock, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
             { label: 'Visitas Gestión', count: managementCount, icon: Briefcase, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
           ].map((item, i) => (
             <div key={i} className={`glass-card p-6 rounded-[1.5rem] hover:shadow-2xl transition-all duration-300 group hover:-translate-y-2 border-t-4 ${item.border}`}>
