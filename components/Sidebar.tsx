@@ -115,11 +115,11 @@ const Sidebar: React.FC<SidebarProps> = ({
         {/* HEADER */}
         <div className="p-8 pb-4">
           <div className="mb-8 select-none">
-            <h1 className="text-4xl font-black text-white tracking-tighter italic leading-none">
+            <h1 className="text-4xl font-black text-white tracking-normal italic leading-none">
               XANA <span className="text-orange-500">PRO</span>
             </h1>
             <div className="h-1.5 w-16 bg-orange-600 rounded-full my-4"></div>
-            <p className="text-[11px] font-bold text-slate-500 tracking-[0.2em] uppercase">
+            <p className="text-[11px] font-bold text-slate-500 tracking-[0.28em] uppercase">
               SISTEMA DE SEGURIDAD
             </p>
           </div>
@@ -151,7 +151,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   {isTravelMode ? <Plane className="w-4 h-4 text-white" /> : <Map className="w-4 h-4 text-slate-400" />}
                 </div>
                 <div className="text-left">
-                  <p className={`text-xs font-black uppercase tracking-wide ${isTravelMode ? 'text-white' : 'text-slate-300'}`}>
+                  <p className={`text-xs font-black uppercase tracking-[0.08em] ${isTravelMode ? 'text-white' : 'text-slate-300'}`}>
                     {isTravelMode ? 'Modo Viaje' : 'Mi Zona'}
                   </p>
                   <p className="text-[9px] font-medium opacity-70">
@@ -169,7 +169,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         {/* MENÚ */}
         <div className="flex-1 overflow-y-auto px-4 space-y-1 custom-scrollbar pb-4">
-          <p className="px-4 py-2 text-[10px] font-black text-slate-500 uppercase tracking-widest sticky top-0 bg-slate-900 z-10">
+          <p className="px-4 py-2 text-[10px] font-black text-slate-500 uppercase tracking-[0.18em] sticky top-0 bg-slate-900 z-10">
             Menú Principal
           </p>
           
@@ -190,7 +190,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 `}
               >
                 <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-white'} ${item.highlight && !isActive ? 'text-blue-400 animate-pulse' : ''}`} />
-                <span className="font-bold text-sm tracking-wide">{item.label}</span>
+                <span className="font-bold text-sm tracking-normal">{item.label}</span>
                 {isActive && <div className="absolute right-3 w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>}
               </button>
             );
