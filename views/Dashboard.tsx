@@ -56,6 +56,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const auditsCount = audits.filter(a => isCurrentMonth(a.date)).length;
+  const cctvCount = cctvRecords.filter(r => isCurrentMonth(r.date)).length;
+  const physicalCount = physicalRecords.filter(r => isCurrentMonth(r.date)).length;
   const managementCount = managementRecords.filter(r => isCurrentMonth(r.date)).length;
 
   const visitedPharmacyIds = new Set<string>();
@@ -150,7 +152,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
                 <span className="text-[10px] font-black text-slate-400 bg-slate-100/50 px-3 py-1 rounded-full border border-slate-100 uppercase">Este Mes</span>
              </div>
-             <p className="text-5xl font-black text-slate-800 mb-1">{auditsCount + managementCount}</p>
+             <p className="text-5xl font-black text-slate-800 mb-1">{auditsCount + cctvCount + physicalCount + managementCount}</p>
              <p className="text-slate-500 font-bold text-sm">Actividades Totales</p>
           </div>
 
