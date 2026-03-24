@@ -260,8 +260,8 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
       
       <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
         <div>
-          <h1 className="text-4xl font-black text-white tracking-tighter uppercase mb-2">Gestión de Casos</h1>
-          <p className="text-slate-300 font-bold text-sm uppercase tracking-widest">Control de Novedades e Incidentes</p>
+          <h1 className="text-4xl font-black text-white tracking-normal uppercase mb-2">Gestión de Casos</h1>
+          <p className="text-slate-300 font-bold text-sm uppercase tracking-[0.18em]">Control de Novedades e Incidentes</p>
         </div>
         {view === 'list' && (
           <button 
@@ -316,10 +316,10 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
                       <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase border ${getPriorityColor(c.priority)}`}>{c.priority}</span>
                       {getStatusBadge(c.status)}
                    </div>
-                   <h3 className="text-lg font-black text-slate-800 leading-tight mb-2 line-clamp-2 uppercase">{c.title}</h3>
+                   <h3 className="text-lg font-black text-slate-800 leading-tight mb-2 line-clamp-2 uppercase tracking-normal">{c.title}</h3>
                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500 mb-4">
                       {c.locationType === 'Farmacia' ? <MapPin className="w-4 h-4 text-orange-500" /> : c.locationType === 'Corporativo' ? <Building2 className="w-4 h-4 text-blue-500" /> : <Truck className="w-4 h-4 text-purple-500" />}
-                      <span className="uppercase truncate">{c.locationName}</span>
+                      <span className="uppercase truncate tracking-normal">{c.locationName}</span>
                    </div>
                    <div className="pt-4 border-t border-slate-100 flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                       <span className="flex items-center gap-1"><Hash className="w-3 h-3" /> {c.officialId ? <span className="text-slate-800">{c.officialId}</span> : c.id}</span>
@@ -335,7 +335,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
       {view === 'new' && (
         <div className="max-w-2xl mx-auto bg-white rounded-[2.5rem] shadow-2xl p-8 border border-slate-100">
            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-2xl font-black text-slate-800 uppercase">Registrar Novedad</h2>
+              <h2 className="text-2xl font-black text-slate-800 uppercase tracking-normal">Registrar Novedad</h2>
               <button onClick={() => setView('list')} className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><X className="w-6 h-6" /></button>
            </div>
            <div className="space-y-6">
@@ -418,7 +418,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
                      <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase border ${getPriorityColor(selectedCase.priority)}`}>{selectedCase.priority}</span>
                      {getStatusBadge(selectedCase.status)}
                   </div>
-                  <h2 className="text-2xl font-black text-slate-800 uppercase leading-tight mb-4">{selectedCase.title}</h2>
+                  <h2 className="text-2xl font-black text-slate-800 uppercase leading-tight mb-4 tracking-normal">{selectedCase.title}</h2>
                   <div className="space-y-4">
                      <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 relative group">
                         <Hash className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
@@ -437,14 +437,14 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
                              </div>
                            ) : (
                              <>
-                               {selectedCase.officialId ? <p className="font-black text-slate-800 text-lg uppercase">{selectedCase.officialId}</p> : <p className="text-sm font-medium text-slate-400 italic">Sin asignar (Preliminar)</p>}
+                               {selectedCase.officialId ? <p className="font-black text-slate-800 text-lg uppercase tracking-normal">{selectedCase.officialId}</p> : <p className="text-sm font-medium text-slate-400 italic">Sin asignar (Preliminar)</p>}
                                <p className="text-[9px] text-slate-300 font-mono mt-1">REF: {selectedCase.id}</p>
                              </>
                            )}
                         </div>
                      </div>
-                     <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl"><MapPin className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" /><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ubicación</p><p className="font-bold text-slate-700 uppercase">{selectedCase.locationName}</p><p className="text-xs text-slate-500">{selectedCase.locationType}</p></div></div>
-                     <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl"><User className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" /><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reportado Por</p><p className="font-bold text-slate-700 uppercase">{selectedCase.reporterName}</p><p className="text-xs text-slate-500">Vía {selectedCase.channel}</p></div></div>
+                     <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl"><MapPin className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" /><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ubicación</p><p className="font-bold text-slate-700 uppercase tracking-normal">{selectedCase.locationName}</p><p className="text-xs text-slate-500">{selectedCase.locationType}</p></div></div>
+                     <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl"><User className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" /><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reportado Por</p><p className="font-bold text-slate-700 uppercase tracking-normal">{selectedCase.reporterName}</p><p className="text-xs text-slate-500">Vía {selectedCase.channel}</p></div></div>
                      <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl"><FileText className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" /><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Descripción</p><p className="text-sm font-medium text-slate-600 leading-relaxed">{selectedCase.description}</p></div></div>
                   </div>
                   <div className="mt-8 pt-6 border-t border-slate-100">
@@ -466,7 +466,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
             </div>
 
             <div className="lg:col-span-2 space-y-6">
-               <h3 className="text-xl font-black text-slate-300 uppercase tracking-tight flex items-center gap-2"><MoreHorizontal className="w-5 h-5 text-orange-500" /> Bitácora de Seguimiento</h3>
+               <h3 className="text-xl font-black text-slate-300 uppercase tracking-normal flex items-center gap-2"><MoreHorizontal className="w-5 h-5 text-orange-500" /> Bitácora de Seguimiento</h3>
                {selectedCase.status !== 'Cerrado' && !isClosing && (
                   <div className="bg-white p-4 rounded-[2rem] shadow-lg border border-slate-100 flex gap-4 items-start">
                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0"><MessageSquare className="w-5 h-5 text-slate-500" /></div>
@@ -500,7 +500,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
                )}
                {isClosing && (
                   <div className="bg-red-50 p-6 rounded-[2rem] border border-red-100 animate-in fade-in slide-in-from-top-2">
-                     <h4 className="text-lg font-black text-red-800 uppercase mb-2">Cierre de Caso</h4>
+                     <h4 className="text-lg font-black text-red-800 uppercase tracking-normal mb-2">Cierre de Caso</h4>
                      <p className="text-sm text-red-600 mb-4">Para cerrar el caso, es obligatorio indicar la conclusión o resolución final.</p>
                      <textarea className="w-full p-4 bg-white rounded-xl outline-none text-slate-700 border border-red-200 focus:border-red-500 h-24 resize-none mb-4" placeholder="Escriba la conclusión final..." value={conclusionText} onChange={(e) => setConclusionText(e.target.value)} />
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
@@ -555,7 +555,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
              <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Trash2 className="w-10 h-10 text-red-600" />
              </div>
-             <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tight">¿Eliminar Expediente?</h3>
+             <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-normal">¿Eliminar Expediente?</h3>
              <p className="text-slate-500 font-medium mb-8 leading-relaxed">
                 Estás a punto de eliminar el caso <span className="font-bold text-slate-800">{selectedCase?.officialId || selectedCase?.id}</span> permanentemente. <br/><br/>
                 <span className="text-red-600 font-bold text-xs uppercase tracking-widest">Esta acción no se puede deshacer.</span>
