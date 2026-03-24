@@ -160,7 +160,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     return 'text-red-500';
   };
 
-  // --- FILTRO DE DATA ---
+  // --- FILTRO DE DATA POR ZONA (mantenido para el resto de la vista) ---
   const filteredData = useMemo(() => {
     const filteredPharmacies = selectedZone === 'Todas' 
       ? pharmacies 
@@ -170,13 +170,13 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
     return {
       pharmacies: filteredPharmacies,
-      audits: audits.filter(a => a.pharmacy?.id && pharmacyIds.has(String(a.pharmacy.id)) && isCurrentMonth(a.date)),
-      cctv: cctvRecords.filter(r => pharmacyIds.has(String(r.pharmacyId)) && isCurrentMonth(r.date)),
-      physical: physicalRecords.filter(r => pharmacyIds.has(String(r.pharmacyId)) && isCurrentMonth(r.date)),
-      management: managementRecords.filter(r => pharmacyIds.has(String(r.pharmacyId)) && isCurrentMonth(r.date)),
+      audits: audits.filter(a => a.pharmacy?.id && pharmacyIds.has(String(a.pharmacy.id))),
+      cctv: cctvRecords.filter(r => pharmacyIds.has(String(r.pharmacyId))),
+      physical: physicalRecords.filter(r => pharmacyIds.has(String(r.pharmacyId))),
+      management: managementRecords.filter(r => pharmacyIds.has(String(r.pharmacyId))),
       cases: selectedZone === 'Todas'
-        ? cases.filter(c => isCurrentMonth(c.date))
-        : cases.filter(c => c.pharmacyId && pharmacyIds.has(String(c.pharmacyId)) && isCurrentMonth(c.date))
+        ? cases
+        : cases.filter(c => c.pharmacyId && pharmacyIds.has(String(c.pharmacyId)))
     };
   }, [selectedZone, pharmacies, audits, cctvRecords, physicalRecords, managementRecords, cases]);
 
@@ -204,11 +204,18 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   ]).size;
   const coverage = totalPharmaciesCount > 0 ? Math.round((visitedPharmacies / totalPharmaciesCount) * 100) : 0;
 
-  const totalCases = currentCases.length;
-  const closedCases = currentCases.filter(c => c.status === 'Cerrado').length;
+  // ✅ CASOS DEL MES REAL (sin depender del filtro de zona)
+  const monthlyCases = cases.filter(c => isCurrentMonth(c.date));
+  const totalCases = monthlyCases.length;
+  const closedCases = monthlyCases.filter(c => c.status === 'Cerrado').length;
   const efficiency = totalCases > 0 ? Math.round((closedCases / totalCases) * 100) : 0;
 
-  const totalActivities = currentAudits.length + currentCCTV.length + currentPhysical.length + currentManagement.length;
+  // ✅ ACTIVIDADES TOTALES IGUAL QUE DASHBOARD
+  const totalActivities =
+    audits.filter(a => isCurrentMonth(a.date)).length +
+    cctvRecords.filter(r => isCurrentMonth(r.date)).length +
+    physicalRecords.filter(r => isCurrentMonth(r.date)).length +
+    managementRecords.filter(r => isCurrentMonth(r.date)).length;
 
   // =========================================================================
   // CÁLCULO DE DETALLES (QUÉ FALLÓ)
@@ -223,8 +230,8 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     const r = parseData(rawRecord);
     const cams = r.cameras || {};
     
-    const totalLocal = getNum(cams.analogTotal) + getNum(cams.ipTotal);
-    const okLocal = getNum(cams.analogOperative) + getNum(cams.ipOperative);
+    const totalLocal = (cams.analogTotal || 0) + (cams.ipTotal || 0);
+    const okLocal = (cams.analogOperative || 0) + (cams.ipOperative || 0);
     
     cctvTotal += totalLocal;
     cctvOk += okLocal;
@@ -251,10 +258,10 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     const e = r.espejos || {};
     const i = r.iluminacion || {};
 
-    const reqS = getNum(s.required); const goodS = getNum(s.good);
-    const reqC = getNum(c.required); const goodC = getNum(c.good);
-    const reqE = getNum(e.required); const goodE = getNum(e.good);
-    const reqI = getNum(i.required); const goodI = getNum(i.good);
+    const reqS = s.required || 0; const goodS = s.good || 0;
+    const reqC = c.required || 0; const goodC = c.good || 0;
+    const reqE = e.required || 0; const goodE = e.good || 0;
+    const reqI = i.required || 0; const goodI = i.good || 0;
 
     infraTotal += (reqS + reqC + reqE + reqI);
     infraOk += (goodS + goodC + goodE + goodI);
@@ -267,9 +274,12 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const infraHealth = infraTotal > 0 ? Math.round((infraOk / infraTotal) * 100) : 0;
 
+  // Lista completa sin recortar
   const infraFailureList = Object.entries(infraFailures)
     .filter(([_, count]) => count > 0)
     .map(([name, count]) => `${count} ${name}${count > 1 ? 's' : ''}`);
+
+  // =========================================================================
 
   // --- ORDENAMIENTO ---
   const sortedAudits = [...currentAudits].sort((a, b) => (a.score || 0) - (b.score || 0));
@@ -305,7 +315,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   });
   const predominantRisk = Object.entries(riskCounts).sort((a, b) => b[1] - a[1])[0];
 
-  const highPriorityOpen = currentCases.filter(c => c.priority === 'Alta' && c.status !== 'Cerrado').length;
+  const highPriorityOpen = monthlyCases.filter(c => c.priority === 'Alta' && c.status !== 'Cerrado').length;
 
   return (
     <div className="max-w-[1600px] mx-auto p-6 md:p-10 pb-20 animate-in fade-in duration-500">
