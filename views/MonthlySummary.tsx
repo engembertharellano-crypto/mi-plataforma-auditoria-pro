@@ -194,12 +194,17 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     : 0;
 
   const totalPharmaciesCount = currentPharmacies.length;
+
+  // ✅ MISMO CRITERIO QUE DASHBOARD: solo Auditorías + Visitas de Gestión
   const visitedPharmacies = new Set([
-    ...currentAudits.map(a => String(a.pharmacy?.id)),
-    ...currentCCTV.map(r => String(r.pharmacyId)),
-    ...currentPhysical.map(r => String(r.pharmacyId)),
-    ...currentManagement.map(r => String(r.pharmacyId))
+    ...currentAudits
+      .filter(a => isCurrentMonth(a.date))
+      .map(a => String(a.pharmacy?.id)),
+    ...currentManagement
+      .filter(r => isCurrentMonth(r.date))
+      .map(r => String(r.pharmacyId))
   ]).size;
+
   const coverage = totalPharmaciesCount > 0 ? Math.round((visitedPharmacies / totalPharmaciesCount) * 100) : 0;
 
   // ✅ CASOS: usa los casos que ya están cargados en esta vista
