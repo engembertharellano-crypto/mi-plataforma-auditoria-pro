@@ -122,28 +122,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     return ['Todas', ...Array.from(uniqueZones)];
   }, [pharmacies]);
 
-  const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
-
-  const isCurrentMonth = (dateStr?: string) => {
-    if (!dateStr) return false;
-
-    if (dateStr.includes('/')) {
-      const parts = dateStr.split('/');
-      if (parts.length === 3) {
-        const month = parseInt(parts[1], 10) - 1;
-        const year = parseInt(parts[2], 10);
-        return month === currentMonth && year === currentYear;
-      }
-    }
-
-    const parsed = new Date(dateStr);
-    if (isNaN(parsed.getTime())) return false;
-
-    return parsed.getMonth() === currentMonth && parsed.getFullYear() === currentYear;
-  };
-
   const getRiskLevel = (score: number): 'Bajo' | 'Moderado' | 'Medio' | 'Alto' | 'Extremo' => {
     if (score >= 95) return 'Bajo';
     if (score >= 85) return 'Moderado';
@@ -160,7 +138,27 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     return 'text-red-500';
   };
 
-  // --- FILTRO DE DATA POR ZONA (mantenido para el resto de la vista) ---
+  const isCurrentMonth = (dateStr?: string) => {
+    if (!dateStr) return false;
+
+    if (dateStr.includes('/')) {
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        const month = parseInt(parts[1], 10) - 1;
+        const year = parseInt(parts[2], 10);
+        const now = new Date();
+        return month === now.getMonth() && year === now.getFullYear();
+      }
+    }
+
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return false;
+
+    const now = new Date();
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  };
+
+  // --- FILTRO DE DATA ---
   const filteredData = useMemo(() => {
     const filteredPharmacies = selectedZone === 'Todas' 
       ? pharmacies 
@@ -204,13 +202,12 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   ]).size;
   const coverage = totalPharmaciesCount > 0 ? Math.round((visitedPharmacies / totalPharmaciesCount) * 100) : 0;
 
-  // ✅ CASOS DEL MES REAL (sin depender del filtro de zona)
-  const monthlyCases = cases.filter(c => isCurrentMonth(c.date));
-  const totalCases = monthlyCases.length;
-  const closedCases = monthlyCases.filter(c => c.status === 'Cerrado').length;
+  // ✅ CASOS: usa los casos que ya están cargados en esta vista
+  const totalCases = currentCases.length;
+  const closedCases = currentCases.filter(c => c.status === 'Cerrado').length;
   const efficiency = totalCases > 0 ? Math.round((closedCases / totalCases) * 100) : 0;
 
-  // ✅ ACTIVIDADES TOTALES IGUAL QUE DASHBOARD
+  // ✅ ACTIVIDAD TOTAL: misma lógica que Dashboard
   const totalActivities =
     audits.filter(a => isCurrentMonth(a.date)).length +
     cctvRecords.filter(r => isCurrentMonth(r.date)).length +
@@ -274,12 +271,9 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const infraHealth = infraTotal > 0 ? Math.round((infraOk / infraTotal) * 100) : 0;
 
-  // Lista completa sin recortar
   const infraFailureList = Object.entries(infraFailures)
     .filter(([_, count]) => count > 0)
     .map(([name, count]) => `${count} ${name}${count > 1 ? 's' : ''}`);
-
-  // =========================================================================
 
   // --- ORDENAMIENTO ---
   const sortedAudits = [...currentAudits].sort((a, b) => (a.score || 0) - (b.score || 0));
@@ -315,7 +309,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   });
   const predominantRisk = Object.entries(riskCounts).sort((a, b) => b[1] - a[1])[0];
 
-  const highPriorityOpen = monthlyCases.filter(c => c.priority === 'Alta' && c.status !== 'Cerrado').length;
+  const highPriorityOpen = currentCases.filter(c => c.priority === 'Alta' && c.status !== 'Cerrado').length;
 
   return (
     <div className="max-w-[1600px] mx-auto p-6 md:p-10 pb-20 animate-in fade-in duration-500">
@@ -354,7 +348,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       {/* KPI CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         
-        {/* KPI 1 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-blue-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Promedio Auditoría</p>
@@ -367,7 +360,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* KPI 2 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-emerald-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Cobertura Mensual</p>
@@ -380,7 +372,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* KPI 3 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-purple-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Eficiencia Resolución</p>
@@ -393,7 +384,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* KPI 4 */}
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-orange-100"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Actividad Total</p>
@@ -409,7 +399,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       {/* ESTADO DE FUERZA (CCTV + INFRAESTRUCTURA) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
         
-        {/* Blindaje CCTV */}
         <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between relative overflow-hidden">
           <div className="flex items-center gap-4 relative z-10">
             <div className="w-12 h-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-400">
@@ -436,7 +425,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* Infraestructura */}
         <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between relative overflow-hidden">
           <div className="flex items-center gap-4 relative z-10">
             <div className="w-12 h-12 bg-teal-500/20 rounded-2xl flex items-center justify-center text-teal-400">
@@ -472,7 +460,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       {/* SECCIÓN INFERIOR */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Focos de Riesgo */}
         <div className="bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-800 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
           
@@ -527,7 +514,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        {/* Listas */}
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
           
           <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
