@@ -122,6 +122,28 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     return ['Todas', ...Array.from(uniqueZones)];
   }, [pharmacies]);
 
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  const isCurrentMonth = (dateStr?: string) => {
+    if (!dateStr) return false;
+
+    if (dateStr.includes('/')) {
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        const month = parseInt(parts[1], 10) - 1;
+        const year = parseInt(parts[2], 10);
+        return month === currentMonth && year === currentYear;
+      }
+    }
+
+    const parsed = new Date(dateStr);
+    if (isNaN(parsed.getTime())) return false;
+
+    return parsed.getMonth() === currentMonth && parsed.getFullYear() === currentYear;
+  };
+
   const getRiskLevel = (score: number): 'Bajo' | 'Moderado' | 'Medio' | 'Alto' | 'Extremo' => {
     if (score >= 95) return 'Bajo';
     if (score >= 85) return 'Moderado';
@@ -148,13 +170,13 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
     return {
       pharmacies: filteredPharmacies,
-      audits: audits.filter(a => a.pharmacy?.id && pharmacyIds.has(String(a.pharmacy.id))),
-      cctv: cctvRecords.filter(r => pharmacyIds.has(String(r.pharmacyId))),
-      physical: physicalRecords.filter(r => pharmacyIds.has(String(r.pharmacyId))),
-      management: managementRecords.filter(r => pharmacyIds.has(String(r.pharmacyId))),
+      audits: audits.filter(a => a.pharmacy?.id && pharmacyIds.has(String(a.pharmacy.id)) && isCurrentMonth(a.date)),
+      cctv: cctvRecords.filter(r => pharmacyIds.has(String(r.pharmacyId)) && isCurrentMonth(r.date)),
+      physical: physicalRecords.filter(r => pharmacyIds.has(String(r.pharmacyId)) && isCurrentMonth(r.date)),
+      management: managementRecords.filter(r => pharmacyIds.has(String(r.pharmacyId)) && isCurrentMonth(r.date)),
       cases: selectedZone === 'Todas'
-        ? cases
-        : cases.filter(c => c.pharmacyId && pharmacyIds.has(String(c.pharmacyId)))
+        ? cases.filter(c => isCurrentMonth(c.date))
+        : cases.filter(c => c.pharmacyId && pharmacyIds.has(String(c.pharmacyId)) && isCurrentMonth(c.date))
     };
   }, [selectedZone, pharmacies, audits, cctvRecords, physicalRecords, managementRecords, cases]);
 
@@ -201,8 +223,8 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     const r = parseData(rawRecord);
     const cams = r.cameras || {};
     
-    const totalLocal = (cams.analogTotal || 0) + (cams.ipTotal || 0);
-    const okLocal = (cams.analogOperative || 0) + (cams.ipOperative || 0);
+    const totalLocal = getNum(cams.analogTotal) + getNum(cams.ipTotal);
+    const okLocal = getNum(cams.analogOperative) + getNum(cams.ipOperative);
     
     cctvTotal += totalLocal;
     cctvOk += okLocal;
@@ -229,10 +251,10 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     const e = r.espejos || {};
     const i = r.iluminacion || {};
 
-    const reqS = s.required || 0; const goodS = s.good || 0;
-    const reqC = c.required || 0; const goodC = c.good || 0;
-    const reqE = e.required || 0; const goodE = e.good || 0;
-    const reqI = i.required || 0; const goodI = i.good || 0;
+    const reqS = getNum(s.required); const goodS = getNum(s.good);
+    const reqC = getNum(c.required); const goodC = getNum(c.good);
+    const reqE = getNum(e.required); const goodE = getNum(e.good);
+    const reqI = getNum(i.required); const goodI = getNum(i.good);
 
     infraTotal += (reqS + reqC + reqE + reqI);
     infraOk += (goodS + goodC + goodE + goodI);
@@ -245,12 +267,9 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const infraHealth = infraTotal > 0 ? Math.round((infraOk / infraTotal) * 100) : 0;
 
-  // Lista completa sin recortar
   const infraFailureList = Object.entries(infraFailures)
     .filter(([_, count]) => count > 0)
     .map(([name, count]) => `${count} ${name}${count > 1 ? 's' : ''}`);
-
-  // =========================================================================
 
   // --- ORDENAMIENTO ---
   const sortedAudits = [...currentAudits].sort((a, b) => (a.score || 0) - (b.score || 0));
