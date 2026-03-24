@@ -48,11 +48,20 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const isCurrentMonth = (dateStr?: string) => {
     if (!dateStr) return false;
-    const parts = dateStr.split('/');
-    if (parts.length !== 3) return false;
-    const month = parseInt(parts[1], 10) - 1;
-    const year = parseInt(parts[2], 10);
-    return month === currentMonth && year === currentYear;
+
+    if (dateStr.includes('/')) {
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        const month = parseInt(parts[1], 10) - 1;
+        const year = parseInt(parts[2], 10);
+        return month === currentMonth && year === currentYear;
+      }
+    }
+
+    const parsed = new Date(dateStr);
+    if (isNaN(parsed.getTime())) return false;
+
+    return parsed.getMonth() === currentMonth && parsed.getFullYear() === currentYear;
   };
 
   const auditsCount = audits.filter(a => isCurrentMonth(a.date)).length;
