@@ -87,7 +87,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
         
         <div className="relative z-10">
-          <h1 className="text-4xl font-black text-slate-800 tracking-tight">Centro de Operaciones</h1>
+          <h1 className="text-4xl font-black text-slate-800 tracking-normal">Centro de Operaciones</h1>
           <p className="text-slate-500 mt-2 font-medium flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]"></span>
             Resumen de gestión - {monthName.charAt(0).toUpperCase() + monthName.slice(1)} {currentYear}
@@ -116,8 +116,8 @@ const Dashboard: React.FC<DashboardProps> = ({
           <div className="relative z-10 flex flex-col h-full justify-between">
              <div className="flex justify-between items-start">
                <div>
-                  <h2 className="text-slate-400 font-bold uppercase tracking-[0.2em] text-xs mb-2">Impacto Mensual</h2>
-                  <h3 className="text-white text-4xl font-black tracking-tight">Visitas Efectivas</h3>
+                  <h2 className="text-slate-400 font-bold uppercase tracking-[0.24em] text-xs mb-2">Impacto Mensual</h2>
+                  <h3 className="text-white text-4xl font-black tracking-normal">Visitas Efectivas</h3>
                </div>
                <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10 shadow-inner group-hover:scale-110 transition-transform duration-500">
                  <MapPin className="w-8 h-8 text-orange-400" />
@@ -126,7 +126,7 @@ const Dashboard: React.FC<DashboardProps> = ({
              
              <div className="mt-12">
                <div className="flex items-baseline gap-4">
-                 <span className="text-8xl font-black text-white tracking-tighter drop-shadow-lg">{totalUniqueVisits}</span>
+                 <span className="text-8xl font-black text-white tracking-normal drop-shadow-lg">{totalUniqueVisits}</span>
                  <span className="text-xl text-slate-400 font-medium">sedes visitadas</span>
                </div>
                <div className="w-full bg-slate-700/30 h-3 rounded-full mt-8 overflow-hidden backdrop-blur-sm border border-white/5">
@@ -166,7 +166,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Detail Grid */}
       <div>
-        <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-3">
+        <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-3 tracking-normal">
           <div className="p-2 bg-slate-100 rounded-lg">
              <PieChart className="w-5 h-5 text-slate-600" />
           </div>
@@ -187,7 +187,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
                 <span className="text-4xl font-black text-slate-800">{item.count}</span>
               </div>
-              <p className="text-slate-500 font-bold text-sm">{item.label}</p>
+              <p className="text-slate-500 font-bold text-sm tracking-normal">{item.label}</p>
             </div>
           ))}
         </div>
@@ -196,7 +196,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       {/* History Table */}
       <div className="glass-card rounded-[2rem] overflow-hidden border border-white/60 shadow-xl">
         <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-white/40 backdrop-blur-sm">
-          <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+          <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3 tracking-normal">
             <span className="flex h-3 w-3 relative">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500"></span>
@@ -263,7 +263,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                       </div>
                     </td>
                     <td className="p-6">
-                      <span className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide border shadow-sm ${
+                      <span className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.08em] border shadow-sm ${
                         auditRiskLabel === 'Bajo' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
                         auditRiskLabel === 'Moderado' ? 'bg-yellow-50 text-yellow-600 border-yellow-100' :
                         auditRiskLabel === 'Medio' ? 'bg-orange-50 text-orange-600 border-orange-100' :
