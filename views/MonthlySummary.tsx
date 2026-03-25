@@ -187,8 +187,11 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     cases: currentCases 
   } = filteredData;
 
+  // ✅ SOLO AUDITORÍAS DEL MES EN CURSO PARA ESTOS BLOQUES
+  const monthlyAudits = currentAudits.filter(a => isCurrentMonth(a.date));
+
   // --- KPI LOGIC ---
-  const auditScores = currentAudits.map(a => a.score || 0);
+  const auditScores = monthlyAudits.map(a => a.score || 0);
   const avgAuditScore = auditScores.length > 0 
     ? Math.round(auditScores.reduce((a, b) => a + b, 0) / auditScores.length) 
     : 0;
@@ -197,9 +200,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   // ✅ MISMO CRITERIO QUE DASHBOARD: solo Auditorías + Visitas de Gestión
   const visitedPharmacies = new Set([
-    ...currentAudits
-      .filter(a => isCurrentMonth(a.date))
-      .map(a => String(a.pharmacy?.id)),
+    ...monthlyAudits.map(a => String(a.pharmacy?.id)),
     ...currentManagement
       .filter(r => isCurrentMonth(r.date))
       .map(r => String(r.pharmacyId))
@@ -280,14 +281,14 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     .filter(([_, count]) => count > 0)
     .map(([name, count]) => `${count} ${name}${count > 1 ? 's' : ''}`);
 
-  // --- ORDENAMIENTO ---
-  const sortedAudits = [...currentAudits].sort((a, b) => (a.score || 0) - (b.score || 0));
+  // --- ORDENAMIENTO: SOLO MES EN CURSO ---
+  const sortedAudits = [...monthlyAudits].sort((a, b) => (a.score || 0) - (b.score || 0));
   const lowPerforming = sortedAudits.slice(0, 3);
   const topPerforming = [...sortedAudits].reverse().slice(0, 3);
 
-  // --- LÓGICA INTELIGENTE ---
+  // --- LÓGICA INTELIGENTE: SOLO MES EN CURSO ---
   const failureCounts: Record<string, number> = {};
-  currentAudits.forEach(audit => {
+  monthlyAudits.forEach(audit => {
     if (audit.processAnswers) {
       Object.entries(audit.processAnswers).forEach(([key, value]: any) => {
         if (value.status === 'NO') {
@@ -308,7 +309,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   const topFailure = Object.entries(failureCounts).sort((a, b) => b[1] - a[1])[0];
 
   const riskCounts: Record<string, number> = {};
-  currentAudits.forEach(audit => {
+  monthlyAudits.forEach(audit => {
     const risk = getRiskLevel(audit.score || 0);
     riskCounts[risk] = (riskCounts[risk] || 0) + 1;
   });
