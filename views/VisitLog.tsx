@@ -120,7 +120,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
           textoObservacion = item.observations || item.notes || item.comments || "Sin observaciones registradas.";
         } 
         else if (type === 'Visita Gerencial') {
-          textoObservacion = item.reason || item.observations || "Visita de gestión.";
+          textoObservacion = item.reason || item.observations || item.notes || "Visita de gestión.";
         }
 
         return {
@@ -211,126 +211,64 @@ const VisitLog: React.FC<VisitLogProps> = ({
     setRecordToDelete(null);
   };
 
-  const renderDetailContent = () => {
-    if (!selectedRecord) return null;
+  const renderVisitDetailContent = () => {
+    if (!selectedRecord || selectedRecord.type !== 'Visita Gerencial') return null;
 
     const data = selectedRecord.original;
 
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Sede</p>
-            <p className="text-sm font-bold text-slate-800">{selectedRecord.pharmacy}</p>
+          <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Sede</p>
+            <p className="text-lg font-black text-slate-900">{selectedRecord.pharmacy}</p>
           </div>
 
-          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Zona</p>
-            <p className="text-sm font-bold text-slate-800">{selectedRecord.pharmacyZone}</p>
+          <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Zona</p>
+            <p className="text-lg font-black text-slate-900">{selectedRecord.pharmacyZone}</p>
           </div>
 
-          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Fecha</p>
-            <p className="text-sm font-bold text-slate-800">{selectedRecord.date}</p>
+          <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fecha</p>
+            <p className="text-lg font-black text-slate-900">{selectedRecord.date}</p>
           </div>
 
-          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Naturaleza</p>
-            <p className="text-sm font-bold text-slate-800">{selectedRecord.type}</p>
+          <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Responsable</p>
+            <p className="text-lg font-black text-slate-900">{data.createdBy || 'No disponible'}</p>
           </div>
         </div>
 
-        {selectedRecord.type === 'Auditoría' && (
-          <div className="space-y-4">
-            <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100">
-              <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-2">Resumen Ejecutivo</p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Puntaje</p>
-                  <p className="text-lg font-black text-slate-900">{data.score ?? 0}%</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Riesgo</p>
-                  <p className="text-lg font-black text-slate-900">{getRiskLevel(data.score || 0)}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Creado por</p>
-                  <p className="text-sm font-bold text-slate-900">{data.createdBy || 'No disponible'}</p>
-                </div>
+        <div className="bg-gradient-to-br from-blue-50 to-slate-50 rounded-[2rem] p-6 border border-blue-100">
+          <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-4">
+            Detalle de la visita
+          </p>
+
+          <div className="space-y-5">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                Motivo de la visita
+              </p>
+              <div className="bg-white rounded-xl border border-slate-200 p-4">
+                <p className="text-base font-semibold text-slate-900">
+                  {data.reason || 'No registrado'}
+                </p>
               </div>
             </div>
 
-            {data.reportText && (
-              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Reporte</p>
-                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{data.reportText}</p>
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                Observaciones
+              </p>
+              <div className="bg-white rounded-xl border border-slate-200 p-4 min-h-[110px]">
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                  {data.observations || data.notes || 'Sin observaciones registradas'}
+                </p>
               </div>
-            )}
-
-            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Registro completo</p>
-              <pre className="text-xs text-slate-700 overflow-auto whitespace-pre-wrap break-all">
-                {JSON.stringify(data, null, 2)}
-              </pre>
             </div>
           </div>
-        )}
-
-        {selectedRecord.type === 'Visita Gerencial' && (
-          <div className="space-y-4">
-            <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
-              <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-2">Detalle de la visita</p>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Motivo</p>
-                  <p className="text-sm text-slate-800 font-medium">{data.reason || 'No registrado'}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Observaciones</p>
-                  <p className="text-sm text-slate-800 font-medium whitespace-pre-wrap">{data.observations || 'No registrado'}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Creado por</p>
-                  <p className="text-sm text-slate-800 font-medium">{data.createdBy || 'No disponible'}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Registro completo</p>
-              <pre className="text-xs text-slate-700 overflow-auto whitespace-pre-wrap break-all">
-                {JSON.stringify(data, null, 2)}
-              </pre>
-            </div>
-          </div>
-        )}
-
-        {(selectedRecord.type === 'Inventario CCTV' || selectedRecord.type === 'Infraestructura') && (
-          <div className="space-y-4">
-            <div className="bg-purple-50 rounded-2xl p-4 border border-purple-100">
-              <p className="text-[10px] font-black text-purple-500 uppercase tracking-widest mb-2">Detalle del registro</p>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Observaciones</p>
-                  <p className="text-sm text-slate-800 font-medium whitespace-pre-wrap">
-                    {data.observations || data.notes || data.comments || 'No registrado'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Creado por</p>
-                  <p className="text-sm text-slate-800 font-medium">{data.createdBy || 'No disponible'}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Registro completo</p>
-              <pre className="text-xs text-slate-700 overflow-auto whitespace-pre-wrap break-all">
-                {JSON.stringify(data, null, 2)}
-              </pre>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
     );
   };
@@ -437,8 +375,16 @@ const VisitLog: React.FC<VisitLogProps> = ({
               {filteredRecords.length > 0 ? filteredRecords.map((record) => (
                 <tr 
                   key={`${record.type}-${record.id}`} 
-                  className="group hover:bg-slate-50/50 transition-colors cursor-pointer"
-                  onClick={() => setSelectedRecord(record)}
+                  className={`group transition-colors ${
+                    record.type === 'Visita Gerencial'
+                      ? 'hover:bg-slate-50/50 cursor-pointer'
+                      : 'cursor-default'
+                  }`}
+                  onClick={() => {
+                    if (record.type === 'Visita Gerencial') {
+                      setSelectedRecord(record);
+                    }
+                  }}
                 >
                   <td className="py-6 px-8 align-top">
                     <span className="text-sm font-bold text-slate-800">{record.date}</span>
@@ -507,13 +453,13 @@ const VisitLog: React.FC<VisitLogProps> = ({
         </div>
       </div>
 
-      {selectedRecord && (
+      {selectedRecord && selectedRecord.type === 'Visita Gerencial' && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-white rounded-[2rem] shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-slate-100 flex items-start justify-between gap-4 sticky top-0 bg-white z-10">
               <div>
-                <h3 className="text-xl font-black text-slate-900 uppercase tracking-normal">
-                  Detalle de {selectedRecord.type}
+                <h3 className="text-2xl font-black text-slate-900 uppercase tracking-normal">
+                  Detalle de Visita Gerencial
                 </h3>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
                   Consulta ampliada del registro
@@ -521,15 +467,15 @@ const VisitLog: React.FC<VisitLogProps> = ({
               </div>
               <button
                 onClick={() => setSelectedRecord(null)}
-                className="p-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all"
+                className="p-3 rounded-2xl bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all"
                 title="Cerrar"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6">
-              {renderDetailContent()}
+            <div className="p-6 md:p-8">
+              {renderVisitDetailContent()}
             </div>
           </div>
         </div>
