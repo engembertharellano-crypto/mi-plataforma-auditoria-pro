@@ -48,6 +48,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
   const [filterZone, setFilterZone] = useState('Todas');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [recordToDelete, setRecordToDelete] = useState<any | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
 
   const isReadOnly = (currentUser?.email || '').trim().toLowerCase() === 'directiva@xana.com';
 
@@ -210,6 +211,130 @@ const VisitLog: React.FC<VisitLogProps> = ({
     setRecordToDelete(null);
   };
 
+  const renderDetailContent = () => {
+    if (!selectedRecord) return null;
+
+    const data = selectedRecord.original;
+
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Sede</p>
+            <p className="text-sm font-bold text-slate-800">{selectedRecord.pharmacy}</p>
+          </div>
+
+          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Zona</p>
+            <p className="text-sm font-bold text-slate-800">{selectedRecord.pharmacyZone}</p>
+          </div>
+
+          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Fecha</p>
+            <p className="text-sm font-bold text-slate-800">{selectedRecord.date}</p>
+          </div>
+
+          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Naturaleza</p>
+            <p className="text-sm font-bold text-slate-800">{selectedRecord.type}</p>
+          </div>
+        </div>
+
+        {selectedRecord.type === 'Auditoría' && (
+          <div className="space-y-4">
+            <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100">
+              <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-2">Resumen Ejecutivo</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Puntaje</p>
+                  <p className="text-lg font-black text-slate-900">{data.score ?? 0}%</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Riesgo</p>
+                  <p className="text-lg font-black text-slate-900">{getRiskLevel(data.score || 0)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Creado por</p>
+                  <p className="text-sm font-bold text-slate-900">{data.createdBy || 'No disponible'}</p>
+                </div>
+              </div>
+            </div>
+
+            {data.reportText && (
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Reporte</p>
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{data.reportText}</p>
+              </div>
+            )}
+
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Registro completo</p>
+              <pre className="text-xs text-slate-700 overflow-auto whitespace-pre-wrap break-all">
+                {JSON.stringify(data, null, 2)}
+              </pre>
+            </div>
+          </div>
+        )}
+
+        {selectedRecord.type === 'Visita Gerencial' && (
+          <div className="space-y-4">
+            <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
+              <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-2">Detalle de la visita</p>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Motivo</p>
+                  <p className="text-sm text-slate-800 font-medium">{data.reason || 'No registrado'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Observaciones</p>
+                  <p className="text-sm text-slate-800 font-medium whitespace-pre-wrap">{data.observations || 'No registrado'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Creado por</p>
+                  <p className="text-sm text-slate-800 font-medium">{data.createdBy || 'No disponible'}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Registro completo</p>
+              <pre className="text-xs text-slate-700 overflow-auto whitespace-pre-wrap break-all">
+                {JSON.stringify(data, null, 2)}
+              </pre>
+            </div>
+          </div>
+        )}
+
+        {(selectedRecord.type === 'Inventario CCTV' || selectedRecord.type === 'Infraestructura') && (
+          <div className="space-y-4">
+            <div className="bg-purple-50 rounded-2xl p-4 border border-purple-100">
+              <p className="text-[10px] font-black text-purple-500 uppercase tracking-widest mb-2">Detalle del registro</p>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Observaciones</p>
+                  <p className="text-sm text-slate-800 font-medium whitespace-pre-wrap">
+                    {data.observations || data.notes || data.comments || 'No registrado'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Creado por</p>
+                  <p className="text-sm text-slate-800 font-medium">{data.createdBy || 'No disponible'}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Registro completo</p>
+              <pre className="text-xs text-slate-700 overflow-auto whitespace-pre-wrap break-all">
+                {JSON.stringify(data, null, 2)}
+              </pre>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-8 animate-in fade-in duration-500 pb-24">
       
@@ -310,7 +435,11 @@ const VisitLog: React.FC<VisitLogProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-50">
               {filteredRecords.length > 0 ? filteredRecords.map((record) => (
-                <tr key={`${record.type}-${record.id}`} className="group hover:bg-slate-50/50 transition-colors">
+                <tr 
+                  key={`${record.type}-${record.id}`} 
+                  className="group hover:bg-slate-50/50 transition-colors cursor-pointer"
+                  onClick={() => setSelectedRecord(record)}
+                >
                   <td className="py-6 px-8 align-top">
                     <span className="text-sm font-bold text-slate-800">{record.date}</span>
                   </td>
@@ -335,7 +464,10 @@ const VisitLog: React.FC<VisitLogProps> = ({
                       
                       {!isReadOnly && record.type === 'Auditoría' && onEditAudit && record.original.createdBy === currentUser?.fullName && (
                         <button 
-                          onClick={() => onEditAudit(record.original)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditAudit(record.original);
+                          }}
                           className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100"
                           title="Editar Auditoría"
                         >
@@ -345,7 +477,10 @@ const VisitLog: React.FC<VisitLogProps> = ({
 
                       {!isReadOnly && record.type === 'Auditoría' && canDeleteRecord(record) && (
                         <button
-                          onClick={() => handleDeleteRecord(record)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteRecord(record);
+                          }}
                           className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm border border-red-100"
                           title="Eliminar Auditoría"
                         >
@@ -371,6 +506,34 @@ const VisitLog: React.FC<VisitLogProps> = ({
           </table>
         </div>
       </div>
+
+      {selectedRecord && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-white rounded-[2rem] shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 flex items-start justify-between gap-4 sticky top-0 bg-white z-10">
+              <div>
+                <h3 className="text-xl font-black text-slate-900 uppercase tracking-normal">
+                  Detalle de {selectedRecord.type}
+                </h3>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
+                  Consulta ampliada del registro
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedRecord(null)}
+                className="p-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all"
+                title="Cerrar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {renderDetailContent()}
+            </div>
+          </div>
+        </div>
+      )}
 
       {recordToDelete && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
