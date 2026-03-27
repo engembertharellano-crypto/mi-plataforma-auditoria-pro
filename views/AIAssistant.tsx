@@ -48,6 +48,13 @@ import {
   BriefingData
 } from '../types';
 
+const getLocalDateISO = () => {
+  const now = new Date();
+  const offset = now.getTimezoneOffset();
+  const local = new Date(now.getTime() - offset * 60000);
+  return local.toISOString().split('T')[0];
+};
+
 interface AIAssistantProps {
   pharmacies: Pharmacy[];
   audits: AuditState[];
@@ -82,7 +89,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
   const [showManualModal, setShowManualModal] = useState(false);
   
   const [proposalToSchedule, setProposalToSchedule] = useState<ScheduleEntry | null>(null);
-  const [schedulingDate, setSchedulingDate] = useState(new Date().toISOString().split('T')[0]);
+  const [schedulingDate, setSchedulingDate] = useState(getLocalDateISO());
 
   const [manualData, setManualData] = useState({
     locationType: 'pharmacy' as 'pharmacy' | 'other',
@@ -93,12 +100,12 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
     type: 'Auditoría', 
     customType: '',
     priority: 'Media' as 'Alta'|'Media'|'Baja', 
-    date: new Date().toISOString().split('T')[0]
+    date: getLocalDateISO()
   });
 
   const currentUser = JSON.parse(sessionStorage.getItem('xana_active_user') || '{}');
   const userFirstName = currentUser.fullName?.split(' ')[0] || 'Usuario';
-  const todayISO = new Date().toISOString().split('T')[0];
+  const todayISO = getLocalDateISO();
 
   const isGlobalRole = useMemo(() => {
     return ['Gerente de seguridad', 'Lider de investigaciones', 'Super Usuario', 'Gerente Corporativo de Seguridad'].includes(currentUser.role);
@@ -135,7 +142,11 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
   };
 
   const tomorrow = useMemo(() => getNextWorkingDay(new Date()), []);
-  const tomorrowISO = tomorrow.toISOString().split('T')[0];
+  const tomorrowISO = (() => {
+    const offset = tomorrow.getTimezoneOffset();
+    const local = new Date(tomorrow.getTime() - offset * 60000);
+    return local.toISOString().split('T')[0];
+  })();
 
   const totalCoverage = useMemo(() => {
     const uniqueVisited = new Set([
