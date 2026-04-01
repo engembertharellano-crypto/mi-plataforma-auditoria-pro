@@ -270,3 +270,115 @@ export interface CaseRecord {
   closedDate?: string;
   createdBy: string;
 }
+// =====================================
+// INVENTARIO TÉCNICO
+// =====================================
+
+export type InventoryCategory =
+  | 'Camara'
+  | 'DVR'
+  | 'NVR'
+  | 'Disco'
+  | 'Monitor'
+  | 'UPS'
+  | 'Router'
+  | 'Switch'
+  | 'Biometrico'
+  | 'Accesorio'
+  | 'Otro';
+
+export type InventoryCondition =
+  | 'Nuevo'
+  | 'Operativo'
+  | 'Usado'
+  | 'Dañado'
+  | 'Reparacion'
+  | 'Baja';
+
+export type InventoryStatus =
+  | 'Disponible'
+  | 'Asignado'
+  | 'Almacen'
+  | 'Transito'
+  | 'Reparacion'
+  | 'Descartado';
+
+export type InventoryOrigin =
+  | 'Compra'
+  | 'Desinstalacion'
+  | 'Traslado'
+  | 'Recuperacion';
+
+export type InventoryUnitType =
+  | 'Unidad'
+  | 'Lote';
+
+export interface TechnicalInventoryItem {
+  id: string;
+  itemCode?: string;
+
+  name: string;
+  category: InventoryCategory;
+
+  brand?: string;
+  model?: string;
+  serialNumber?: string;
+
+  quantity: number;
+  unitType: InventoryUnitType;
+
+  condition: InventoryCondition;
+  status: InventoryStatus;
+
+  originType: InventoryOrigin;
+  originReference?: string;
+
+  entryDate: string;
+
+  currentLocationType?: 'Almacen' | 'Farmacia' | 'Corporativo' | 'Otro';
+  currentLocationId?: string;
+  currentLocationName?: string;
+
+  assignedTo?: string;
+
+  notes?: string;
+  createdBy?: string;
+}
+
+// =====================================
+// MOVIMIENTOS DE INVENTARIO
+// =====================================
+
+export type InventoryMovementType =
+  | 'Ingreso'
+  | 'Asignacion'
+  | 'Traslado'
+  | 'Devolucion'
+  | 'Reparacion'
+  | 'Baja'
+  | 'Ajuste';
+
+export interface TechnicalInventoryMovement {
+  id: string;
+
+  inventoryItemId: string;
+
+  movementType: InventoryMovementType;
+
+  date: string;
+
+  fromLocationType?: string;
+  fromLocationId?: string;
+  fromLocationName?: string;
+
+  toLocationType?: string;
+  toLocationId?: string;
+  toLocationName?: string;
+
+  quantity: number;
+
+  reason?: string;
+  notes?: string;
+
+  createdBy?: string;
+}
