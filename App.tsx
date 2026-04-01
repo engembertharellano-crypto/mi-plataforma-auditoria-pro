@@ -37,7 +37,7 @@ import {
   BriefingData,
   Asset,
   AssetLoan,
-  CaseRecord
+  CaseRecord,
   TechnicalInventoryItem,
 TechnicalInventoryMovement,
 } from './types';
