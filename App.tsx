@@ -20,6 +20,7 @@ import AccessManagement from './views/AccessManagement';
 import CaseManagement from './views/CaseManagement';
 import Settings from './views/Settings';
 import Login from './views/Login';
+import TechnicalInventory from './views/TechnicalInventory';
 import { Menu, CheckCircle2, XCircle, WifiOff } from 'lucide-react';
 import {
   ViewName,
