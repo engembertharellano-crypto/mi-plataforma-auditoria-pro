@@ -57,6 +57,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'cctv-inventory', label: 'Inventario CCTV', icon: Video },
     { id: 'physical-inventory', label: 'Infraestructura', icon: Warehouse },
     { id: 'asset-control', label: 'Control de Activos', icon: KeyRound },
+    { id: 'technical-inventory', label: 'Inventario Técnico', icon: Warehouse },
     { id: 'pending-tasks', label: 'Pendientes', icon: ListTodo },
     { id: 'delivery-receipts', label: 'Recepciones', icon: Receipt },
     { id: 'monthly-summary', label: 'Estadísticas', icon: FileBarChart },
