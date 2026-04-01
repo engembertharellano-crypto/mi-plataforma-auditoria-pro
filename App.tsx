@@ -38,6 +38,8 @@ import {
   Asset,
   AssetLoan,
   CaseRecord
+  TechnicalInventoryItem,
+TechnicalInventoryMovement,
 } from './types';
 import { HARDWARE_CHECKLIST, PROCESS_CHECKLIST } from './constants';
 import { supabase } from './lib/supabase';
