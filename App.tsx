@@ -61,6 +61,8 @@ interface UserData {
   assets: Asset[];
   loans: AssetLoan[];
   cases: CaseRecord[];
+  technicalInventory: TechnicalInventoryItem[];
+technicalInventoryMovements: TechnicalInventoryMovement[];
   users: any[];
   dailyBriefing?: BriefingData;
 }
