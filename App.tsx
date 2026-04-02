@@ -39,7 +39,7 @@ import {
   AssetLoan,
   CaseRecord,
   TechnicalInventoryItem,
-TechnicalInventoryMovement,
+  TechnicalInventoryMovement,
 } from './types';
 import { HARDWARE_CHECKLIST, PROCESS_CHECKLIST } from './constants';
 import { supabase } from './lib/supabase';
@@ -62,7 +62,7 @@ interface UserData {
   loans: AssetLoan[];
   cases: CaseRecord[];
   technicalInventory: TechnicalInventoryItem[];
-technicalInventoryMovements: TechnicalInventoryMovement[];
+  technicalInventoryMovements: TechnicalInventoryMovement[];
   users: any[];
   dailyBriefing?: BriefingData;
 }
@@ -74,7 +74,6 @@ interface Toast {
 }
 
 const App: React.FC = () => {
-  // ✅ 1) Creamos una referencia NO NULA para TypeScript
   const sb = supabase;
 
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -84,7 +83,6 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
-
   const [isTravelMode, setIsTravelMode] = useState(false);
 
   const syncInProgress = useRef(false);
@@ -109,6 +107,8 @@ const App: React.FC = () => {
           assets: parsed.assets || [],
           loans: parsed.loans || [],
           cases: parsed.cases || [],
+          technicalInventory: parsed.technicalInventory || [],
+          technicalInventoryMovements: parsed.technicalInventoryMovements || [],
           users: parsed.users || [],
           dailyBriefing: parsed.dailyBriefing
         };
@@ -132,6 +132,8 @@ const App: React.FC = () => {
       assets: [],
       loans: [],
       cases: [],
+      technicalInventory: [],
+      technicalInventoryMovements: [],
       users: [],
       dailyBriefing: undefined
     };
@@ -143,20 +145,16 @@ const App: React.FC = () => {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
   }, []);
 
-  // --- PARCHE DE SEGURIDAD PARA LOCALSTORAGE ---
   useEffect(() => {
     try {
       localStorage.setItem('xana_hybrid_cache', JSON.stringify(userData));
     } catch (error: any) {
       if (error.name === 'QuotaExceededError' || error.code === 22) {
         console.warn("⚠️ Cache excedida. Limpiando para evitar bloqueo de App.");
-        // Si se llena, borramos la caché local. La app seguirá funcionando porque 
-        // los datos están en el estado `userData` de React y se recuperarán de la nube en el próximo sync.
         localStorage.removeItem('xana_hybrid_cache');
       }
     }
   }, [userData]);
-  // ---------------------------------------------
 
   useEffect(() => {
     const sessionUser = sessionStorage.getItem('xana_active_user');
@@ -609,7 +607,7 @@ const App: React.FC = () => {
 
         {currentView === 'ai-assistant' && !isReadOnly && (
           <AIAssistant
-            pharmacies={visiblePharmacies}
+            pharmacies={userData.pharmacies}
             audits={userData.audits}
             cctvRecords={userData.cctvRecords}
             physicalRecords={userData.physicalRecords}
@@ -805,6 +803,35 @@ const App: React.FC = () => {
               setUserData(p => ({ ...p, loans: updated }));
               const ln = updated.find(x => x.id === id);
               if (ln) await saveToCloud('loans', id, ln);
+            }}
+          />
+        )}
+
+        {currentView === 'technical-inventory' && !isReadOnly && (
+          <TechnicalInventory
+            pharmacies={userData.pharmacies}
+            items={userData.technicalInventory}
+            currentUser={currentUser}
+            onAddItem={async (item) => {
+              if (!checkPermission()) return;
+              setUserData(prev => ({
+                ...prev,
+                technicalInventory: [item, ...prev.technicalInventory]
+              }));
+            }}
+            onUpdateItem={async (item) => {
+              if (!checkPermission()) return;
+              setUserData(prev => ({
+                ...prev,
+                technicalInventory: prev.technicalInventory.map(x => x.id === item.id ? item : x)
+              }));
+            }}
+            onDeleteItem={async (id) => {
+              if (!checkPermission()) return;
+              setUserData(prev => ({
+                ...prev,
+                technicalInventory: prev.technicalInventory.filter(x => x.id !== id)
+              }));
             }}
           />
         )}
