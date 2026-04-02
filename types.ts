@@ -1,4 +1,4 @@
-export type ViewName = 'dashboard' | 'ai-assistant' | 'audit-wizard' | 'new-visit' | 'audit-results' | 'cctv-inventory' | 'physical-inventory' | 'pending-tasks' | 'pharmacy-list' | 'visit-log' | 'monthly-summary' | 'management-report' | 'staff-directory' | 'support-directory' | 'delivery-receipts' | 'settings' | 'access-management' | 'asset-control' | 'case-management';
+export type ViewName = 'dashboard' | 'ai-assistant' | 'audit-wizard' | 'new-visit' | 'audit-results' | 'cctv-inventory' | 'physical-inventory' | 'pending-tasks' | 'pharmacy-list' | 'visit-log' | 'monthly-summary' | 'management-report' | 'staff-directory' | 'support-directory' | 'delivery-receipts' | 'settings' | 'access-management' | 'asset-control' | 'case-management' | 'technical-inventory';
 
 export interface Pharmacy {
   id: string;
