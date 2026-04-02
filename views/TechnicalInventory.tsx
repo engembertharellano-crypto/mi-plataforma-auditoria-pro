@@ -12,14 +12,18 @@ import {
   PackageCheck,
   X,
   Save,
-  MapPin,
   Shield,
   Cpu,
   HardDrive,
   Monitor,
   Camera,
   Router,
-  ScanLine
+  ScanLine,
+  Pencil,
+  RotateCcw,
+  ArchiveX,
+  UserCheck,
+  MapPin
 } from 'lucide-react';
 import { Pharmacy, TechnicalInventoryItem, InventoryCategory } from '../types';
 
@@ -46,6 +50,51 @@ const CATEGORY_OPTIONS: InventoryCategory[] = [
   'Otro'
 ];
 
+const STATUS_OPTIONS = [
+  'Disponible',
+  'Asignado',
+  'Almacen',
+  'Transito',
+  'Reparacion',
+  'Descartado'
+] as const;
+
+const CONDITION_OPTIONS = [
+  'Nuevo',
+  'Operativo',
+  'Usado',
+  'Dañado',
+  'Reparacion',
+  'Baja'
+] as const;
+
+const ORIGIN_OPTIONS = [
+  'Compra',
+  'Desinstalacion',
+  'Traslado',
+  'Recuperacion'
+] as const;
+
+const LOCATION_TYPE_OPTIONS = [
+  'Almacen',
+  'Custodia',
+  'Farmacia',
+  'Reparacion',
+  'Desechado',
+  'Otro'
+] as const;
+
+const CORPORATE_LOCATIONS = [
+  'Almacén Central',
+  'Almacén Guarenas',
+  'Almacén Cubo Negro',
+  'Almacén Barquisimeto',
+  'Custodia de Coordinación',
+  'Custodia de Gerencia',
+  'Taller de Reparación',
+  'Baja Operativa'
+];
+
 const getCategoryIcon = (category: InventoryCategory) => {
   switch (category) {
     case 'Camara':
@@ -67,6 +116,23 @@ const getCategoryIcon = (category: InventoryCategory) => {
   }
 };
 
+const getStatusClasses = (status?: string) => {
+  switch (status) {
+    case 'Asignado':
+      return 'bg-blue-100 text-blue-700';
+    case 'Reparacion':
+      return 'bg-orange-100 text-orange-700';
+    case 'Descartado':
+      return 'bg-red-100 text-red-700';
+    case 'Transito':
+      return 'bg-purple-100 text-purple-700';
+    case 'Almacen':
+      return 'bg-slate-100 text-slate-700';
+    default:
+      return 'bg-emerald-100 text-emerald-700';
+  }
+};
+
 const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
   pharmacies,
   items,
@@ -80,9 +146,10 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
   const [filterCategory, setFilterCategory] = useState('Todas');
   const [showNewModal, setShowNewModal] = useState(false);
   const [itemToAssign, setItemToAssign] = useState<TechnicalInventoryItem | null>(null);
+  const [itemToEdit, setItemToEdit] = useState<TechnicalInventoryItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TechnicalInventoryItem | null>(null);
 
-  const [newItem, setNewItem] = useState<Partial<TechnicalInventoryItem>>({
+  const emptyForm: Partial<TechnicalInventoryItem> = {
     name: '',
     category: 'Camara',
     brand: '',
@@ -96,9 +163,12 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
     originReference: '',
     entryDate: new Date().toISOString().split('T')[0],
     currentLocationType: 'Almacen',
-    currentLocationName: 'Almacén Principal',
+    currentLocationName: 'Almacén Central',
     notes: ''
-  });
+  };
+
+  const [newItem, setNewItem] = useState<Partial<TechnicalInventoryItem>>(emptyForm);
+  const [editForm, setEditForm] = useState<Partial<TechnicalInventoryItem>>(emptyForm);
 
   const [assignment, setAssignment] = useState({
     pharmacyId: '',
@@ -130,6 +200,13 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
     };
   }, [items]);
 
+  const resetNewForm = () => {
+    setNewItem({
+      ...emptyForm,
+      entryDate: new Date().toISOString().split('T')[0]
+    });
+  };
+
   const handleSaveNew = () => {
     if (!newItem.name || !newItem.category || !newItem.entryDate) return;
 
@@ -150,7 +227,7 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
       entryDate: newItem.entryDate,
       currentLocationType: newItem.currentLocationType as any,
       currentLocationId: '',
-      currentLocationName: newItem.currentLocationName || 'Almacén Principal',
+      currentLocationName: newItem.currentLocationName || 'Almacén Central',
       assignedTo: '',
       notes: newItem.notes || '',
       createdBy: currentUser?.fullName || currentUser?.email || 'Sistema'
@@ -158,23 +235,34 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
 
     onAddItem(item);
     setShowNewModal(false);
-    setNewItem({
-      name: '',
-      category: 'Camara',
-      brand: '',
-      model: '',
-      serialNumber: '',
-      quantity: 1,
-      unitType: 'Unidad',
-      condition: 'Operativo',
-      status: 'Disponible',
-      originType: 'Compra',
-      originReference: '',
-      entryDate: new Date().toISOString().split('T')[0],
-      currentLocationType: 'Almacen',
-      currentLocationName: 'Almacén Principal',
-      notes: ''
+    resetNewForm();
+  };
+
+  const openEditModal = (item: TechnicalInventoryItem) => {
+    setItemToEdit(item);
+    setEditForm({
+      ...item
     });
+  };
+
+  const handleSaveEdit = () => {
+    if (!itemToEdit || !editForm.name || !editForm.category || !editForm.entryDate) return;
+
+    const updated: TechnicalInventoryItem = {
+      ...itemToEdit,
+      ...editForm,
+      name: editForm.name,
+      category: editForm.category as InventoryCategory,
+      quantity: Number(editForm.quantity || 1),
+      unitType: (editForm.unitType as any) || 'Unidad',
+      condition: (editForm.condition as any) || 'Operativo',
+      status: (editForm.status as any) || 'Disponible',
+      originType: (editForm.originType as any) || 'Compra',
+      entryDate: editForm.entryDate
+    };
+
+    onUpdateItem(updated);
+    setItemToEdit(null);
   };
 
   const handleAssign = () => {
@@ -203,7 +291,10 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
     onUpdateItem({
       ...item,
       status: 'Reparacion',
-      condition: 'Reparacion'
+      condition: 'Reparacion',
+      currentLocationType: 'Reparacion',
+      currentLocationName: 'Taller de Reparación',
+      assignedTo: ''
     });
   };
 
@@ -211,11 +302,110 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
     onUpdateItem({
       ...item,
       status: 'Almacen',
+      condition: item.condition === 'Reparacion' ? 'Operativo' : item.condition,
       currentLocationType: 'Almacen',
       currentLocationId: '',
-      currentLocationName: 'Almacén Principal',
+      currentLocationName: 'Almacén Central',
       assignedTo: ''
     });
+  };
+
+  const handleMarkAvailable = (item: TechnicalInventoryItem) => {
+    onUpdateItem({
+      ...item,
+      status: 'Disponible',
+      condition: item.condition === 'Reparacion' ? 'Operativo' : item.condition,
+      currentLocationType: 'Almacen',
+      currentLocationId: '',
+      currentLocationName: 'Almacén Central',
+      assignedTo: ''
+    });
+  };
+
+  const handleDiscard = (item: TechnicalInventoryItem) => {
+    onUpdateItem({
+      ...item,
+      status: 'Descartado',
+      condition: 'Baja',
+      currentLocationType: 'Desechado' as any,
+      currentLocationName: 'Baja Operativa',
+      assignedTo: ''
+    });
+  };
+
+  const renderLocationFields = (
+    form: Partial<TechnicalInventoryItem>,
+    setForm: React.Dispatch<React.SetStateAction<Partial<TechnicalInventoryItem>>>
+  ) => {
+    const currentType = form.currentLocationType || 'Almacen';
+
+    return (
+      <>
+        <div>
+          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tipo de ubicación</label>
+          <select
+            className="w-full p-3 border border-slate-200 rounded-xl outline-none"
+            value={currentType}
+            onChange={(e) =>
+              setForm(prev => ({
+                ...prev,
+                currentLocationType: e.target.value as any,
+                currentLocationName:
+                  e.target.value === 'Almacen' ? 'Almacén Central'
+                  : e.target.value === 'Reparacion' ? 'Taller de Reparación'
+                  : e.target.value === 'Desechado' ? 'Baja Operativa'
+                  : prev.currentLocationName || ''
+              }))
+            }
+          >
+            {LOCATION_TYPE_OPTIONS.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        </div>
+
+        {currentType === 'Farmacia' ? (
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Farmacia</label>
+            <select
+              className="w-full p-3 border border-slate-200 rounded-xl outline-none"
+              value={form.currentLocationId || ''}
+              onChange={(e) => {
+                const pharmacy = pharmacies.find(p => p.id === e.target.value);
+                setForm(prev => ({
+                  ...prev,
+                  currentLocationId: e.target.value,
+                  currentLocationName: pharmacy?.name || '',
+                  assignedTo: pharmacy?.name || ''
+                }));
+              }}
+            >
+              <option value="">Seleccione una farmacia...</option>
+              {pharmacies.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nombre de ubicación</label>
+            <input
+              list="corporate-locations"
+              type="text"
+              className="w-full p-3 border border-slate-200 rounded-xl outline-none"
+              value={form.currentLocationName || ''}
+              onChange={(e) => setForm(prev => ({ ...prev, currentLocationName: e.target.value }))}
+              placeholder="Ej. Almacén Guarenas / Coordinador Juan Pérez"
+            />
+            <datalist id="corporate-locations">
+              {CORPORATE_LOCATIONS.map(location => (
+                <option key={location} value={location} />
+              ))}
+            </datalist>
+          </div>
+        )}
+      </>
+    );
   };
 
   return (
@@ -293,11 +483,9 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
             onChange={(e) => setFilterStatus(e.target.value)}
           >
             <option value="Todos">Todos los estados</option>
-            <option value="Disponible">Disponible</option>
-            <option value="Almacen">Almacén</option>
-            <option value="Asignado">Asignado</option>
-            <option value="Reparacion">Reparación</option>
-            <option value="Descartado">Descartado</option>
+            {STATUS_OPTIONS.map(status => (
+              <option key={status} value={status}>{status}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -343,12 +531,7 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
 
                     <td className="py-6 px-8 align-top">
                       <div className="space-y-2">
-                        <span className={`inline-flex px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${
-                          item.status === 'Asignado' ? 'bg-blue-100 text-blue-700' :
-                          item.status === 'Reparacion' ? 'bg-orange-100 text-orange-700' :
-                          item.status === 'Descartado' ? 'bg-red-100 text-red-700' :
-                          'bg-emerald-100 text-emerald-700'
-                        }`}>
+                        <span className={`inline-flex px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${getStatusClasses(item.status)}`}>
                           {item.status}
                         </span>
                         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -358,10 +541,15 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
                     </td>
 
                     <td className="py-6 px-8 align-top">
-                      <p className="text-sm font-bold text-slate-800">{item.currentLocationName || 'Sin ubicación'}</p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                        {item.currentLocationType || 'No definida'}
-                      </p>
+                      <div className="flex items-start gap-2">
+                        <MapPin className="w-4 h-4 text-slate-400 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-bold text-slate-800">{item.currentLocationName || 'Sin ubicación'}</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                            {item.currentLocationType || 'No definida'}
+                          </p>
+                        </div>
+                      </div>
                     </td>
 
                     <td className="py-6 px-8 align-top">
@@ -370,8 +558,16 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
                     </td>
 
                     <td className="py-6 px-8 align-top text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {item.status !== 'Asignado' && (
+                      <div className="flex items-center justify-end gap-2 flex-wrap">
+                        <button
+                          onClick={() => openEditModal(item)}
+                          className="p-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-700 hover:text-white transition-all border border-slate-200"
+                          title="Editar"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+
+                        {item.status !== 'Asignado' && item.status !== 'Descartado' && (
                           <button
                             onClick={() => setItemToAssign(item)}
                             className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all border border-blue-100"
@@ -401,6 +597,26 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
                           </button>
                         )}
 
+                        {item.status === 'Reparacion' && (
+                          <button
+                            onClick={() => handleMarkAvailable(item)}
+                            className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100"
+                            title="Marcar operativo"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                          </button>
+                        )}
+
+                        {item.status !== 'Descartado' && (
+                          <button
+                            onClick={() => handleDiscard(item)}
+                            className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all border border-red-100"
+                            title="Desechar"
+                          >
+                            <ArchiveX className="w-4 h-4" />
+                          </button>
+                        )}
+
                         <button
                           onClick={() => setDeleteTarget(item)}
                           className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all border border-red-100"
@@ -426,7 +642,7 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
 
       {showNewModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2rem] w-full max-w-3xl shadow-2xl overflow-hidden">
+          <div className="bg-white rounded-[2rem] w-full max-w-4xl shadow-2xl overflow-hidden">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
               <h3 className="text-xl font-black text-slate-900 uppercase">Registrar Ingreso</h3>
               <button onClick={() => setShowNewModal(false)} className="p-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200">
@@ -434,7 +650,7 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
               </button>
             </div>
 
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5 max-h-[70vh] overflow-y-auto">
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5 max-h-[75vh] overflow-y-auto">
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nombre</label>
                 <input
@@ -516,12 +732,22 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
                   value={newItem.condition || 'Operativo'}
                   onChange={(e) => setNewItem({ ...newItem, condition: e.target.value as any })}
                 >
-                  <option value="Nuevo">Nuevo</option>
-                  <option value="Operativo">Operativo</option>
-                  <option value="Usado">Usado</option>
-                  <option value="Dañado">Dañado</option>
-                  <option value="Reparacion">Reparacion</option>
-                  <option value="Baja">Baja</option>
+                  {CONDITION_OPTIONS.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Estado</label>
+                <select
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
+                  value={newItem.status || 'Disponible'}
+                  onChange={(e) => setNewItem({ ...newItem, status: e.target.value as any })}
+                >
+                  {STATUS_OPTIONS.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
                 </select>
               </div>
 
@@ -532,10 +758,9 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
                   value={newItem.originType || 'Compra'}
                   onChange={(e) => setNewItem({ ...newItem, originType: e.target.value as any })}
                 >
-                  <option value="Compra">Compra</option>
-                  <option value="Desinstalacion">Desinstalacion</option>
-                  <option value="Traslado">Traslado</option>
-                  <option value="Recuperacion">Recuperacion</option>
+                  {ORIGIN_OPTIONS.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
                 </select>
               </div>
 
@@ -548,6 +773,8 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
                   onChange={(e) => setNewItem({ ...newItem, entryDate: e.target.value })}
                 />
               </div>
+
+              {renderLocationFields(newItem, setNewItem)}
 
               <div className="md:col-span-2">
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Referencia de origen</label>
@@ -573,7 +800,10 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
 
             <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
               <button
-                onClick={() => setShowNewModal(false)}
+                onClick={() => {
+                  setShowNewModal(false);
+                  resetNewForm();
+                }}
                 className="px-6 py-3 rounded-xl bg-slate-100 text-slate-700 font-black uppercase text-[10px]"
               >
                 Cancelar
@@ -584,6 +814,182 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
               >
                 <Save className="w-4 h-4" />
                 Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {itemToEdit && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[260] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2rem] w-full max-w-4xl shadow-2xl overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-xl font-black text-slate-900 uppercase">Editar Activo</h3>
+              <button onClick={() => setItemToEdit(null)} className="p-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5 max-h-[75vh] overflow-y-auto">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nombre</label>
+                <input
+                  type="text"
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
+                  value={editForm.name || ''}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Categoría</label>
+                <select
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
+                  value={editForm.category || 'Camara'}
+                  onChange={(e) => setEditForm({ ...editForm, category: e.target.value as InventoryCategory })}
+                >
+                  {CATEGORY_OPTIONS.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Marca</label>
+                <input
+                  type="text"
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
+                  value={editForm.brand || ''}
+                  onChange={(e) => setEditForm({ ...editForm, brand: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Modelo</label>
+                <input
+                  type="text"
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
+                  value={editForm.model || ''}
+                  onChange={(e) => setEditForm({ ...editForm, model: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Serial</label>
+                <input
+                  type="text"
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
+                  value={editForm.serialNumber || ''}
+                  onChange={(e) => setEditForm({ ...editForm, serialNumber: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Cantidad</label>
+                <input
+                  type="number"
+                  min={1}
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
+                  value={editForm.quantity || 1}
+                  onChange={(e) => setEditForm({ ...editForm, quantity: Number(e.target.value) })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tipo de unidad</label>
+                <select
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
+                  value={editForm.unitType || 'Unidad'}
+                  onChange={(e) => setEditForm({ ...editForm, unitType: e.target.value as any })}
+                >
+                  <option value="Unidad">Unidad</option>
+                  <option value="Lote">Lote</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Condición</label>
+                <select
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
+                  value={editForm.condition || 'Operativo'}
+                  onChange={(e) => setEditForm({ ...editForm, condition: e.target.value as any })}
+                >
+                  {CONDITION_OPTIONS.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Estado</label>
+                <select
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
+                  value={editForm.status || 'Disponible'}
+                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
+                >
+                  {STATUS_OPTIONS.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Origen</label>
+                <select
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
+                  value={editForm.originType || 'Compra'}
+                  onChange={(e) => setEditForm({ ...editForm, originType: e.target.value as any })}
+                >
+                  {ORIGIN_OPTIONS.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fecha de ingreso</label>
+                <input
+                  type="date"
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
+                  value={editForm.entryDate || ''}
+                  onChange={(e) => setEditForm({ ...editForm, entryDate: e.target.value })}
+                />
+              </div>
+
+              {renderLocationFields(editForm, setEditForm)}
+
+              <div className="md:col-span-2">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Referencia de origen</label>
+                <input
+                  type="text"
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
+                  value={editForm.originReference || ''}
+                  onChange={(e) => setEditForm({ ...editForm, originReference: e.target.value })}
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Notas</label>
+                <textarea
+                  rows={3}
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none resize-none"
+                  value={editForm.notes || ''}
+                  onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
+              <button
+                onClick={() => setItemToEdit(null)}
+                className="px-6 py-3 rounded-xl bg-slate-100 text-slate-700 font-black uppercase text-[10px]"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                className="px-6 py-3 rounded-xl bg-blue-600 text-white font-black uppercase text-[10px] flex items-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                Guardar Cambios
               </button>
             </div>
           </div>
