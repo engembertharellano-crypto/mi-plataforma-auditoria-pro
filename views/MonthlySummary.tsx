@@ -115,6 +115,9 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   currentUser 
 }) => {
 
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
+  const currentYear = now.getFullYear();
   const [selectedZone, setSelectedZone] = useState<string>('Todas');
 
   const zones = useMemo(() => {
@@ -146,16 +149,14 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       if (parts.length === 3) {
         const month = parseInt(parts[1], 10) - 1;
         const year = parseInt(parts[2], 10);
-        const now = new Date();
-        return month === now.getMonth() && year === now.getFullYear();
+        return month === selectedMonth && year === currentYear;
       }
     }
 
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return false;
 
-    const now = new Date();
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    return d.getMonth() === selectedMonth && d.getFullYear() === currentYear;
   };
 
   // --- FILTRO DE DATA ---
@@ -187,7 +188,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     cases: currentCases 
   } = filteredData;
 
-  // ✅ SOLO AUDITORÍAS DEL MES EN CURSO PARA ESTOS BLOQUES
+  // ✅ SOLO AUDITORÍAS DEL MES SELECCIONADO PARA ESTOS BLOQUES
   const monthlyAudits = currentAudits.filter(a => isCurrentMonth(a.date));
 
   // --- KPI LOGIC ---
@@ -198,7 +199,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const totalPharmaciesCount = currentPharmacies.length;
 
-  // ✅ MISMO CRITERIO QUE DASHBOARD: solo Auditorías + Visitas de Gestión
+  // ✅ MISMO CRITERIO QUE DASHBOARD: Auditorías + Visitas de Gestión del mes seleccionado
   const visitedPharmacies = new Set([
     ...monthlyAudits.map(a => String(a.pharmacy?.id)),
     ...currentManagement
@@ -208,12 +209,13 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const coverage = totalPharmaciesCount > 0 ? Math.round((visitedPharmacies / totalPharmaciesCount) * 100) : 0;
 
-  // ✅ CASOS: usa los casos que ya están cargados en esta vista
-  const totalCases = currentCases.length;
-  const closedCases = currentCases.filter(c => c.status === 'Cerrado').length;
+  // ✅ CASOS: Filtrados por mes
+  const casesInSelectedMonth = currentCases.filter(c => isCurrentMonth(c.date));
+  const totalCases = casesInSelectedMonth.length;
+  const closedCases = casesInSelectedMonth.filter(c => c.status === 'Cerrado').length;
   const efficiency = totalCases > 0 ? Math.round((closedCases / totalCases) * 100) : 0;
 
-  // ✅ ACTIVIDAD TOTAL: misma lógica que Dashboard
+  // ✅ ACTIVIDAD TOTAL: responde a selectedMonth
   const totalActivities =
     audits.filter(a => isCurrentMonth(a.date)).length +
     cctvRecords.filter(r => isCurrentMonth(r.date)).length +
@@ -221,7 +223,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     managementRecords.filter(r => isCurrentMonth(r.date)).length;
 
   // =========================================================================
-  // CÁLCULO DE DETALLES (QUÉ FALLÓ)
+  // CÁLCULO DE DETALLES (QUÉ FALLÓ) - Filtrado por mes
   // =========================================================================
 
   // 1. CCTV
@@ -229,7 +231,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   let cctvOk = 0;
   let cctvBad = 0;
   
-  currentCCTV.forEach((rawRecord: any) => {
+  currentCCTV.filter(r => isCurrentMonth(r.date)).forEach((rawRecord: any) => {
     const r = parseData(rawRecord);
     const cams = r.cameras || {};
     
@@ -243,7 +245,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const cctvHealth = cctvTotal > 0 ? Math.round((cctvOk / cctvTotal) * 100) : 0;
 
-  // 2. INFRAESTRUCTURA (Con Nombres de Fallas)
+  // 2. INFRAESTRUCTURA (Filtrado por mes)
   let infraTotal = 0; 
   let infraOk = 0;
   
@@ -254,7 +256,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     'Iluminación': 0
   };
   
-  currentPhysical.forEach((rawRecord: any) => {
+  currentPhysical.filter(r => isCurrentMonth(r.date)).forEach((rawRecord: any) => {
     const r = parseData(rawRecord);
     const s = r.santamarias || {};
     const c = r.candados || {};
@@ -281,12 +283,12 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     .filter(([_, count]) => count > 0)
     .map(([name, count]) => `${count} ${name}${count > 1 ? 's' : ''}`);
 
-  // --- ORDENAMIENTO: SOLO MES EN CURSO ---
+  // --- ORDENAMIENTO: SOLO MES SELECCIONADO ---
   const sortedAudits = [...monthlyAudits].sort((a, b) => (a.score || 0) - (b.score || 0));
   const lowPerforming = sortedAudits.slice(0, 3);
   const topPerforming = [...sortedAudits].reverse().slice(0, 3);
 
-  // --- LÓGICA INTELIGENTE: SOLO MES EN CURSO ---
+  // --- LÓGICA INTELIGENTE: SOLO MES SELECCIONADO ---
   const failureCounts: Record<string, number> = {};
   monthlyAudits.forEach(audit => {
     if (audit.processAnswers) {
@@ -315,12 +317,17 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   });
   const predominantRisk = Object.entries(riskCounts).sort((a, b) => b[1] - a[1])[0];
 
-  const highPriorityOpen = currentCases.filter(c => c.priority === 'Alta' && c.status !== 'Cerrado').length;
+  const highPriorityOpen = casesInSelectedMonth.filter(c => c.priority === 'Alta' && c.status !== 'Cerrado').length;
+
+  const monthNames = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+  ];
 
   return (
     <div className="max-w-[1600px] mx-auto p-6 md:p-10 pb-20 animate-in fade-in duration-500">
       
-      {/* HEADER CON FILTRO */}
+      {/* HEADER CON FILTROS */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center shadow-2xl shrink-0 border border-slate-700">
@@ -328,25 +335,47 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
           <div>
             <h1 className="text-3xl font-black text-white tracking-normal uppercase drop-shadow-md">Resumen Estadístico</h1>
-            <p className="text-slate-300 font-bold text-xs uppercase tracking-[0.18em]">Métricas Clave de Rendimiento</p>
+            <p className="text-slate-300 font-bold text-xs uppercase tracking-[0.18em]">Gestión de {monthNames[selectedMonth]} {currentYear}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 bg-white p-2 pr-6 rounded-xl shadow-lg">
-          <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
-            <Filter className="w-5 h-5" />
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Selector de Mes */}
+          <div className="flex items-center gap-3 bg-white p-2 pr-6 rounded-xl shadow-lg">
+            <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
+              <Calendar className="w-5 h-5" />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Mes de Consulta</label>
+              <select 
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer min-w-[120px]"
+              >
+                {monthNames.map((m, i) => (
+                  <option key={i} value={i}>{m}</option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div className="flex flex-col">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Filtrar por Zona</label>
-            <select 
-              value={selectedZone}
-              onChange={(e) => setSelectedZone(e.target.value)}
-              className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer min-w-[150px]"
-            >
-              {zones.map(zone => (
-                <option key={zone} value={zone}>{zone}</option>
-              ))}
-            </select>
+
+          {/* Selector de Zona */}
+          <div className="flex items-center gap-3 bg-white p-2 pr-6 rounded-xl shadow-lg">
+            <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
+              <Filter className="w-5 h-5" />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Filtrar por Zona</label>
+              <select 
+                value={selectedZone}
+                onChange={(e) => setSelectedZone(e.target.value)}
+                className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer min-w-[150px]"
+              >
+                {zones.map(zone => (
+                  <option key={zone} value={zone}>{zone}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -397,7 +426,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
             <span className="text-5xl font-black text-slate-800 tracking-normal">{totalActivities}</span>
             <Calendar className="w-6 h-6 mb-2 text-orange-500" />
           </div>
-          <p className="mt-4 text-xs font-bold text-slate-400">Registros este mes</p>
+          <p className="mt-4 text-xs font-bold text-slate-400">Registros en {monthNames[selectedMonth]}</p>
         </div>
 
       </div>
@@ -480,7 +509,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Incumplimiento más repetido en auditorías</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Incumplimiento más repetido</p>
                 <p className="text-white font-bold leading-tight text-sm">
                   {topFailure ? topFailure[0] : "Sin hallazgos recurrentes"}
                 </p>
@@ -510,7 +539,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                 <Zap className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Casos de alta prioridad aún sin cerrar</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Casos críticos abiertos</p>
                 <p className="text-white font-bold leading-tight text-sm">
                   {highPriorityOpen > 0 ? `${highPriorityOpen} caso(s) abiertos` : "Sin casos abiertos"}
                 </p>
