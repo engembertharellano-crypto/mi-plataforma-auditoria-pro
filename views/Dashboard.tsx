@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FileText, Briefcase, MapPin, Plus, ArrowRight, TrendingUp, Activity, PieChart } from 'lucide-react';
 import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord } from '../types';
 
@@ -43,7 +43,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     .slice(0, 5);
 
   const now = new Date();
-  const currentMonth = now.getMonth();
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const currentYear = now.getFullYear();
 
   const isCurrentMonth = (dateStr?: string) => {
@@ -54,14 +54,14 @@ const Dashboard: React.FC<DashboardProps> = ({
       if (parts.length === 3) {
         const month = parseInt(parts[1], 10) - 1;
         const year = parseInt(parts[2], 10);
-        return month === currentMonth && year === currentYear;
+        return month === selectedMonth && year === currentYear;
       }
     }
 
     const parsed = new Date(dateStr);
     if (isNaN(parsed.getTime())) return false;
 
-    return parsed.getMonth() === currentMonth && parsed.getFullYear() === currentYear;
+    return parsed.getMonth() === selectedMonth && parsed.getFullYear() === currentYear;
   };
 
   const auditsCount = audits.filter(a => isCurrentMonth(a.date)).length;
@@ -88,7 +88,11 @@ const Dashboard: React.FC<DashboardProps> = ({
     ? Math.round((totalUniqueVisits / totalPharmacies) * 100)
     : 0;
 
-  const monthName = now.toLocaleDateString('es-ES', { month: 'long' });
+  const monthNames = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+  ];
+  const monthName = monthNames[selectedMonth];
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 pt-4 pb-12">
@@ -101,8 +105,22 @@ const Dashboard: React.FC<DashboardProps> = ({
           <h1 className="text-4xl font-black text-slate-800 tracking-normal">Centro de Operaciones</h1>
           <p className="text-slate-500 mt-2 font-medium flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]"></span>
-            Resumen de gestión - {monthName.charAt(0).toUpperCase() + monthName.slice(1)} {currentYear}
+            Resumen de gestión - {monthName} {currentYear}
           </p>
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(Number(e.target.value))}
+            className="border border-slate-200 rounded-lg px-3 py-1 text-sm font-medium mt-2"
+          >
+            {[
+              "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+              "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+            ].map((m, i) => (
+              <option key={i} value={i}>
+                {m}
+              </option>
+            ))}
+          </select>
         </div>
 
         {!readOnly && (
@@ -125,28 +143,28 @@ const Dashboard: React.FC<DashboardProps> = ({
           <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-blue-600/20 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/3"></div>
           
           <div className="relative z-10 flex flex-col h-full justify-between">
-             <div className="flex justify-between items-start">
-               <div>
+              <div className="flex justify-between items-start">
+                <div>
                   <h2 className="text-slate-400 font-bold uppercase tracking-[0.24em] text-xs mb-2">Impacto Mensual</h2>
                   <h3 className="text-white text-4xl font-black tracking-normal">Visitas Efectivas</h3>
-               </div>
-               <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10 shadow-inner group-hover:scale-110 transition-transform duration-500">
-                 <MapPin className="w-8 h-8 text-orange-400" />
-               </div>
-             </div>
-             
-             <div className="mt-12">
-               <div className="flex items-baseline gap-4">
-                 <span className="text-8xl font-black text-white tracking-normal drop-shadow-lg">{totalUniqueVisits}</span>
-                 <span className="text-xl text-slate-400 font-medium">sedes visitadas</span>
-               </div>
-               <div className="w-full bg-slate-700/30 h-3 rounded-full mt-8 overflow-hidden backdrop-blur-sm border border-white/5">
+                </div>
+                <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10 shadow-inner group-hover:scale-110 transition-transform duration-500">
+                  <MapPin className="w-8 h-8 text-orange-400" />
+                </div>
+              </div>
+              
+              <div className="mt-12">
+                <div className="flex items-baseline gap-4">
+                  <span className="text-8xl font-black text-white tracking-normal drop-shadow-lg">{totalUniqueVisits}</span>
+                  <span className="text-xl text-slate-400 font-medium">sedes visitadas</span>
+                </div>
+                <div className="w-full bg-slate-700/30 h-3 rounded-full mt-8 overflow-hidden backdrop-blur-sm border border-white/5">
                   <div
                     className="bg-gradient-to-r from-orange-500 via-red-500 to-orange-500 h-full rounded-full animate-[shimmer_2s_linear_infinite] shadow-[0_0_20px_rgba(249,115,22,0.5)] bg-[length:200%_100%]"
                     style={{ width: `${coveragePercentage}%` }}
                   ></div>
-               </div>
-             </div>
+                </div>
+              </div>
           </div>
         </div>
 
