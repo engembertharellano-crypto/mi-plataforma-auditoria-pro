@@ -22,7 +22,6 @@ import {
   Pencil,
   RotateCcw,
   ArchiveX,
-  UserCheck,
   MapPin
 } from 'lucide-react';
 import { Pharmacy, TechnicalInventoryItem, InventoryCategory } from '../types';
@@ -133,6 +132,8 @@ const getStatusClasses = (status?: string) => {
   }
 };
 
+type MoveAction = 'assign' | 'repair' | 'discard';
+
 const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
   pharmacies,
   items,
@@ -145,9 +146,11 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
   const [filterStatus, setFilterStatus] = useState('Todos');
   const [filterCategory, setFilterCategory] = useState('Todas');
   const [showNewModal, setShowNewModal] = useState(false);
-  const [itemToAssign, setItemToAssign] = useState<TechnicalInventoryItem | null>(null);
   const [itemToEdit, setItemToEdit] = useState<TechnicalInventoryItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TechnicalInventoryItem | null>(null);
+
+  const [itemToMove, setItemToMove] = useState<TechnicalInventoryItem | null>(null);
+  const [moveAction, setMoveAction] = useState<MoveAction | null>(null);
 
   const emptyForm: Partial<TechnicalInventoryItem> = {
     name: '',
@@ -170,8 +173,9 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
   const [newItem, setNewItem] = useState<Partial<TechnicalInventoryItem>>(emptyForm);
   const [editForm, setEditForm] = useState<Partial<TechnicalInventoryItem>>(emptyForm);
 
-  const [assignment, setAssignment] = useState({
+  const [moveForm, setMoveForm] = useState({
     pharmacyId: '',
+    quantity: 1,
     notes: ''
   });
 
@@ -182,7 +186,8 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
         (item.serialNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (item.brand || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (item.model || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.currentLocationName || '').toLowerCase().includes(searchTerm.toLowerCase());
+        (item.currentLocationName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.itemCode || '').toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesStatus = filterStatus === 'Todos' || item.status === filterStatus;
       const matchesCategory = filterCategory === 'Todas' || item.category === filterCategory;
@@ -193,10 +198,16 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
 
   const stats = useMemo(() => {
     return {
-      total: items.length,
-      available: items.filter(i => i.status === 'Disponible' || i.status === 'Almacen').length,
-      assigned: items.filter(i => i.status === 'Asignado').length,
-      repair: items.filter(i => i.status === 'Reparacion').length
+      total: items.reduce((sum, i) => sum + Number(i.quantity || 1), 0),
+      available: items
+        .filter(i => i.status === 'Disponible' || i.status === 'Almacen')
+        .reduce((sum, i) => sum + Number(i.quantity || 1), 0),
+      assigned: items
+        .filter(i => i.status === 'Asignado')
+        .reduce((sum, i) => sum + Number(i.quantity || 1), 0),
+      repair: items
+        .filter(i => i.status === 'Reparacion')
+        .reduce((sum, i) => sum + Number(i.quantity || 1), 0)
     };
   }, [items]);
 
@@ -207,8 +218,69 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
     });
   };
 
+  const resetMoveForm = () => {
+    setMoveForm({
+      pharmacyId: '',
+      quantity: 1,
+      notes: ''
+    });
+  };
+
+  const openMoveModal = (item: TechnicalInventoryItem, action: MoveAction) => {
+    setItemToMove(item);
+    setMoveAction(action);
+    setMoveForm({
+      pharmacyId: '',
+      quantity: 1,
+      notes: ''
+    });
+  };
+
+  const closeMoveModal = () => {
+    setItemToMove(null);
+    setMoveAction(null);
+    resetMoveForm();
+  };
+
+  const splitItemQuantity = (
+    sourceItem: TechnicalInventoryItem,
+    movedQuantity: number,
+    overrides: Partial<TechnicalInventoryItem>
+  ) => {
+    const currentQty = Number(sourceItem.quantity || 1);
+
+    if (movedQuantity <= 0 || movedQuantity > currentQty) return;
+
+    if (movedQuantity === currentQty) {
+      onUpdateItem({
+        ...sourceItem,
+        ...overrides,
+        quantity: movedQuantity
+      });
+      return;
+    }
+
+    onUpdateItem({
+      ...sourceItem,
+      quantity: currentQty - movedQuantity
+    });
+
+    const newItem: TechnicalInventoryItem = {
+      ...sourceItem,
+      ...overrides,
+      id: `inv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      itemCode: `IT-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 100)}`,
+      quantity: movedQuantity
+    };
+
+    onAddItem(newItem);
+  };
+
   const handleSaveNew = () => {
     if (!newItem.name || !newItem.category || !newItem.entryDate) return;
+
+    const normalizedQuantity =
+      newItem.unitType === 'Unidad' ? 1 : Math.max(1, Number(newItem.quantity || 1));
 
     const item: TechnicalInventoryItem = {
       id: `inv-${Date.now()}`,
@@ -218,7 +290,7 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
       brand: newItem.brand || '',
       model: newItem.model || '',
       serialNumber: newItem.serialNumber || '',
-      quantity: Number(newItem.quantity || 1),
+      quantity: normalizedQuantity,
       unitType: (newItem.unitType as any) || 'Unidad',
       condition: (newItem.condition as any) || 'Operativo',
       status: (newItem.status as any) || 'Disponible',
@@ -226,9 +298,9 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
       originReference: newItem.originReference || '',
       entryDate: newItem.entryDate,
       currentLocationType: newItem.currentLocationType as any,
-      currentLocationId: '',
+      currentLocationId: newItem.currentLocationId || '',
       currentLocationName: newItem.currentLocationName || 'Almacén Central',
-      assignedTo: '',
+      assignedTo: newItem.assignedTo || '',
       notes: newItem.notes || '',
       createdBy: currentUser?.fullName || currentUser?.email || 'Sistema'
     };
@@ -248,12 +320,15 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
   const handleSaveEdit = () => {
     if (!itemToEdit || !editForm.name || !editForm.category || !editForm.entryDate) return;
 
+    const normalizedQuantity =
+      editForm.unitType === 'Unidad' ? 1 : Math.max(1, Number(editForm.quantity || 1));
+
     const updated: TechnicalInventoryItem = {
       ...itemToEdit,
       ...editForm,
       name: editForm.name,
       category: editForm.category as InventoryCategory,
-      quantity: Number(editForm.quantity || 1),
+      quantity: normalizedQuantity,
       unitType: (editForm.unitType as any) || 'Unidad',
       condition: (editForm.condition as any) || 'Operativo',
       status: (editForm.status as any) || 'Disponible',
@@ -265,37 +340,61 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
     setItemToEdit(null);
   };
 
-  const handleAssign = () => {
-    if (!itemToAssign || !assignment.pharmacyId) return;
+  const handleConfirmMove = () => {
+    if (!itemToMove || !moveAction) return;
 
-    const pharmacy = pharmacies.find(p => p.id === assignment.pharmacyId);
-    if (!pharmacy) return;
+    const qty = Math.max(1, Number(moveForm.quantity || 1));
+    const availableQty = Number(itemToMove.quantity || 1);
 
-    onUpdateItem({
-      ...itemToAssign,
-      status: 'Asignado',
-      currentLocationType: 'Farmacia',
-      currentLocationId: pharmacy.id,
-      currentLocationName: pharmacy.name,
-      assignedTo: pharmacy.name,
-      notes: assignment.notes
-        ? `${itemToAssign.notes || ''}${itemToAssign.notes ? ' | ' : ''}ASIGNACIÓN: ${assignment.notes}`
-        : itemToAssign.notes
-    });
+    if (qty > availableQty) return;
 
-    setItemToAssign(null);
-    setAssignment({ pharmacyId: '', notes: '' });
-  };
+    if (moveAction === 'assign') {
+      if (!moveForm.pharmacyId) return;
 
-  const handleSendToRepair = (item: TechnicalInventoryItem) => {
-    onUpdateItem({
-      ...item,
-      status: 'Reparacion',
-      condition: 'Reparacion',
-      currentLocationType: 'Reparacion',
-      currentLocationName: 'Taller de Reparación',
-      assignedTo: ''
-    });
+      const pharmacy = pharmacies.find(p => p.id === moveForm.pharmacyId);
+      if (!pharmacy) return;
+
+      splitItemQuantity(itemToMove, qty, {
+        status: 'Asignado',
+        currentLocationType: 'Farmacia',
+        currentLocationId: pharmacy.id,
+        currentLocationName: pharmacy.name,
+        assignedTo: pharmacy.name,
+        notes: moveForm.notes
+          ? `${itemToMove.notes || ''}${itemToMove.notes ? ' | ' : ''}ASIGNACIÓN: ${moveForm.notes}`
+          : itemToMove.notes
+      });
+    }
+
+    if (moveAction === 'repair') {
+      splitItemQuantity(itemToMove, qty, {
+        status: 'Reparacion',
+        condition: 'Reparacion',
+        currentLocationType: 'Reparacion',
+        currentLocationId: '',
+        currentLocationName: 'Taller de Reparación',
+        assignedTo: '',
+        notes: moveForm.notes
+          ? `${itemToMove.notes || ''}${itemToMove.notes ? ' | ' : ''}REPARACIÓN: ${moveForm.notes}`
+          : itemToMove.notes
+      });
+    }
+
+    if (moveAction === 'discard') {
+      splitItemQuantity(itemToMove, qty, {
+        status: 'Descartado',
+        condition: 'Baja',
+        currentLocationType: 'Desechado' as any,
+        currentLocationId: '',
+        currentLocationName: 'Baja Operativa',
+        assignedTo: '',
+        notes: moveForm.notes
+          ? `${itemToMove.notes || ''}${itemToMove.notes ? ' | ' : ''}DESCARTE: ${moveForm.notes}`
+          : itemToMove.notes
+      });
+    }
+
+    closeMoveModal();
   };
 
   const handleReturnToWarehouse = (item: TechnicalInventoryItem) => {
@@ -322,17 +421,6 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
     });
   };
 
-  const handleDiscard = (item: TechnicalInventoryItem) => {
-    onUpdateItem({
-      ...item,
-      status: 'Descartado',
-      condition: 'Baja',
-      currentLocationType: 'Desechado' as any,
-      currentLocationName: 'Baja Operativa',
-      assignedTo: ''
-    });
-  };
-
   const renderLocationFields = (
     form: Partial<TechnicalInventoryItem>,
     setForm: React.Dispatch<React.SetStateAction<Partial<TechnicalInventoryItem>>>
@@ -342,7 +430,9 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
     return (
       <>
         <div>
-          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tipo de ubicación</label>
+          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+            Tipo de ubicación
+          </label>
           <select
             className="w-full p-3 border border-slate-200 rounded-xl outline-none"
             value={currentType}
@@ -351,22 +441,29 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
                 ...prev,
                 currentLocationType: e.target.value as any,
                 currentLocationName:
-                  e.target.value === 'Almacen' ? 'Almacén Central'
-                  : e.target.value === 'Reparacion' ? 'Taller de Reparación'
-                  : e.target.value === 'Desechado' ? 'Baja Operativa'
-                  : prev.currentLocationName || ''
+                  e.target.value === 'Almacen'
+                    ? 'Almacén Central'
+                    : e.target.value === 'Reparacion'
+                    ? 'Taller de Reparación'
+                    : e.target.value === 'Desechado'
+                    ? 'Baja Operativa'
+                    : prev.currentLocationName || ''
               }))
             }
           >
             {LOCATION_TYPE_OPTIONS.map(opt => (
-              <option key={opt} value={opt}>{opt}</option>
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
             ))}
           </select>
         </div>
 
         {currentType === 'Farmacia' ? (
           <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Farmacia</label>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+              Farmacia
+            </label>
             <select
               className="w-full p-3 border border-slate-200 rounded-xl outline-none"
               value={form.currentLocationId || ''}
@@ -382,13 +479,17 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
             >
               <option value="">Seleccione una farmacia...</option>
               {pharmacies.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
               ))}
             </select>
           </div>
         ) : (
           <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nombre de ubicación</label>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+              Nombre de ubicación
+            </label>
             <input
               list="corporate-locations"
               type="text"
@@ -408,6 +509,15 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
     );
   };
 
+  const moveTitle =
+    moveAction === 'assign'
+      ? 'Asignar Equipos'
+      : moveAction === 'repair'
+      ? 'Enviar a Reparación'
+      : moveAction === 'discard'
+      ? 'Desechar Equipos'
+      : '';
+
   return (
     <div className="max-w-[1600px] mx-auto p-6 md:p-10 pb-20 animate-in fade-in duration-500">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-10">
@@ -416,8 +526,12 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
             <Boxes className="w-7 h-7 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-black text-white tracking-normal uppercase drop-shadow-md">Inventario Técnico</h1>
-            <p className="text-slate-300 font-bold text-xs uppercase tracking-[0.18em]">Control de Equipos de Seguridad</p>
+            <h1 className="text-3xl font-black text-white tracking-normal uppercase drop-shadow-md">
+              Inventario Técnico
+            </h1>
+            <p className="text-slate-300 font-bold text-xs uppercase tracking-[0.18em]">
+              Control de Equipos de Seguridad
+            </p>
           </div>
         </div>
 
@@ -432,7 +546,7 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Total Equipos</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Total Unidades</p>
           <p className="text-5xl font-black text-slate-800">{stats.total}</p>
         </div>
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100">
@@ -440,7 +554,7 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
           <p className="text-5xl font-black text-emerald-600">{stats.available}</p>
         </div>
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Asignados</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Asignadas</p>
           <p className="text-5xl font-black text-blue-600">{stats.assigned}</p>
         </div>
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100">
@@ -470,7 +584,9 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
           >
             <option value="Todas">Todas las categorías</option>
             {CATEGORY_OPTIONS.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
             ))}
           </select>
         </div>
@@ -484,7 +600,9 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
           >
             <option value="Todos">Todos los estados</option>
             {STATUS_OPTIONS.map(status => (
-              <option key={status} value={status}>{status}</option>
+              <option key={status} value={status}>
+                {status}
+              </option>
             ))}
           </select>
         </div>
@@ -497,6 +615,7 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
               <tr className="bg-white border-b border-slate-100">
                 <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Equipo</th>
                 <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Identificación</th>
+                <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Cantidad</th>
                 <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Estado</th>
                 <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Ubicación</th>
                 <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Origen</th>
@@ -504,133 +623,150 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filteredItems.length > 0 ? filteredItems.map((item) => {
-                const Icon = getCategoryIcon(item.category);
+              {filteredItems.length > 0 ? (
+                filteredItems.map((item) => {
+                  const Icon = getCategoryIcon(item.category);
 
-                return (
-                  <tr key={item.id} className="group hover:bg-slate-50/50 transition-colors">
-                    <td className="py-6 px-8 align-top">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center">
-                          <Icon className="w-6 h-6 text-slate-600" />
+                  return (
+                    <tr key={item.id} className="group hover:bg-slate-50/50 transition-colors">
+                      <td className="py-6 px-8 align-top">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center">
+                            <Icon className="w-6 h-6 text-slate-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-black text-slate-900 uppercase">{item.name}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                              {item.category}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-black text-slate-900 uppercase">{item.name}</p>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.category}</p>
+                      </td>
+
+                      <td className="py-6 px-8 align-top">
+                        <p className="text-sm font-bold text-slate-800">{item.itemCode || 'Sin código'}</p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          {item.brand || 'Sin marca'} {item.model || ''}
+                        </p>
+                        <p className="text-[10px] font-mono text-slate-400 mt-1">
+                          {item.serialNumber || 'Sin serial'}
+                        </p>
+                      </td>
+
+                      <td className="py-6 px-8 align-top">
+                        <p className="text-lg font-black text-slate-900">{Number(item.quantity || 1)}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                          {item.unitType || 'Unidad'}
+                        </p>
+                      </td>
+
+                      <td className="py-6 px-8 align-top">
+                        <div className="space-y-2">
+                          <span
+                            className={`inline-flex px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${getStatusClasses(item.status)}`}
+                          >
+                            {item.status}
+                          </span>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            {item.condition}
+                          </div>
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    <td className="py-6 px-8 align-top">
-                      <p className="text-sm font-bold text-slate-800">{item.itemCode || 'Sin código'}</p>
-                      <p className="text-xs text-slate-500 mt-1">{item.brand || 'Sin marca'} {item.model || ''}</p>
-                      <p className="text-[10px] font-mono text-slate-400 mt-1">
-                        {item.serialNumber || `Cantidad: ${item.quantity}`}
-                      </p>
-                    </td>
-
-                    <td className="py-6 px-8 align-top">
-                      <div className="space-y-2">
-                        <span className={`inline-flex px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${getStatusClasses(item.status)}`}>
-                          {item.status}
-                        </span>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                          {item.condition}
+                      <td className="py-6 px-8 align-top">
+                        <div className="flex items-start gap-2">
+                          <MapPin className="w-4 h-4 text-slate-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-bold text-slate-800">
+                              {item.currentLocationName || 'Sin ubicación'}
+                            </p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                              {item.currentLocationType || 'No definida'}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    <td className="py-6 px-8 align-top">
-                      <div className="flex items-start gap-2">
-                        <MapPin className="w-4 h-4 text-slate-400 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-bold text-slate-800">{item.currentLocationName || 'Sin ubicación'}</p>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                            {item.currentLocationType || 'No definida'}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
+                      <td className="py-6 px-8 align-top">
+                        <p className="text-sm font-bold text-slate-800">{item.originType}</p>
+                        <p className="text-xs text-slate-500 mt-1">{item.originReference || 'Sin referencia'}</p>
+                      </td>
 
-                    <td className="py-6 px-8 align-top">
-                      <p className="text-sm font-bold text-slate-800">{item.originType}</p>
-                      <p className="text-xs text-slate-500 mt-1">{item.originReference || 'Sin referencia'}</p>
-                    </td>
-
-                    <td className="py-6 px-8 align-top text-right">
-                      <div className="flex items-center justify-end gap-2 flex-wrap">
-                        <button
-                          onClick={() => openEditModal(item)}
-                          className="p-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-700 hover:text-white transition-all border border-slate-200"
-                          title="Editar"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-
-                        {item.status !== 'Asignado' && item.status !== 'Descartado' && (
+                      <td className="py-6 px-8 align-top text-right">
+                        <div className="flex items-center justify-end gap-2 flex-wrap">
                           <button
-                            onClick={() => setItemToAssign(item)}
-                            className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all border border-blue-100"
-                            title="Asignar"
+                            onClick={() => openEditModal(item)}
+                            className="p-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-700 hover:text-white transition-all border border-slate-200"
+                            title="Editar"
                           >
-                            <PackageCheck className="w-4 h-4" />
+                            <Pencil className="w-4 h-4" />
                           </button>
-                        )}
 
-                        {item.status === 'Asignado' && (
-                          <button
-                            onClick={() => handleReturnToWarehouse(item)}
-                            className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-700 hover:text-white transition-all border border-slate-200"
-                            title="Devolver a almacén"
-                          >
-                            <ArrowRightLeft className="w-4 h-4" />
-                          </button>
-                        )}
+                          {item.status !== 'Asignado' && item.status !== 'Descartado' && (
+                            <button
+                              onClick={() => openMoveModal(item, 'assign')}
+                              className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all border border-blue-100"
+                              title="Asignar"
+                            >
+                              <PackageCheck className="w-4 h-4" />
+                            </button>
+                          )}
 
-                        {item.status !== 'Reparacion' && item.status !== 'Descartado' && (
-                          <button
-                            onClick={() => handleSendToRepair(item)}
-                            className="p-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-600 hover:text-white transition-all border border-orange-100"
-                            title="Enviar a reparación"
-                          >
-                            <Wrench className="w-4 h-4" />
-                          </button>
-                        )}
+                          {item.status === 'Asignado' && (
+                            <button
+                              onClick={() => handleReturnToWarehouse(item)}
+                              className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-700 hover:text-white transition-all border border-slate-200"
+                              title="Devolver a almacén"
+                            >
+                              <ArrowRightLeft className="w-4 h-4" />
+                            </button>
+                          )}
 
-                        {item.status === 'Reparacion' && (
-                          <button
-                            onClick={() => handleMarkAvailable(item)}
-                            className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100"
-                            title="Marcar operativo"
-                          >
-                            <RotateCcw className="w-4 h-4" />
-                          </button>
-                        )}
+                          {item.status !== 'Reparacion' && item.status !== 'Descartado' && (
+                            <button
+                              onClick={() => openMoveModal(item, 'repair')}
+                              className="p-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-600 hover:text-white transition-all border border-orange-100"
+                              title="Enviar a reparación"
+                            >
+                              <Wrench className="w-4 h-4" />
+                            </button>
+                          )}
 
-                        {item.status !== 'Descartado' && (
+                          {item.status === 'Reparacion' && (
+                            <button
+                              onClick={() => handleMarkAvailable(item)}
+                              className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100"
+                              title="Marcar operativo"
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {item.status !== 'Descartado' && (
+                            <button
+                              onClick={() => openMoveModal(item, 'discard')}
+                              className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all border border-red-100"
+                              title="Desechar"
+                            >
+                              <ArchiveX className="w-4 h-4" />
+                            </button>
+                          )}
+
                           <button
-                            onClick={() => handleDiscard(item)}
+                            onClick={() => setDeleteTarget(item)}
                             className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all border border-red-100"
-                            title="Desechar"
+                            title="Eliminar"
                           >
-                            <ArchiveX className="w-4 h-4" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
-                        )}
-
-                        <button
-                          onClick={() => setDeleteTarget(item)}
-                          className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all border border-red-100"
-                          title="Eliminar"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              }) : (
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
                 <tr>
-                  <td colSpan={6} className="py-20 text-center text-slate-400 font-medium">
+                  <td colSpan={7} className="py-20 text-center text-slate-400 font-medium">
                     No hay equipos registrados.
                   </td>
                 </tr>
@@ -645,14 +781,19 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
           <div className="bg-white rounded-[2rem] w-full max-w-4xl shadow-2xl overflow-hidden">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
               <h3 className="text-xl font-black text-slate-900 uppercase">Registrar Ingreso</h3>
-              <button onClick={() => setShowNewModal(false)} className="p-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200">
+              <button
+                onClick={() => setShowNewModal(false)}
+                className="p-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5 max-h-[75vh] overflow-y-auto">
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nombre</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Nombre
+                </label>
                 <input
                   type="text"
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none"
@@ -662,18 +803,26 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Categoría</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Categoría
+                </label>
                 <select
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none"
                   value={newItem.category || 'Camara'}
                   onChange={(e) => setNewItem({ ...newItem, category: e.target.value as InventoryCategory })}
                 >
-                  {CATEGORY_OPTIONS.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                  {CATEGORY_OPTIONS.map(cat => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Marca</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Marca
+                </label>
                 <input
                   type="text"
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none"
@@ -683,7 +832,9 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Modelo</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Modelo
+                </label>
                 <input
                   type="text"
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none"
@@ -693,7 +844,9 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Serial</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Serial
+                </label>
                 <input
                   type="text"
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none"
@@ -703,69 +856,100 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Cantidad</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Tipo de unidad
+                </label>
+                <select
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
+                  value={newItem.unitType || 'Unidad'}
+                  onChange={(e) => {
+                    const nextUnitType = e.target.value as any;
+                    setNewItem({
+                      ...newItem,
+                      unitType: nextUnitType,
+                      quantity: nextUnitType === 'Unidad' ? 1 : Math.max(1, Number(newItem.quantity || 1))
+                    });
+                  }}
+                >
+                  <option value="Unidad">Unidad</option>
+                  <option value="Lote">Lote</option>
+                </select>
+                <p className="text-[10px] text-slate-400 mt-2">
+                  Unidad = una sola pieza. Lote = varias piezas del mismo tipo.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Cantidad
+                </label>
                 <input
                   type="number"
                   min={1}
-                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
-                  value={newItem.quantity || 1}
+                  disabled={newItem.unitType === 'Unidad'}
+                  className={`w-full p-3 border border-slate-200 rounded-xl outline-none ${
+                    newItem.unitType === 'Unidad' ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''
+                  }`}
+                  value={newItem.unitType === 'Unidad' ? 1 : (newItem.quantity || 1)}
                   onChange={(e) => setNewItem({ ...newItem, quantity: Number(e.target.value) })}
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tipo de unidad</label>
-                <select
-                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
-                  value={newItem.unitType || 'Unidad'}
-                  onChange={(e) => setNewItem({ ...newItem, unitType: e.target.value as any })}
-                >
-                  <option value="Unidad">Unidad</option>
-                  <option value="Lote">Lote</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Condición</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Condición
+                </label>
                 <select
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none"
                   value={newItem.condition || 'Operativo'}
                   onChange={(e) => setNewItem({ ...newItem, condition: e.target.value as any })}
                 >
                   {CONDITION_OPTIONS.map(option => (
-                    <option key={option} value={option}>{option}</option>
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Estado</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Estado
+                </label>
                 <select
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none"
                   value={newItem.status || 'Disponible'}
                   onChange={(e) => setNewItem({ ...newItem, status: e.target.value as any })}
                 >
                   {STATUS_OPTIONS.map(option => (
-                    <option key={option} value={option}>{option}</option>
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Origen</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Origen
+                </label>
                 <select
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none"
                   value={newItem.originType || 'Compra'}
                   onChange={(e) => setNewItem({ ...newItem, originType: e.target.value as any })}
                 >
                   {ORIGIN_OPTIONS.map(option => (
-                    <option key={option} value={option}>{option}</option>
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fecha de ingreso</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Fecha de ingreso
+                </label>
                 <input
                   type="date"
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none"
@@ -777,7 +961,9 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
               {renderLocationFields(newItem, setNewItem)}
 
               <div className="md:col-span-2">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Referencia de origen</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Referencia de origen
+                </label>
                 <input
                   type="text"
                   placeholder="Factura, sede origen, proveedor, etc."
@@ -788,7 +974,9 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Notas</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Notas
+                </label>
                 <textarea
                   rows={3}
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none resize-none"
@@ -825,14 +1013,19 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
           <div className="bg-white rounded-[2rem] w-full max-w-4xl shadow-2xl overflow-hidden">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
               <h3 className="text-xl font-black text-slate-900 uppercase">Editar Activo</h3>
-              <button onClick={() => setItemToEdit(null)} className="p-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200">
+              <button
+                onClick={() => setItemToEdit(null)}
+                className="p-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5 max-h-[75vh] overflow-y-auto">
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nombre</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Nombre
+                </label>
                 <input
                   type="text"
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none"
@@ -842,18 +1035,26 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Categoría</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Categoría
+                </label>
                 <select
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none"
                   value={editForm.category || 'Camara'}
                   onChange={(e) => setEditForm({ ...editForm, category: e.target.value as InventoryCategory })}
                 >
-                  {CATEGORY_OPTIONS.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                  {CATEGORY_OPTIONS.map(cat => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Marca</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Marca
+                </label>
                 <input
                   type="text"
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none"
@@ -863,7 +1064,9 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Modelo</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Modelo
+                </label>
                 <input
                   type="text"
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none"
@@ -873,7 +1076,9 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Serial</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Serial
+                </label>
                 <input
                   type="text"
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none"
@@ -883,69 +1088,100 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Cantidad</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Tipo de unidad
+                </label>
+                <select
+                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
+                  value={editForm.unitType || 'Unidad'}
+                  onChange={(e) => {
+                    const nextUnitType = e.target.value as any;
+                    setEditForm({
+                      ...editForm,
+                      unitType: nextUnitType,
+                      quantity: nextUnitType === 'Unidad' ? 1 : Math.max(1, Number(editForm.quantity || 1))
+                    });
+                  }}
+                >
+                  <option value="Unidad">Unidad</option>
+                  <option value="Lote">Lote</option>
+                </select>
+                <p className="text-[10px] text-slate-400 mt-2">
+                  Unidad = una sola pieza. Lote = varias piezas del mismo tipo.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Cantidad
+                </label>
                 <input
                   type="number"
                   min={1}
-                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
-                  value={editForm.quantity || 1}
+                  disabled={editForm.unitType === 'Unidad'}
+                  className={`w-full p-3 border border-slate-200 rounded-xl outline-none ${
+                    editForm.unitType === 'Unidad' ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''
+                  }`}
+                  value={editForm.unitType === 'Unidad' ? 1 : (editForm.quantity || 1)}
                   onChange={(e) => setEditForm({ ...editForm, quantity: Number(e.target.value) })}
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tipo de unidad</label>
-                <select
-                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
-                  value={editForm.unitType || 'Unidad'}
-                  onChange={(e) => setEditForm({ ...editForm, unitType: e.target.value as any })}
-                >
-                  <option value="Unidad">Unidad</option>
-                  <option value="Lote">Lote</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Condición</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Condición
+                </label>
                 <select
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none"
                   value={editForm.condition || 'Operativo'}
                   onChange={(e) => setEditForm({ ...editForm, condition: e.target.value as any })}
                 >
                   {CONDITION_OPTIONS.map(option => (
-                    <option key={option} value={option}>{option}</option>
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Estado</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Estado
+                </label>
                 <select
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none"
                   value={editForm.status || 'Disponible'}
                   onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
                 >
                   {STATUS_OPTIONS.map(option => (
-                    <option key={option} value={option}>{option}</option>
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Origen</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Origen
+                </label>
                 <select
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none"
                   value={editForm.originType || 'Compra'}
                   onChange={(e) => setEditForm({ ...editForm, originType: e.target.value as any })}
                 >
                   {ORIGIN_OPTIONS.map(option => (
-                    <option key={option} value={option}>{option}</option>
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fecha de ingreso</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Fecha de ingreso
+                </label>
                 <input
                   type="date"
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none"
@@ -957,7 +1193,9 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
               {renderLocationFields(editForm, setEditForm)}
 
               <div className="md:col-span-2">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Referencia de origen</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Referencia de origen
+                </label>
                 <input
                   type="text"
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none"
@@ -967,7 +1205,9 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Notas</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Notas
+                </label>
                 <textarea
                   rows={3}
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none resize-none"
@@ -996,61 +1236,110 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
         </div>
       )}
 
-      {itemToAssign && (
+      {itemToMove && moveAction && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
           <div className="bg-white rounded-[2rem] w-full max-w-xl shadow-2xl overflow-hidden">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="text-xl font-black text-slate-900 uppercase">Asignar Equipo</h3>
-              <button onClick={() => setItemToAssign(null)} className="p-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200">
+              <h3 className="text-xl font-black text-slate-900 uppercase">{moveTitle}</h3>
+              <button
+                onClick={closeMoveModal}
+                className="p-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="p-6 space-y-5">
               <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Equipo seleccionado</p>
-                <p className="font-black text-slate-900">{itemToAssign.name}</p>
-                <p className="text-xs text-slate-500 mt-1">{itemToAssign.serialNumber || itemToAssign.itemCode}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                  Equipo seleccionado
+                </p>
+                <p className="font-black text-slate-900">{itemToMove.name}</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {itemToMove.serialNumber || itemToMove.itemCode}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Disponibles en este registro: <span className="font-black text-slate-800">{itemToMove.quantity || 1}</span>
+                </p>
               </div>
 
+              {moveAction === 'assign' && (
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                    Farmacia destino
+                  </label>
+                  <select
+                    className="w-full p-3 border border-slate-200 rounded-xl outline-none"
+                    value={moveForm.pharmacyId}
+                    onChange={(e) => setMoveForm({ ...moveForm, pharmacyId: e.target.value })}
+                  >
+                    <option value="">Seleccione una farmacia...</option>
+                    {pharmacies.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Farmacia destino</label>
-                <select
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Cantidad a mover
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={itemToMove.quantity || 1}
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none"
-                  value={assignment.pharmacyId}
-                  onChange={(e) => setAssignment({ ...assignment, pharmacyId: e.target.value })}
-                >
-                  <option value="">Seleccione una farmacia...</option>
-                  {pharmacies.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
+                  value={moveForm.quantity}
+                  onChange={(e) =>
+                    setMoveForm({
+                      ...moveForm,
+                      quantity: Math.max(1, Number(e.target.value || 1))
+                    })
+                  }
+                />
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Notas de asignación</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Notas
+                </label>
                 <textarea
                   rows={3}
                   className="w-full p-3 border border-slate-200 rounded-xl outline-none resize-none"
-                  value={assignment.notes}
-                  onChange={(e) => setAssignment({ ...assignment, notes: e.target.value })}
+                  value={moveForm.notes}
+                  onChange={(e) => setMoveForm({ ...moveForm, notes: e.target.value })}
                 />
               </div>
             </div>
 
             <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
               <button
-                onClick={() => setItemToAssign(null)}
+                onClick={closeMoveModal}
                 className="px-6 py-3 rounded-xl bg-slate-100 text-slate-700 font-black uppercase text-[10px]"
               >
                 Cancelar
               </button>
               <button
-                onClick={handleAssign}
-                className="px-6 py-3 rounded-xl bg-blue-600 text-white font-black uppercase text-[10px] flex items-center gap-2"
+                onClick={handleConfirmMove}
+                className={`px-6 py-3 rounded-xl text-white font-black uppercase text-[10px] flex items-center gap-2 ${
+                  moveAction === 'assign'
+                    ? 'bg-blue-600'
+                    : moveAction === 'repair'
+                    ? 'bg-orange-600'
+                    : 'bg-red-600'
+                }`}
               >
-                <Building2 className="w-4 h-4" />
-                Asignar
+                {moveAction === 'assign' ? (
+                  <Building2 className="w-4 h-4" />
+                ) : moveAction === 'repair' ? (
+                  <Wrench className="w-4 h-4" />
+                ) : (
+                  <ArchiveX className="w-4 h-4" />
+                )}
+                Confirmar
               </button>
             </div>
           </div>
