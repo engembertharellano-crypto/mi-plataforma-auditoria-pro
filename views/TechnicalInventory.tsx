@@ -163,7 +163,6 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
     condition: 'Operativo',
     status: 'Disponible',
     originType: 'Compra',
-    originReference: '',
     entryDate: new Date().toISOString().split('T')[0],
     currentLocationType: 'Almacen',
     currentLocationName: 'Almacén Central',
@@ -195,6 +194,27 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
       return matchesSearch && matchesStatus && matchesCategory;
     });
   }, [items, searchTerm, filterStatus, filterCategory]);
+
+  const stockItems = useMemo(() => {
+    return filteredItems.filter(
+      item =>
+        item.status === 'Disponible' ||
+        item.status === 'Almacen' ||
+        item.status === 'Transito'
+    );
+  }, [filteredItems]);
+
+  const assignedItems = useMemo(() => {
+    return filteredItems.filter(item => item.status === 'Asignado');
+  }, [filteredItems]);
+
+  const repairItems = useMemo(() => {
+    return filteredItems.filter(item => item.status === 'Reparacion');
+  }, [filteredItems]);
+
+  const discardedItems = useMemo(() => {
+    return filteredItems.filter(item => item.status === 'Descartado');
+  }, [filteredItems]);
 
   const stats = useMemo(() => {
     return {
@@ -295,7 +315,7 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
       condition: (newItem.condition as any) || 'Operativo',
       status: (newItem.status as any) || 'Disponible',
       originType: (newItem.originType as any) || 'Compra',
-      originReference: newItem.originReference || '',
+      originReference: '',
       entryDate: newItem.entryDate,
       currentLocationType: newItem.currentLocationType as any,
       currentLocationId: newItem.currentLocationId || '',
@@ -333,6 +353,7 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
       condition: (editForm.condition as any) || 'Operativo',
       status: (editForm.status as any) || 'Disponible',
       originType: (editForm.originType as any) || 'Compra',
+      originReference: '',
       entryDate: editForm.entryDate
     };
 
@@ -518,6 +539,177 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
       ? 'Desechar Equipos'
       : '';
 
+  const renderTable = (
+    tableItems: TechnicalInventoryItem[],
+    emptyMessage: string,
+    section: 'stock' | 'assigned' | 'repair' | 'discarded'
+  ) => (
+    <div className="bg-white rounded-[2.5rem] shadow-xl border border-white overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="bg-white border-b border-slate-100">
+              <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Equipo</th>
+              <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Identificación</th>
+              <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Cantidad</th>
+              <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Estado</th>
+              <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Ubicación</th>
+              <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Origen</th>
+              <th className="py-6 px-8 text-right text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Acciones</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {tableItems.length > 0 ? (
+              tableItems.map((item) => {
+                const Icon = getCategoryIcon(item.category);
+
+                return (
+                  <tr key={item.id} className="group hover:bg-slate-50/50 transition-colors">
+                    <td className="py-6 px-8 align-top">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center">
+                          <Icon className="w-6 h-6 text-slate-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-slate-900 uppercase">{item.name}</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            {item.category}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="py-6 px-8 align-top">
+                      <p className="text-sm font-bold text-slate-800">{item.itemCode || 'Sin código'}</p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {item.brand || 'Sin marca'} {item.model || ''}
+                      </p>
+                      <p className="text-[10px] font-mono text-slate-400 mt-1">
+                        {item.serialNumber || 'Sin serial'}
+                      </p>
+                    </td>
+
+                    <td className="py-6 px-8 align-top">
+                      <p className="text-lg font-black text-slate-900">{Number(item.quantity || 1)}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                        {item.unitType || 'Unidad'}
+                      </p>
+                    </td>
+
+                    <td className="py-6 px-8 align-top">
+                      <div className="space-y-2">
+                        <span
+                          className={`inline-flex px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${getStatusClasses(item.status)}`}
+                        >
+                          {item.status}
+                        </span>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                          {item.condition}
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="py-6 px-8 align-top">
+                      <div className="flex items-start gap-2">
+                        <MapPin className="w-4 h-4 text-slate-400 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-bold text-slate-800">
+                            {item.currentLocationName || 'Sin ubicación'}
+                          </p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                            {item.currentLocationType || 'No definida'}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="py-6 px-8 align-top">
+                      <p className="text-sm font-bold text-slate-800">{item.originType}</p>
+                    </td>
+
+                    <td className="py-6 px-8 align-top text-right">
+                      <div className="flex items-center justify-end gap-2 flex-wrap">
+                        <button
+                          onClick={() => openEditModal(item)}
+                          className="p-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-700 hover:text-white transition-all border border-slate-200"
+                          title="Editar"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+
+                        {section === 'stock' && (
+                          <>
+                            <button
+                              onClick={() => openMoveModal(item, 'assign')}
+                              className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all border border-blue-100"
+                              title="Asignar"
+                            >
+                              <PackageCheck className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              onClick={() => openMoveModal(item, 'repair')}
+                              className="p-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-600 hover:text-white transition-all border border-orange-100"
+                              title="Enviar a reparación"
+                            >
+                              <Wrench className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              onClick={() => openMoveModal(item, 'discard')}
+                              className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all border border-red-100"
+                              title="Desechar"
+                            >
+                              <ArchiveX className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+
+                        {section === 'assigned' && (
+                          <button
+                            onClick={() => handleReturnToWarehouse(item)}
+                            className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-700 hover:text-white transition-all border border-slate-200"
+                            title="Devolver a almacén"
+                          >
+                            <ArrowRightLeft className="w-4 h-4" />
+                          </button>
+                        )}
+
+                        {section === 'repair' && (
+                          <button
+                            onClick={() => handleMarkAvailable(item)}
+                            className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100"
+                            title="Marcar operativo"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => setDeleteTarget(item)}
+                          className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all border border-red-100"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan={7} className="py-20 text-center text-slate-400 font-medium">
+                  {emptyMessage}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
   return (
     <div className="max-w-[1600px] mx-auto p-6 md:p-10 pb-20 animate-in fade-in duration-500">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-10">
@@ -608,172 +800,68 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
         </div>
       </div>
 
-      <div className="bg-white rounded-[2.5rem] shadow-xl border border-white overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-white border-b border-slate-100">
-                <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Equipo</th>
-                <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Identificación</th>
-                <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Cantidad</th>
-                <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Estado</th>
-                <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Ubicación</th>
-                <th className="py-6 px-8 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Origen</th>
-                <th className="py-6 px-8 text-right text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {filteredItems.length > 0 ? (
-                filteredItems.map((item) => {
-                  const Icon = getCategoryIcon(item.category);
-
-                  return (
-                    <tr key={item.id} className="group hover:bg-slate-50/50 transition-colors">
-                      <td className="py-6 px-8 align-top">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center">
-                            <Icon className="w-6 h-6 text-slate-600" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-black text-slate-900 uppercase">{item.name}</p>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                              {item.category}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="py-6 px-8 align-top">
-                        <p className="text-sm font-bold text-slate-800">{item.itemCode || 'Sin código'}</p>
-                        <p className="text-xs text-slate-500 mt-1">
-                          {item.brand || 'Sin marca'} {item.model || ''}
-                        </p>
-                        <p className="text-[10px] font-mono text-slate-400 mt-1">
-                          {item.serialNumber || 'Sin serial'}
-                        </p>
-                      </td>
-
-                      <td className="py-6 px-8 align-top">
-                        <p className="text-lg font-black text-slate-900">{Number(item.quantity || 1)}</p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                          {item.unitType || 'Unidad'}
-                        </p>
-                      </td>
-
-                      <td className="py-6 px-8 align-top">
-                        <div className="space-y-2">
-                          <span
-                            className={`inline-flex px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${getStatusClasses(item.status)}`}
-                          >
-                            {item.status}
-                          </span>
-                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                            {item.condition}
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="py-6 px-8 align-top">
-                        <div className="flex items-start gap-2">
-                          <MapPin className="w-4 h-4 text-slate-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-bold text-slate-800">
-                              {item.currentLocationName || 'Sin ubicación'}
-                            </p>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                              {item.currentLocationType || 'No definida'}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="py-6 px-8 align-top">
-                        <p className="text-sm font-bold text-slate-800">{item.originType}</p>
-                        <p className="text-xs text-slate-500 mt-1">{item.originReference || 'Sin referencia'}</p>
-                      </td>
-
-                      <td className="py-6 px-8 align-top text-right">
-                        <div className="flex items-center justify-end gap-2 flex-wrap">
-                          <button
-                            onClick={() => openEditModal(item)}
-                            className="p-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-700 hover:text-white transition-all border border-slate-200"
-                            title="Editar"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-
-                          {item.status !== 'Asignado' && item.status !== 'Descartado' && (
-                            <button
-                              onClick={() => openMoveModal(item, 'assign')}
-                              className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all border border-blue-100"
-                              title="Asignar"
-                            >
-                              <PackageCheck className="w-4 h-4" />
-                            </button>
-                          )}
-
-                          {item.status === 'Asignado' && (
-                            <button
-                              onClick={() => handleReturnToWarehouse(item)}
-                              className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-700 hover:text-white transition-all border border-slate-200"
-                              title="Devolver a almacén"
-                            >
-                              <ArrowRightLeft className="w-4 h-4" />
-                            </button>
-                          )}
-
-                          {item.status !== 'Reparacion' && item.status !== 'Descartado' && (
-                            <button
-                              onClick={() => openMoveModal(item, 'repair')}
-                              className="p-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-600 hover:text-white transition-all border border-orange-100"
-                              title="Enviar a reparación"
-                            >
-                              <Wrench className="w-4 h-4" />
-                            </button>
-                          )}
-
-                          {item.status === 'Reparacion' && (
-                            <button
-                              onClick={() => handleMarkAvailable(item)}
-                              className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100"
-                              title="Marcar operativo"
-                            >
-                              <RotateCcw className="w-4 h-4" />
-                            </button>
-                          )}
-
-                          {item.status !== 'Descartado' && (
-                            <button
-                              onClick={() => openMoveModal(item, 'discard')}
-                              className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all border border-red-100"
-                              title="Desechar"
-                            >
-                              <ArchiveX className="w-4 h-4" />
-                            </button>
-                          )}
-
-                          <button
-                            onClick={() => setDeleteTarget(item)}
-                            className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all border border-red-100"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan={7} className="py-20 text-center text-slate-400 font-medium">
-                    No hay equipos registrados.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      <div className="mb-12">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center">
+            <Warehouse className="w-5 h-5 text-emerald-700" />
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-white uppercase">Stock General</h2>
+            <p className="text-slate-300 text-xs font-bold uppercase tracking-widest">
+              Disponible, almacén y tránsito
+            </p>
+          </div>
         </div>
+
+        {renderTable(stockItems, 'No hay equipos en stock general.', 'stock')}
+      </div>
+
+      <div className="mb-12">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-10 h-10 rounded-2xl bg-blue-100 flex items-center justify-center">
+            <Building2 className="w-5 h-5 text-blue-700" />
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-white uppercase">Asignados</h2>
+            <p className="text-slate-300 text-xs font-bold uppercase tracking-widest">
+              Equipos asignados a farmacias
+            </p>
+          </div>
+        </div>
+
+        {renderTable(assignedItems, 'No hay equipos asignados.', 'assigned')}
+      </div>
+
+      <div className="mb-12">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-10 h-10 rounded-2xl bg-orange-100 flex items-center justify-center">
+            <Wrench className="w-5 h-5 text-orange-700" />
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-white uppercase">Reparación</h2>
+            <p className="text-slate-300 text-xs font-bold uppercase tracking-widest">
+              Equipos en taller
+            </p>
+          </div>
+        </div>
+
+        {renderTable(repairItems, 'No hay equipos en reparación.', 'repair')}
+      </div>
+
+      <div>
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-10 h-10 rounded-2xl bg-red-100 flex items-center justify-center">
+            <ArchiveX className="w-5 h-5 text-red-700" />
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-white uppercase">Desechados</h2>
+            <p className="text-slate-300 text-xs font-bold uppercase tracking-widest">
+              Equipos dados de baja
+            </p>
+          </div>
+        </div>
+
+        {renderTable(discardedItems, 'No hay equipos desechados.', 'discarded')}
       </div>
 
       {showNewModal && (
@@ -959,19 +1047,6 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
               </div>
 
               {renderLocationFields(newItem, setNewItem)}
-
-              <div className="md:col-span-2">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                  Referencia de origen
-                </label>
-                <input
-                  type="text"
-                  placeholder="Factura, sede origen, proveedor, etc."
-                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
-                  value={newItem.originReference || ''}
-                  onChange={(e) => setNewItem({ ...newItem, originReference: e.target.value })}
-                />
-              </div>
 
               <div className="md:col-span-2">
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
@@ -1191,18 +1266,6 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
               </div>
 
               {renderLocationFields(editForm, setEditForm)}
-
-              <div className="md:col-span-2">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                  Referencia de origen
-                </label>
-                <input
-                  type="text"
-                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
-                  value={editForm.originReference || ''}
-                  onChange={(e) => setEditForm({ ...editForm, originReference: e.target.value })}
-                />
-              </div>
 
               <div className="md:col-span-2">
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
