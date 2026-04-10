@@ -195,26 +195,52 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
     });
   }, [items, searchTerm, filterStatus, filterCategory]);
 
-  const stockItems = useMemo(() => {
-    return filteredItems.filter(
-      item =>
-        item.status === 'Disponible' ||
-        item.status === 'Almacen' ||
-        item.status === 'Transito'
-    );
-  }, [filteredItems]);
+  const visibleItems = useMemo(() => {
+    if (filterStatus === 'Todos') {
+      return filteredItems.filter(
+        item =>
+          item.status === 'Disponible' ||
+          item.status === 'Almacen' ||
+          item.status === 'Transito'
+      );
+    }
 
-  const assignedItems = useMemo(() => {
-    return filteredItems.filter(item => item.status === 'Asignado');
-  }, [filteredItems]);
+    return filteredItems;
+  }, [filteredItems, filterStatus]);
 
-  const repairItems = useMemo(() => {
-    return filteredItems.filter(item => item.status === 'Reparacion');
-  }, [filteredItems]);
+  const currentSectionTitle = useMemo(() => {
+    if (filterStatus === 'Asignado') return 'Equipos Asignados';
+    if (filterStatus === 'Reparacion') return 'Equipos en Reparación';
+    if (filterStatus === 'Descartado') return 'Equipos Desechados';
+    if (filterStatus === 'Disponible') return 'Equipos Disponibles';
+    if (filterStatus === 'Almacen') return 'Equipos en Almacén';
+    if (filterStatus === 'Transito') return 'Equipos en Tránsito';
+    return 'Stock General';
+  }, [filterStatus]);
 
-  const discardedItems = useMemo(() => {
-    return filteredItems.filter(item => item.status === 'Descartado');
-  }, [filteredItems]);
+  const currentSectionSubtitle = useMemo(() => {
+    if (filterStatus === 'Asignado') return 'Equipos asignados a farmacias';
+    if (filterStatus === 'Reparacion') return 'Equipos enviados a taller';
+    if (filterStatus === 'Descartado') return 'Equipos dados de baja';
+    if (filterStatus === 'Disponible') return 'Equipos listos para asignación';
+    if (filterStatus === 'Almacen') return 'Equipos resguardados en almacén';
+    if (filterStatus === 'Transito') return 'Equipos en movimiento';
+    return 'Disponible, almacén y tránsito';
+  }, [filterStatus]);
+
+  const currentSectionIcon = useMemo(() => {
+    if (filterStatus === 'Asignado') return Building2;
+    if (filterStatus === 'Reparacion') return Wrench;
+    if (filterStatus === 'Descartado') return ArchiveX;
+    return Warehouse;
+  }, [filterStatus]);
+
+  const currentSectionIconClasses = useMemo(() => {
+    if (filterStatus === 'Asignado') return 'bg-blue-100 text-blue-700';
+    if (filterStatus === 'Reparacion') return 'bg-orange-100 text-orange-700';
+    if (filterStatus === 'Descartado') return 'bg-red-100 text-red-700';
+    return 'bg-emerald-100 text-emerald-700';
+  }, [filterStatus]);
 
   const stats = useMemo(() => {
     return {
@@ -541,8 +567,7 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
 
   const renderTable = (
     tableItems: TechnicalInventoryItem[],
-    emptyMessage: string,
-    section: 'stock' | 'assigned' | 'repair' | 'discarded'
+    emptyMessage: string
   ) => (
     <div className="bg-white rounded-[2.5rem] shadow-xl border border-white overflow-hidden">
       <div className="overflow-x-auto">
@@ -637,35 +662,17 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
                           <Pencil className="w-4 h-4" />
                         </button>
 
-                        {section === 'stock' && (
-                          <>
-                            <button
-                              onClick={() => openMoveModal(item, 'assign')}
-                              className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all border border-blue-100"
-                              title="Asignar"
-                            >
-                              <PackageCheck className="w-4 h-4" />
-                            </button>
-
-                            <button
-                              onClick={() => openMoveModal(item, 'repair')}
-                              className="p-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-600 hover:text-white transition-all border border-orange-100"
-                              title="Enviar a reparación"
-                            >
-                              <Wrench className="w-4 h-4" />
-                            </button>
-
-                            <button
-                              onClick={() => openMoveModal(item, 'discard')}
-                              className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all border border-red-100"
-                              title="Desechar"
-                            >
-                              <ArchiveX className="w-4 h-4" />
-                            </button>
-                          </>
+                        {item.status !== 'Asignado' && item.status !== 'Descartado' && (
+                          <button
+                            onClick={() => openMoveModal(item, 'assign')}
+                            className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all border border-blue-100"
+                            title="Asignar"
+                          >
+                            <PackageCheck className="w-4 h-4" />
+                          </button>
                         )}
 
-                        {section === 'assigned' && (
+                        {item.status === 'Asignado' && (
                           <button
                             onClick={() => handleReturnToWarehouse(item)}
                             className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-700 hover:text-white transition-all border border-slate-200"
@@ -675,13 +682,33 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
                           </button>
                         )}
 
-                        {section === 'repair' && (
+                        {item.status !== 'Reparacion' && item.status !== 'Descartado' && (
+                          <button
+                            onClick={() => openMoveModal(item, 'repair')}
+                            className="p-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-600 hover:text-white transition-all border border-orange-100"
+                            title="Enviar a reparación"
+                          >
+                            <Wrench className="w-4 h-4" />
+                          </button>
+                        )}
+
+                        {item.status === 'Reparacion' && (
                           <button
                             onClick={() => handleMarkAvailable(item)}
                             className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100"
                             title="Marcar operativo"
                           >
                             <RotateCcw className="w-4 h-4" />
+                          </button>
+                        )}
+
+                        {item.status !== 'Descartado' && (
+                          <button
+                            onClick={() => openMoveModal(item, 'discard')}
+                            className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all border border-red-100"
+                            title="Desechar"
+                          >
+                            <ArchiveX className="w-4 h-4" />
                           </button>
                         )}
 
@@ -709,6 +736,8 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
       </div>
     </div>
   );
+
+  const CurrentSectionIcon = currentSectionIcon;
 
   return (
     <div className="max-w-[1600px] mx-auto p-6 md:p-10 pb-20 animate-in fade-in duration-500">
@@ -800,68 +829,20 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
         </div>
       </div>
 
-      <div className="mb-12">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center">
-            <Warehouse className="w-5 h-5 text-emerald-700" />
-          </div>
-          <div>
-            <h2 className="text-xl font-black text-white uppercase">Stock General</h2>
-            <p className="text-slate-300 text-xs font-bold uppercase tracking-widest">
-              Disponible, almacén y tránsito
-            </p>
-          </div>
-        </div>
-
-        {renderTable(stockItems, 'No hay equipos en stock general.', 'stock')}
-      </div>
-
-      <div className="mb-12">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-2xl bg-blue-100 flex items-center justify-center">
-            <Building2 className="w-5 h-5 text-blue-700" />
-          </div>
-          <div>
-            <h2 className="text-xl font-black text-white uppercase">Asignados</h2>
-            <p className="text-slate-300 text-xs font-bold uppercase tracking-widest">
-              Equipos asignados a farmacias
-            </p>
-          </div>
-        </div>
-
-        {renderTable(assignedItems, 'No hay equipos asignados.', 'assigned')}
-      </div>
-
-      <div className="mb-12">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-2xl bg-orange-100 flex items-center justify-center">
-            <Wrench className="w-5 h-5 text-orange-700" />
-          </div>
-          <div>
-            <h2 className="text-xl font-black text-white uppercase">Reparación</h2>
-            <p className="text-slate-300 text-xs font-bold uppercase tracking-widest">
-              Equipos en taller
-            </p>
-          </div>
-        </div>
-
-        {renderTable(repairItems, 'No hay equipos en reparación.', 'repair')}
-      </div>
-
       <div>
         <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-2xl bg-red-100 flex items-center justify-center">
-            <ArchiveX className="w-5 h-5 text-red-700" />
+          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${currentSectionIconClasses}`}>
+            <CurrentSectionIcon className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-xl font-black text-white uppercase">Desechados</h2>
+            <h2 className="text-xl font-black text-white uppercase">{currentSectionTitle}</h2>
             <p className="text-slate-300 text-xs font-bold uppercase tracking-widest">
-              Equipos dados de baja
+              {currentSectionSubtitle}
             </p>
           </div>
         </div>
 
-        {renderTable(discardedItems, 'No hay equipos desechados.', 'discarded')}
+        {renderTable(visibleItems, 'No hay equipos para mostrar.')}
       </div>
 
       {showNewModal && (
