@@ -20,10 +20,16 @@ interface AuditWizardProps {
   onAddPharmacy: (pharmacy: Pharmacy) => void;
 }
 
+interface WorkingFundCount {
+  assigned: number;
+  physical: number;
+  difference: number;
+}
+
 interface WorkingFund {
   boxCount: number;
-  vesTotal: number;
-  usdTotal: number;
+  usd: WorkingFundCount;
+  ves: WorkingFundCount;
   responsiblePerson: string;
   notes: string;
 }
@@ -56,8 +62,8 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
 
   const [workingFund, setWorkingFund] = useState<WorkingFund>({
     boxCount: 0,
-    vesTotal: 0,
-    usdTotal: 0,
+    usd: { assigned: 0, physical: 0, difference: 0 },
+    ves: { assigned: 0, physical: 0, difference: 0 },
     responsiblePerson: '',
     notes: ''
   });
@@ -80,8 +86,16 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
       if (initialWorkingFund) {
         setWorkingFund({
           boxCount: initialWorkingFund.boxCount || 0,
-          vesTotal: initialWorkingFund.vesTotal || 0,
-          usdTotal: initialWorkingFund.usdTotal || 0,
+          usd: {
+            assigned: initialWorkingFund.usd?.assigned || 0,
+            physical: initialWorkingFund.usd?.physical || 0,
+            difference: initialWorkingFund.usd?.difference || 0
+          },
+          ves: {
+            assigned: initialWorkingFund.ves?.assigned || 0,
+            physical: initialWorkingFund.ves?.physical || 0,
+            difference: initialWorkingFund.ves?.difference || 0
+          },
           responsiblePerson: initialWorkingFund.responsiblePerson || '',
           notes: initialWorkingFund.notes || ''
         });
@@ -345,14 +359,47 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
                      <p className="text-emerald-700 font-black text-sm uppercase tracking-widest mb-4">Dólares (USD)</p>
                      <div className="space-y-4">
                         <div>
-                          <label className="text-[10px] font-bold text-slate-400 uppercase">Monto Total</label>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Monto Asignado</label>
                           <input
                             type="number"
                             className="w-full p-3 rounded-xl font-black text-xl text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500"
-                            value={workingFund.usdTotal}
-                            onChange={e => setWorkingFund(prev => ({ ...prev, usdTotal: parseFloat(e.target.value) || 0 }))}
+                            value={workingFund.usd.assigned}
+                            onChange={e => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setWorkingFund(prev => ({
+                                ...prev,
+                                usd: {
+                                  ...prev.usd,
+                                  assigned: val,
+                                  difference: prev.usd.physical - val
+                                }
+                              }));
+                            }}
                             disabled={isSubmitting}
                           />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Conteo Físico</label>
+                          <input
+                            type="number"
+                            className="w-full p-3 rounded-xl font-black text-xl text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500"
+                            value={workingFund.usd.physical}
+                            onChange={e => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setWorkingFund(prev => ({
+                                ...prev,
+                                usd: {
+                                  ...prev.usd,
+                                  physical: val,
+                                  difference: val - prev.usd.assigned
+                                }
+                              }));
+                            }}
+                            disabled={isSubmitting}
+                          />
+                        </div>
+                        <div className={`p-3 rounded-xl text-center font-black ${workingFund.usd.difference === 0 ? 'bg-emerald-200 text-emerald-800' : 'bg-red-200 text-red-800'}`}>
+                          Dif: {workingFund.usd.difference.toFixed(2)}
                         </div>
                      </div>
                   </div>
@@ -361,14 +408,47 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
                      <p className="text-blue-700 font-black text-sm uppercase tracking-widest mb-4">Bolívares (VES)</p>
                      <div className="space-y-4">
                         <div>
-                          <label className="text-[10px] font-bold text-slate-400 uppercase">Monto Total</label>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Monto Asignado</label>
                           <input
                             type="number"
                             className="w-full p-3 rounded-xl font-black text-xl text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
-                            value={workingFund.vesTotal}
-                            onChange={e => setWorkingFund(prev => ({ ...prev, vesTotal: parseFloat(e.target.value) || 0 }))}
+                            value={workingFund.ves.assigned}
+                            onChange={e => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setWorkingFund(prev => ({
+                                ...prev,
+                                ves: {
+                                  ...prev.ves,
+                                  assigned: val,
+                                  difference: prev.ves.physical - val
+                                }
+                              }));
+                            }}
                             disabled={isSubmitting}
                           />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Conteo Físico</label>
+                          <input
+                            type="number"
+                            className="w-full p-3 rounded-xl font-black text-xl text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
+                            value={workingFund.ves.physical}
+                            onChange={e => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setWorkingFund(prev => ({
+                                ...prev,
+                                ves: {
+                                  ...prev.ves,
+                                  physical: val,
+                                  difference: val - prev.ves.assigned
+                                }
+                              }));
+                            }}
+                            disabled={isSubmitting}
+                          />
+                        </div>
+                        <div className={`p-3 rounded-xl text-center font-black ${workingFund.ves.difference === 0 ? 'bg-blue-200 text-blue-800' : 'bg-red-200 text-red-800'}`}>
+                          Dif: {workingFund.ves.difference.toFixed(2)}
                         </div>
                      </div>
                   </div>
