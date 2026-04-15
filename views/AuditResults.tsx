@@ -474,42 +474,38 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                 </div>
               )}
 
-              {/* BLOQUE CONTROL DE FONDOS OPERATIVOS */}
+              {/* NUEVO BLOQUE: CONTROL DE FONDOS OPERATIVOS */}
               {(audit as any).cashFundGlobal && (
                 <div className="mt-8">
-                  <div className="bg-white rounded-[2.5rem] p-10 border border-slate-200 shadow-sm">
+                  <div className="bg-slate-50 rounded-[2.5rem] p-10 border border-slate-200 shadow-sm">
                     <div className="flex items-center justify-between mb-8">
                       <div className="flex items-center gap-4">
-                        <div className="p-3 bg-blue-900 rounded-2xl text-white shadow-lg">
+                        <div className="p-3 bg-blue-600 rounded-2xl text-white shadow-lg">
                           <Coins className="w-6 h-6" />
                         </div>
                         <div>
                           <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter">CONTROL DE FONDOS OPERATIVOS</h3>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Gestión global de fondos operativos en farmacia</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Gestión global del fondo operativo</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cajas Operativas</p>
-                        <p className="text-2xl font-black text-blue-600 tracking-tighter">{(audit as any).cashFundGlobal.numberOfRegisters}</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Cajas en Farmacia</p>
+                        <p className="text-2xl font-black text-blue-600">{(audit as any).cashFundGlobal.numberOfRegisters}</p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fondo Asignado Total</p>
-                        <p className="text-3xl font-black text-slate-800 tracking-tighter">
-                          ${(audit as any).cashFundGlobal.totalAssigned.toLocaleString()}
-                        </p>
+                      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-inner">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Fondo Asignado Total</p>
+                        <p className="text-3xl font-black text-slate-800 tracking-tighter">${(audit as any).cashFundGlobal.totalAssigned.toLocaleString()}</p>
                       </div>
-                      <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fondo Físico Total</p>
-                        <p className="text-3xl font-black text-slate-800 tracking-tighter">
-                          ${(audit as any).cashFundGlobal.totalPhysical.toLocaleString()}
-                        </p>
+                      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-inner">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Fondo Físico Total</p>
+                        <p className="text-3xl font-black text-slate-800 tracking-tighter">${(audit as any).cashFundGlobal.totalPhysical.toLocaleString()}</p>
                       </div>
-                      <div className={`p-6 rounded-3xl border ${((audit as any).cashFundGlobal.difference || 0) === 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Diferencia</p>
-                        <p className={`text-3xl font-black ${((audit as any).cashFundGlobal.difference || 0) === 0 ? 'text-emerald-600' : 'text-red-600'} tracking-tighter`}>
+                      <div className={`p-6 rounded-3xl border shadow-inner ${((audit as any).cashFundGlobal.difference || 0) === 0 ? 'bg-white border-slate-100' : 'bg-red-50 border-red-100'}`}>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Diferencia</p>
+                        <p className={`text-3xl font-black ${((audit as any).cashFundGlobal.difference || 0) === 0 ? 'text-emerald-500' : 'text-red-500'} tracking-tighter`}>
                           ${(audit as any).cashFundGlobal.difference.toLocaleString()}
                         </p>
                       </div>
