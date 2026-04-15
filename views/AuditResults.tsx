@@ -23,7 +23,8 @@ import {
   UserCheck, 
   PenTool,
   RefreshCw,
-  Lock
+  Lock,
+  Coins
 } from 'lucide-react';
 import { AuditState } from '../types';
 import { HARDWARE_CHECKLIST, PROCESS_CHECKLIST } from '../constants';
@@ -472,6 +473,50 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                   </div>
                 </div>
               )}
+
+              {/* BLOQUE CONTROL DE FONDOS OPERATIVOS */}
+              {(audit as any).cashFundGlobal && (
+                <div className="mt-8">
+                  <div className="bg-white rounded-[2.5rem] p-10 border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-8">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-blue-900 rounded-2xl text-white shadow-lg">
+                          <Coins className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter">CONTROL DE FONDOS OPERATIVOS</h3>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Gestión global de fondos operativos en farmacia</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cajas Operativas</p>
+                        <p className="text-2xl font-black text-blue-600 tracking-tighter">{(audit as any).cashFundGlobal.numberOfRegisters}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fondo Asignado Total</p>
+                        <p className="text-3xl font-black text-slate-800 tracking-tighter">
+                          ${(audit as any).cashFundGlobal.totalAssigned.toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fondo Físico Total</p>
+                        <p className="text-3xl font-black text-slate-800 tracking-tighter">
+                          ${(audit as any).cashFundGlobal.totalPhysical.toLocaleString()}
+                        </p>
+                      </div>
+                      <div className={`p-6 rounded-3xl border ${((audit as any).cashFundGlobal.difference || 0) === 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Diferencia</p>
+                        <p className={`text-3xl font-black ${((audit as any).cashFundGlobal.difference || 0) === 0 ? 'text-emerald-600' : 'text-red-600'} tracking-tighter`}>
+                          ${(audit as any).cashFundGlobal.difference.toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -565,7 +610,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                            <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Sistema:</span><span className="text-slate-700">{audit.vaultCount.ves.system.toFixed(2)} Bs.</span></div>
                            <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Físico:</span><span className="text-slate-900">{audit.vaultCount.ves.physical.toFixed(2)} Bs.</span></div>
                            <div className={`pt-3 border-t flex justify-between font-black ${audit.vaultCount.ves.difference === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                              <span>Diferencia:</span><span>{audit.vaultCount.ves.difference.toFixed(2)} Bs.</span>
+                             <span>Diferencia:</span><span>{audit.vaultCount.ves.difference.toFixed(2)} Bs.</span>
                            </div>
                         </div>
                      </div>
@@ -575,7 +620,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                            <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Sistema:</span><span className="text-slate-700">{audit.vaultCount.usd.system.toFixed(2)} $</span></div>
                            <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Físico:</span><span className="text-slate-900">{audit.vaultCount.usd.physical.toFixed(2)} $</span></div>
                            <div className={`pt-3 border-t flex justify-between font-black ${audit.vaultCount.usd.difference === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                              <span>Diferencia:</span><span>{audit.vaultCount.usd.difference.toFixed(2)} $</span>
+                             <span>Diferencia:</span><span>{audit.vaultCount.usd.difference.toFixed(2)} $</span>
                            </div>
                         </div>
                      </div>
