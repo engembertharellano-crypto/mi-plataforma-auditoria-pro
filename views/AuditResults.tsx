@@ -203,7 +203,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
         : "Integridad financiera en bóveda: CONFORME.";
 
       const workingFundText = currentWorkingFund
-        ? `FONDO DE TRABAJO CONSOLIDADO: ${currentWorkingFund.boxCount || 0} cajas activas, total en USD ${Number(currentWorkingFund.usdTotal || 0).toFixed(2)} y total en VES ${Number(currentWorkingFund.vesTotal || 0).toFixed(2)}.`
+        ? `FONDO DE TRABAJO CONSOLIDADO: ${currentWorkingFund.boxCount || 0} cajas activas. USD asignado ${Number(currentWorkingFund.usd?.assigned || 0).toFixed(2)}, USD presente ${Number(currentWorkingFund.usd?.physical || 0).toFixed(2)}, diferencia USD ${Number(currentWorkingFund.usd?.difference || 0).toFixed(2)}. VES asignado ${Number(currentWorkingFund.ves?.assigned || 0).toFixed(2)}, VES presente ${Number(currentWorkingFund.ves?.physical || 0).toFixed(2)}, diferencia VES ${Number(currentWorkingFund.ves?.difference || 0).toFixed(2)}.`
         : "Fondo de trabajo consolidado: Sin registro.";
 
       const prompt = `Genera un INFORME DE AUDITORÍA DE SEGURIDAD CORPORATIVA formal, técnico y detallado.
@@ -493,35 +493,46 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Acumulado total de cajas operativas</p>
                         </div>
                       </div>
-
-                      <div className="px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border shadow-sm flex items-center gap-2 bg-blue-50 text-blue-600 border-blue-100">
-                        <ClipboardCheck className="w-4 h-4" />
-                        Registro Informativo
-                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-inner flex flex-col justify-between group hover:border-blue-200 transition-colors">
                         <div className="flex justify-between items-center mb-6">
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bolívares (VES)</p>
-                          <div className="p-2 rounded-full bg-emerald-50 text-emerald-600">
-                            <Check className="w-4 h-4" />
+                          <div className={`p-2 rounded-full ${(workingFund.ves?.difference || 0) === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                            {(workingFund.ves?.difference || 0) === 0 ? <Check className="w-4 h-4" /> : <AlertOctagon className="w-4 h-4" />}
                           </div>
                         </div>
                         <div className="flex justify-between items-end">
-                          <p className="text-4xl font-black text-slate-800 tracking-tighter">{Number(workingFund.vesTotal || 0).toFixed(2)} Bs.</p>
+                          <p className="text-4xl font-black text-slate-800 tracking-tighter">{Number(workingFund.ves?.physical || 0).toFixed(2)} Bs.</p>
+                          <div className="text-right">
+                            <p className="text-[9px] font-bold text-slate-300 uppercase">
+                              {(workingFund.ves?.difference || 0) > 0 ? 'Sobrante' : (workingFund.ves?.difference || 0) < 0 ? 'Faltante' : 'Conforme'}
+                            </p>
+                            <p className={`text-lg font-black ${(workingFund.ves?.difference || 0) === 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                              {(workingFund.ves?.difference || 0) > 0 ? '+' : ''}{Number(workingFund.ves?.difference || 0).toFixed(2)}
+                            </p>
+                          </div>
                         </div>
                       </div>
 
                       <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-inner flex flex-col justify-between group hover:border-emerald-200 transition-colors">
                         <div className="flex justify-between items-center mb-6">
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dólares (USD)</p>
-                          <div className="p-2 rounded-full bg-emerald-50 text-emerald-600">
-                            <Check className="w-4 h-4" />
+                          <div className={`p-2 rounded-full ${(workingFund.usd?.difference || 0) === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                            {(workingFund.usd?.difference || 0) === 0 ? <Check className="w-4 h-4" /> : <AlertOctagon className="w-4 h-4" />}
                           </div>
                         </div>
                         <div className="flex justify-between items-end">
-                          <p className="text-4xl font-black text-slate-800 tracking-tighter">{Number(workingFund.usdTotal || 0).toFixed(2)} $</p>
+                          <p className="text-4xl font-black text-slate-800 tracking-tighter">{Number(workingFund.usd?.physical || 0).toFixed(2)} $</p>
+                          <div className="text-right">
+                            <p className="text-[9px] font-bold text-slate-300 uppercase">
+                              {(workingFund.usd?.difference || 0) > 0 ? 'Sobrante' : (workingFund.usd?.difference || 0) < 0 ? 'Faltante' : 'Conforme'}
+                            </p>
+                            <p className={`text-lg font-black ${(workingFund.usd?.difference || 0) === 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                              {(workingFund.usd?.difference || 0) > 0 ? '+' : ''}{Number(workingFund.usd?.difference || 0).toFixed(2)}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -693,8 +704,16 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                      <div className="px-4 py-2 bg-blue-600 text-white font-black text-[9px] uppercase tracking-widest">Bolívares (VES)</div>
                      <div className="p-6 space-y-3">
                        <div className="flex justify-between text-xs font-bold">
-                         <span className="text-slate-400">Total:</span>
-                         <span className="text-slate-900">{Number(workingFund.vesTotal || 0).toFixed(2)} Bs.</span>
+                         <span className="text-slate-400">Asignado:</span>
+                         <span className="text-slate-700">{Number(workingFund.ves?.assigned || 0).toFixed(2)} Bs.</span>
+                       </div>
+                       <div className="flex justify-between text-xs font-bold">
+                         <span className="text-slate-400">Físico:</span>
+                         <span className="text-slate-900">{Number(workingFund.ves?.physical || 0).toFixed(2)} Bs.</span>
+                       </div>
+                       <div className={`pt-3 border-t flex justify-between font-black ${(workingFund.ves?.difference || 0) === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                         <span>Diferencia:</span>
+                         <span>{Number(workingFund.ves?.difference || 0).toFixed(2)} Bs.</span>
                        </div>
                      </div>
                    </div>
@@ -703,8 +722,16 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                      <div className="px-4 py-2 bg-emerald-600 text-white font-black text-[9px] uppercase tracking-widest">Dólares (USD)</div>
                      <div className="p-6 space-y-3">
                        <div className="flex justify-between text-xs font-bold">
-                         <span className="text-slate-400">Total:</span>
-                         <span className="text-slate-900">{Number(workingFund.usdTotal || 0).toFixed(2)} $</span>
+                         <span className="text-slate-400">Asignado:</span>
+                         <span className="text-slate-700">{Number(workingFund.usd?.assigned || 0).toFixed(2)} $</span>
+                       </div>
+                       <div className="flex justify-between text-xs font-bold">
+                         <span className="text-slate-400">Físico:</span>
+                         <span className="text-slate-900">{Number(workingFund.usd?.physical || 0).toFixed(2)} $</span>
+                       </div>
+                       <div className={`pt-3 border-t flex justify-between font-black ${(workingFund.usd?.difference || 0) === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                         <span>Diferencia:</span>
+                         <span>{Number(workingFund.usd?.difference || 0).toFixed(2)} $</span>
                        </div>
                      </div>
                    </div>
