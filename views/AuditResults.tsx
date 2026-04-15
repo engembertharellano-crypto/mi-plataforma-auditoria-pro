@@ -23,8 +23,7 @@ import {
   UserCheck, 
   PenTool,
   RefreshCw,
-  Lock,
-  Coins
+  Lock
 } from 'lucide-react';
 import { AuditState } from '../types';
 import { HARDWARE_CHECKLIST, PROCESS_CHECKLIST } from '../constants';
@@ -70,6 +69,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
   const isAuthor = sessionUser?.fullName === (audit as any)?.createdBy;
   const isReportLocked = Boolean((audit as any)?.reportLocked);
   const canEditReport = isAuthor && !isReportLocked;
+  const workingFund = (audit as any)?.workingFund;
 
   const [reportText, setReportText] = useState(audit.reportText || '');
   const [calculatedData, setCalculatedData] = useState<any>(null);
@@ -188,6 +188,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
       const managerName = `${auditData.inCharge.nombre} ${auditData.inCharge.apellido}`.toUpperCase();
       const pharmacyName = (auditData.pharmacy?.name || 'LA SEDE').toUpperCase();
       const auditorName = (JSON.parse(sessionStorage.getItem('xana_active_user') || '{}').fullName || 'AUDITOR XANA').toUpperCase();
+      const currentWorkingFund = (auditData as any)?.workingFund;
       
       const failures: string[] = [];
       Object.entries(auditData.processAnswers).forEach(([id, ans]) => {
@@ -201,6 +202,10 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
         ? `INCIDENCIA EN BÓVEDA: Se detectó descuadre de efectivo (USD: ${auditData.vaultCount?.usd.difference}, VES: ${auditData.vaultCount?.ves.difference}).` 
         : "Integridad financiera en bóveda: CONFORME.";
 
+      const workingFundText = currentWorkingFund
+        ? `FONDO DE TRABAJO CONSOLIDADO: ${currentWorkingFund.boxCount || 0} cajas activas, total en USD ${Number(currentWorkingFund.usdTotal || 0).toFixed(2)} y total en VES ${Number(currentWorkingFund.vesTotal || 0).toFixed(2)}.`
+        : "Fondo de trabajo consolidado: Sin registro.";
+
       const prompt = `Genera un INFORME DE AUDITORÍA DE SEGURIDAD CORPORATIVA formal, técnico y detallado.
       
       DATOS DEL REPORTE:
@@ -213,11 +218,12 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
       HALLAZGOS ESPECÍFICOS:
       - Fallas de Proceso Detectadas: ${failures.length > 0 ? failures.join(', ') : 'Ninguna falla crítica de proceso detectada.'}
       - Estado de Bóveda: ${vaultIncidentText}
+      - Fondo de Trabajo: ${workingFundText}
       
       ESTRUCTURA OBLIGATORIA DEL INFORME:
       1. RESUMEN EJECUTIVO: Un párrafo sólido resumiendo el estado general de la seguridad en la sede.
       2. ANÁLISIS DE RIESGOS CRÍTICOS: Detalla las implicaciones de seguridad de los hallazgos negativos (si existen).
-      3. EVALUACIÓN DE PROCESOS Y BÓVEDA: Comentario técnico sobre la integridad financiera y el cumplimiento de protocolos.
+      3. EVALUACIÓN DE PROCESOS, BÓVEDA Y FONDO DE TRABAJO: Comentario técnico sobre la integridad financiera y el cumplimiento de protocolos.
       4. CONCLUSIONES Y RECOMENDACIONES: Pasos a seguir inmediatos para mitigar los riesgos detectados.
       
       TONO: Estrictamente profesional, corporativo, objetivo y directo. Sin saludos, sin despedidas, sin frases de relleno. Enfócate en la seguridad física y patrimonial.`;
@@ -474,41 +480,90 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                 </div>
               )}
 
-              {/* NUEVO BLOQUE: CONTROL DE FONDOS OPERATIVOS */}
-              {(audit as any).cashFundGlobal && (
-                <div className="mt-8">
+              {workingFund && (
+                <div className="mt-8 pt-8 border-t border-slate-100">
                   <div className="bg-slate-50 rounded-[2.5rem] p-10 border border-slate-200 shadow-sm">
                     <div className="flex items-center justify-between mb-8">
                       <div className="flex items-center gap-4">
-                        <div className="p-3 bg-blue-600 rounded-2xl text-white shadow-lg">
-                          <Coins className="w-6 h-6" />
+                        <div className="p-3 bg-slate-900 rounded-2xl text-white shadow-lg">
+                          <Banknote className="w-6 h-6" />
                         </div>
                         <div>
-                          <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter">CONTROL DE FONDOS OPERATIVOS</h3>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Gestión global del fondo operativo</p>
+                          <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Fondo de Trabajo Consolidado</h3>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Acumulado total de cajas operativas</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Cajas en Farmacia</p>
-                        <p className="text-2xl font-black text-blue-600">{(audit as any).cashFundGlobal.numberOfRegisters}</p>
+
+                      <div className="px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border shadow-sm flex items-center gap-2 bg-blue-50 text-blue-600 border-blue-100">
+                        <ClipboardCheck className="w-4 h-4" />
+                        Registro Informativo
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-inner">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Fondo Asignado Total</p>
-                        <p className="text-3xl font-black text-slate-800 tracking-tighter">${(audit as any).cashFundGlobal.totalAssigned.toLocaleString()}</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-inner flex flex-col justify-between group hover:border-blue-200 transition-colors">
+                        <div className="flex justify-between items-center mb-6">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bolívares (VES)</p>
+                          <div className="p-2 rounded-full bg-emerald-50 text-emerald-600">
+                            <Check className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-end">
+                          <p className="text-4xl font-black text-slate-800 tracking-tighter">{Number(workingFund.vesTotal || 0).toFixed(2)} Bs.</p>
+                        </div>
                       </div>
-                      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-inner">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Fondo Físico Total</p>
-                        <p className="text-3xl font-black text-slate-800 tracking-tighter">${(audit as any).cashFundGlobal.totalPhysical.toLocaleString()}</p>
+
+                      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-inner flex flex-col justify-between group hover:border-emerald-200 transition-colors">
+                        <div className="flex justify-between items-center mb-6">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dólares (USD)</p>
+                          <div className="p-2 rounded-full bg-emerald-50 text-emerald-600">
+                            <Check className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-end">
+                          <p className="text-4xl font-black text-slate-800 tracking-tighter">{Number(workingFund.usdTotal || 0).toFixed(2)} $</p>
+                        </div>
                       </div>
-                      <div className={`p-6 rounded-3xl border shadow-inner ${((audit as any).cashFundGlobal.difference || 0) === 0 ? 'bg-white border-slate-100' : 'bg-red-50 border-red-100'}`}>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Diferencia</p>
-                        <p className={`text-3xl font-black ${((audit as any).cashFundGlobal.difference || 0) === 0 ? 'text-emerald-500' : 'text-red-500'} tracking-tighter`}>
-                          ${(audit as any).cashFundGlobal.difference.toLocaleString()}
+                    </div>
+
+                    <div className="mt-8">
+                      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-inner">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
+                          Cantidad de Cajas
+                        </p>
+                        <p className="text-4xl font-black text-slate-800 tracking-tighter">
+                          {Number(workingFund.boxCount || 0)}
                         </p>
                       </div>
+                    </div>
+
+                    <div className="mt-10 flex flex-col md:flex-row md:items-center justify-between gap-8 pt-8 border-t border-slate-200/60">
+                      {workingFund.responsiblePerson && (
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center text-orange-600">
+                            <UserCheck className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">
+                              Validado por
+                            </p>
+                            <p className="text-sm font-black text-slate-800 uppercase tracking-tight">
+                              {workingFund.responsiblePerson}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {workingFund.notes && (
+                        <div className="flex-1 max-w-lg bg-white px-6 py-4 rounded-2xl border border-slate-100 shadow-sm">
+                          <p className="text-[9px] font-black text-orange-500 uppercase mb-1 tracking-widest flex items-center gap-2">
+                            <PenTool className="w-3 h-3" /> Observación
+                          </p>
+                          <p className="text-[11px] text-slate-500 italic font-medium leading-relaxed">
+                            "{workingFund.notes}"
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -606,7 +661,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                            <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Sistema:</span><span className="text-slate-700">{audit.vaultCount.ves.system.toFixed(2)} Bs.</span></div>
                            <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Físico:</span><span className="text-slate-900">{audit.vaultCount.ves.physical.toFixed(2)} Bs.</span></div>
                            <div className={`pt-3 border-t flex justify-between font-black ${audit.vaultCount.ves.difference === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                             <span>Diferencia:</span><span>{audit.vaultCount.ves.difference.toFixed(2)} Bs.</span>
+                              <span>Diferencia:</span><span>{audit.vaultCount.ves.difference.toFixed(2)} Bs.</span>
                            </div>
                         </div>
                      </div>
@@ -616,7 +671,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                            <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Sistema:</span><span className="text-slate-700">{audit.vaultCount.usd.system.toFixed(2)} $</span></div>
                            <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Físico:</span><span className="text-slate-900">{audit.vaultCount.usd.physical.toFixed(2)} $</span></div>
                            <div className={`pt-3 border-t flex justify-between font-black ${audit.vaultCount.usd.difference === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                             <span>Diferencia:</span><span>{audit.vaultCount.usd.difference.toFixed(2)} $</span>
+                              <span>Diferencia:</span><span>{audit.vaultCount.usd.difference.toFixed(2)} $</span>
                            </div>
                         </div>
                      </div>
@@ -627,6 +682,57 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                         <p className="text-sm font-medium italic text-slate-700">"{audit.vaultCount.notes}"</p>
                      </div>
                   )}
+               </div>
+             )}
+
+             {workingFund && (
+               <div>
+                 <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-6 flex items-center gap-4"><Banknote className="w-4 h-4" /> Fondo de Trabajo Consolidado</h3>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                   <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
+                     <div className="px-4 py-2 bg-blue-600 text-white font-black text-[9px] uppercase tracking-widest">Bolívares (VES)</div>
+                     <div className="p-6 space-y-3">
+                       <div className="flex justify-between text-xs font-bold">
+                         <span className="text-slate-400">Total:</span>
+                         <span className="text-slate-900">{Number(workingFund.vesTotal || 0).toFixed(2)} Bs.</span>
+                       </div>
+                     </div>
+                   </div>
+
+                   <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
+                     <div className="px-4 py-2 bg-emerald-600 text-white font-black text-[9px] uppercase tracking-widest">Dólares (USD)</div>
+                     <div className="p-6 space-y-3">
+                       <div className="flex justify-between text-xs font-bold">
+                         <span className="text-slate-400">Total:</span>
+                         <span className="text-slate-900">{Number(workingFund.usdTotal || 0).toFixed(2)} $</span>
+                       </div>
+                     </div>
+                   </div>
+                 </div>
+
+                 <div className="mt-6 bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
+                   <div className="px-4 py-2 bg-slate-100/70 text-slate-600 font-black text-[9px] uppercase tracking-widest">Cantidad de Cajas</div>
+                   <div className="p-6">
+                     <div className="flex justify-between text-xs font-bold">
+                       <span className="text-slate-400">Cajas activas:</span>
+                       <span className="text-slate-900">{Number(workingFund.boxCount || 0)}</span>
+                     </div>
+                   </div>
+                 </div>
+
+                 {workingFund.responsiblePerson && (
+                   <div className="mt-6 p-6 bg-blue-50 border-l-4 border-blue-500 rounded-xl">
+                     <p className="text-[9px] font-black text-blue-600 uppercase mb-2 tracking-widest">Validado por:</p>
+                     <p className="text-sm font-black text-slate-800 uppercase">{workingFund.responsiblePerson}</p>
+                   </div>
+                 )}
+
+                 {workingFund.notes && (
+                   <div className="mt-6 p-6 bg-orange-50 border-l-4 border-orange-500 rounded-xl">
+                     <p className="text-[9px] font-black text-orange-600 uppercase mb-2 tracking-widest">Observación:</p>
+                     <p className="text-sm font-medium italic text-slate-700">"{workingFund.notes}"</p>
+                   </div>
+                 )}
                </div>
              )}
 
