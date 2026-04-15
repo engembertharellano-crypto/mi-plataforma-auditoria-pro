@@ -20,8 +20,16 @@ interface AuditWizardProps {
   onCancel: () => void;
   onFinish: (audit: AuditState) => void;
   pharmacies: Pharmacy[];
-  initialAudit?: AuditState | null; // PROPIEDAD PARA EDICIÓN
+  initialAudit?: AuditState | null;
   onAddPharmacy: (pharmacy: Pharmacy) => void;
+}
+
+interface WorkingFund {
+  boxCount: number;
+  vesTotal: number;
+  usdTotal: number;
+  responsiblePerson: string;
+  notes: string;
 }
 
 const AuditWizard: React.FC<AuditWizardProps> = ({ 
@@ -34,17 +42,14 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
   const [step, setStep] = useState(1);
   const [selectedPharmacy, setSelectedPharmacy] = useState<Pharmacy | null>(null);
   
-  // Estados para datos nuevos de farmacia (si aplica)
   const [newPharmacyMode, setNewPharmacyMode] = useState(false);
   const [newPharmacyData, setNewPharmacyData] = useState<Partial<Pharmacy>>({});
 
   const [inCharge, setInCharge] = useState({ nombre: '', apellido: '' });
   
-  // Respuestas
   const [hardwareAnswers, setHardwareAnswers] = useState<Record<string, { quantity?: number, status: string, notes: string }>>({});
   const [processAnswers, setProcessAnswers] = useState<Record<string, { status: string, notes: string }>>({});
   
-  // Arqueo de Bóveda
   const [vaultCount, setVaultCount] = useState<VaultCount>({
     usd: { system: 0, physical: 0, difference: 0 },
     ves: { system: 0, physical: 0, difference: 0 },
@@ -52,28 +57,39 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
     responsiblePerson: ''
   });
 
-  // Fotos (Placeholders para demo)
+  const [workingFund, setWorkingFund] = useState<WorkingFund>({
+    boxCount: 0,
+    vesTotal: 0,
+    usdTotal: 0,
+    responsiblePerson: '',
+    notes: ''
+  });
+
   const [photos, setPhotos] = useState<string[]>([]);
 
-  // --- EFECTO DE CARGA PARA EDICIÓN ---
   useEffect(() => {
     if (initialAudit) {
-      // 1. Cargar Farmacia
       const pharm = pharmacies.find(p => p.id === initialAudit.pharmacyId);
       if (pharm) setSelectedPharmacy(pharm);
       else if (initialAudit.pharmacy) setSelectedPharmacy(initialAudit.pharmacy);
 
-      // 2. Cargar Responsable
       setInCharge(initialAudit.inCharge || { nombre: '', apellido: '' });
-
-      // 3. Cargar Respuestas
       setHardwareAnswers(initialAudit.hardwareAnswers || {});
       setProcessAnswers(initialAudit.processAnswers || {});
 
-      // 4. Cargar Bóveda
       if (initialAudit.vaultCount) setVaultCount(initialAudit.vaultCount);
 
-      // 5. Fotos (si las hubiera en el futuro)
+      const initialWorkingFund = (initialAudit as any).workingFund;
+      if (initialWorkingFund) {
+        setWorkingFund({
+          boxCount: initialWorkingFund.boxCount || 0,
+          vesTotal: initialWorkingFund.vesTotal || 0,
+          usdTotal: initialWorkingFund.usdTotal || 0,
+          responsiblePerson: initialWorkingFund.responsiblePerson || '',
+          notes: initialWorkingFund.notes || ''
+        });
+      }
+
       if (initialAudit.photos) setPhotos(initialAudit.photos);
     }
   }, [initialAudit, pharmacies]);
@@ -96,7 +112,6 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
     if (step === 1 && !selectedPharmacy && !newPharmacyMode) return;
 
     if (step === 1 && newPharmacyMode) {
-      // Guardar nueva farmacia temporalmente
       if (!newPharmacyData.name) return;
       const newPharm: Pharmacy = {
         id: `pharm-${Date.now()}`,
@@ -131,19 +146,19 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
   const handleSubmit = () => {
     if (!selectedPharmacy) return;
 
-    const auditData: AuditState = {
-      // Si editamos, mantenemos el ID original (se manejará en App.tsx), si no, se crea allá.
+    const auditData: any = {
       id: initialAudit?.id || '', 
-      date: initialAudit?.date || new Date().toLocaleDateString('es-ES'), // Mantiene fecha original si edita
+      date: initialAudit?.date || new Date().toLocaleDateString('es-ES'),
       pharmacyId: selectedPharmacy.id,
       pharmacy: selectedPharmacy,
       inCharge,
       hardwareAnswers,
       processAnswers,
       vaultCount,
+      workingFund,
       photos,
-      score: 0, // Se recalcula en App.tsx
-      reportText: initialAudit?.reportText // Mantenemos el reporte si ya existía
+      score: 0,
+      reportText: initialAudit?.reportText
     };
 
     onFinish(auditData);
@@ -166,7 +181,6 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
   return (
     <div className="max-w-4xl mx-auto p-6 pb-24 animate-in slide-in-from-bottom-4 duration-500">
       
-      {/* Header del Wizard */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-3xl font-black text-white uppercase tracking-tighter">
@@ -179,17 +193,14 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
         </button>
       </div>
 
-      {/* Contenido de Pasos (Resumido: Usar lógica existente de renderizado) */}
       <div className="bg-white rounded-[2.5rem] p-8 shadow-2xl min-h-[500px] relative">
         
-        {/* PASO 1: SELECCIÓN DE SEDE */}
         {step === 1 && (
           <div className="space-y-6">
             <h3 className="text-xl font-black text-slate-800 uppercase flex items-center gap-2">
               <MapPin className="w-6 h-6 text-orange-500" /> Selección de Sede
             </h3>
             
-            {/* Si estamos editando, mostramos la sede fija (o permitimos cambiar, pero mejor fija para consistencia) */}
             {initialAudit ? (
                <div className="p-6 bg-slate-50 border-2 border-slate-200 rounded-2xl">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Sede Seleccionada</p>
@@ -220,7 +231,6 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
           </div>
         )}
 
-        {/* PASO 2: HARDWARE (Checklist) */}
         {step === 2 && (
           <div className="space-y-6">
              <h3 className="text-xl font-black text-slate-800 uppercase flex items-center gap-2"><ShieldCheck className="w-6 h-6 text-orange-500" /> Seguridad Física</h3>
@@ -249,7 +259,6 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
           </div>
         )}
 
-        {/* PASO 3: PROCESOS */}
         {step === 3 && (
           <div className="space-y-6">
              <h3 className="text-xl font-black text-slate-800 uppercase flex items-center gap-2"><CheckCircle2 className="w-6 h-6 text-blue-500" /> Procesos y Protocolos</h3>
@@ -278,13 +287,11 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
           </div>
         )}
 
-        {/* PASO 4: BÓVEDA */}
         {step === 4 && (
           <div className="space-y-6">
              <h3 className="text-xl font-black text-slate-800 uppercase flex items-center gap-2"><Banknote className="w-6 h-6 text-emerald-500" /> Arqueo de Bóveda</h3>
              
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* USD */}
                 <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-100">
                    <p className="text-emerald-700 font-black text-sm uppercase tracking-widest mb-4">Dólares (USD)</p>
                    <div className="space-y-4">
@@ -293,7 +300,7 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
                       <div className={`p-3 rounded-xl text-center font-black ${vaultCount.usd.difference === 0 ? 'bg-emerald-200 text-emerald-800' : 'bg-red-200 text-red-800'}`}>Dif: {vaultCount.usd.difference.toFixed(2)}</div>
                    </div>
                 </div>
-                {/* VES */}
+
                 <div className="p-6 bg-blue-50 rounded-2xl border border-blue-100">
                    <p className="text-blue-700 font-black text-sm uppercase tracking-widest mb-4">Bolívares (VES)</p>
                    <div className="space-y-4">
@@ -308,10 +315,73 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
                 <input type="text" placeholder="Nombre del responsable del conteo (Testigo)" className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm mb-2" value={vaultCount.responsiblePerson} onChange={e => setVaultCount({...vaultCount, responsiblePerson: e.target.value})} />
                 <textarea placeholder="Justificación de diferencias..." className="w-full bg-white p-3 rounded-lg text-sm text-slate-600 outline-none h-20 resize-none" value={vaultCount.notes} onChange={e => setVaultCount({...vaultCount, notes: e.target.value})}></textarea>
              </div>
+
+             <div className="pt-4 border-t border-slate-100">
+               <h3 className="text-xl font-black text-slate-800 uppercase flex items-center gap-2 mb-6">
+                 <Banknote className="w-6 h-6 text-slate-700" /> Fondo de Trabajo Consolidado
+               </h3>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-100">
+                     <p className="text-emerald-700 font-black text-sm uppercase tracking-widest mb-4">Dólares (USD)</p>
+                     <div className="space-y-4">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Monto Total</label>
+                          <input
+                            type="number"
+                            className="w-full p-3 rounded-xl font-black text-xl text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500"
+                            value={workingFund.usdTotal}
+                            onChange={e => setWorkingFund(prev => ({ ...prev, usdTotal: parseFloat(e.target.value) || 0 }))}
+                          />
+                        </div>
+                     </div>
+                  </div>
+
+                  <div className="p-6 bg-blue-50 rounded-2xl border border-blue-100">
+                     <p className="text-blue-700 font-black text-sm uppercase tracking-widest mb-4">Bolívares (VES)</p>
+                     <div className="space-y-4">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Monto Total</label>
+                          <input
+                            type="number"
+                            className="w-full p-3 rounded-xl font-black text-xl text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
+                            value={workingFund.vesTotal}
+                            onChange={e => setWorkingFund(prev => ({ ...prev, vesTotal: parseFloat(e.target.value) || 0 }))}
+                          />
+                        </div>
+                     </div>
+                  </div>
+               </div>
+
+               <div className="mt-6 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                 <label className="text-[10px] font-bold text-slate-400 uppercase">Cantidad de Cajas</label>
+                 <input
+                   type="number"
+                   className="w-full mt-2 p-3 rounded-xl font-black text-xl text-slate-800 outline-none focus:ring-2 focus:ring-slate-400"
+                   value={workingFund.boxCount}
+                   onChange={e => setWorkingFund(prev => ({ ...prev, boxCount: parseInt(e.target.value || '0', 10) || 0 }))}
+                 />
+               </div>
+
+               <div className="mt-6 p-4 bg-slate-50 rounded-xl">
+                  <input
+                    type="text"
+                    placeholder="Nombre del responsable del fondo de trabajo"
+                    className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm mb-2"
+                    value={workingFund.responsiblePerson}
+                    onChange={e => setWorkingFund({ ...workingFund, responsiblePerson: e.target.value })}
+                  />
+                  <textarea
+                    placeholder="Observaciones del fondo de trabajo..."
+                    className="w-full bg-white p-3 rounded-lg text-sm text-slate-600 outline-none h-20 resize-none"
+                    value={workingFund.notes}
+                    onChange={e => setWorkingFund({ ...workingFund, notes: e.target.value })}
+                  />
+               </div>
+             </div>
           </div>
         )}
 
-        {/* PASO 5: RESUMEN / FINALIZAR */}
         {step === 5 && (
            <div className="text-center py-10">
               <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -330,7 +400,6 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
 
       </div>
 
-      {/* Navegación Footer */}
       {step < 5 && (
         <div className="flex justify-between mt-8">
            {step > 1 ? (
