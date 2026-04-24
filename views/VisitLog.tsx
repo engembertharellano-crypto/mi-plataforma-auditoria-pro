@@ -537,4 +537,4 @@ const VisitLog: React.FC<VisitLogProps> = ({
   );
 };
 
-export default VisitLog;
+export default VisitLog; 
