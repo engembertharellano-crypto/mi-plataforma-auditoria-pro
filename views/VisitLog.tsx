@@ -403,38 +403,39 @@ const VisitLog: React.FC<VisitLogProps> = ({
                     </div>
                   </td>
                   <td className="py-6 px-8 align-top">
-                    <div className="flex items-center gap-3">
-                      <div className="font-black text-slate-900 text-lg uppercase tracking-normal">
-                        {record.pharmacy}
-                      </div>
-                      
-                      {!isReadOnly && record.type === 'Auditoría' && onEditAudit && record.original.createdBy === currentUser?.fullName && (
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEditAudit(record.original);
-                          }}
-                          className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100"
-                          title="Editar Auditoría"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+  <div className="flex items-center gap-3">
+    <div className="font-black text-slate-900 text-lg uppercase tracking-normal">
+      {record.pharmacy}
+    </div>
+    
+    {!isReadOnly && record.type === 'Auditoría' && onEditAudit && record.original.createdBy === currentUser?.fullName && (
+      <button 
+        onClick={(e) => {
+          e.stopPropagation();
+          onEditAudit(record.original);
+        }}
+        className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100"
+        title="Editar Auditoría"
+      >
+        <Pencil className="w-3.5 h-3.5" />
+      </button>
+    )}
 
-                      {!isReadOnly && record.type === 'Auditoría' && canDeleteRecord(record) && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteRecord(record);
-                          }}
-                          className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm border border-red-100"
-                          title="Eliminar Auditoría"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
+    {/* ✅ CAMBIO: ahora el botón borrar aparece para TODOS los tipos */}
+    {!isReadOnly && canDeleteRecord(record) && (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          handleDeleteRecord(record);
+        }}
+        className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm border border-red-100"
+        title="Eliminar Registro"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+    )}
+  </div>
+</td>
                   <td className="py-6 px-8 align-top">
                     <p className="text-sm text-slate-600 font-medium leading-relaxed italic max-w-2xl whitespace-pre-wrap">
                       {record.details}
