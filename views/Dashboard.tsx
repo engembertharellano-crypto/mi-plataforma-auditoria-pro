@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { FileText, Briefcase, MapPin, Plus, ArrowRight, TrendingUp, Activity, PieChart } from 'lucide-react';
 import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord } from '../types';
 
@@ -10,7 +10,7 @@ interface DashboardProps {
   physicalRecords: PhysicalInventoryRecord[];
   managementRecords: ManagementVisitRecord[];
   onSelectAudit: (audit: AuditState) => void;
-  readOnly?: boolean; // ✅ NUEVO
+  readOnly?: boolean;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
@@ -23,6 +23,12 @@ const Dashboard: React.FC<DashboardProps> = ({
   onSelectAudit,
   readOnly = false
 }) => {
+  const getZoneForRecord = (item: any) => {
+    const pId = item.pharmacyId || item.pharmacy?.id;
+    if (!pId) return undefined;
+    return pharmacies.find(p => p.id === pId)?.zone;
+  };
+
   const parseAuditDate = (dateStr?: string) => {
     if (!dateStr) return new Date(0);
 
@@ -38,13 +44,16 @@ const Dashboard: React.FC<DashboardProps> = ({
     return isNaN(fallback.getTime()) ? new Date(0) : fallback;
   };
 
-  const history = [...audits]
-    .sort((a, b) => parseAuditDate(b.date).getTime() - parseAuditDate(a.date).getTime())
-    .slice(0, 5);
-
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
+  const [selectedZone, setSelectedZone] = useState('Todas');
   const currentYear = now.getFullYear();
+
+  const availableZones = useMemo(() => {
+    const zones = new Set<string>();
+    pharmacies.forEach(p => { if (p.zone) zones.add(p.zone); });
+    return Array.from(zones).sort();
+  }, [pharmacies]);
 
   const isCurrentMonth = (dateStr?: string) => {
     if (!dateStr) return false;
@@ -64,16 +73,18 @@ const Dashboard: React.FC<DashboardProps> = ({
     return parsed.getMonth() === selectedMonth && parsed.getFullYear() === currentYear;
   };
 
-  const auditsCount = audits.filter(a => isCurrentMonth(a.date)).length;
-  const cctvCount = cctvRecords.filter(r => isCurrentMonth(r.date)).length;
-  const physicalCount = physicalRecords.filter(r => isCurrentMonth(r.date)).length;
-  const managementCount = managementRecords.filter(r => isCurrentMonth(r.date)).length;
+  const inSelectedZone = (item: any) => selectedZone === 'Todas' || getZoneForRecord(item) === selectedZone;
+
+  const auditsCount = audits.filter(a => isCurrentMonth(a.date) && inSelectedZone(a)).length;
+  const cctvCount = cctvRecords.filter(r => isCurrentMonth(r.date) && inSelectedZone(r)).length;
+  const physicalCount = physicalRecords.filter(r => isCurrentMonth(r.date) && inSelectedZone(r)).length;
+  const managementCount = managementRecords.filter(r => isCurrentMonth(r.date) && inSelectedZone(r)).length;
 
   const visitedPharmacyIds = new Set<string>();
   const addVisitedPharmacies = (items: any[]) => {
     items.forEach(item => {
       const pharmId = (item.pharmacy && item.pharmacy.id) ? item.pharmacy.id : item.pharmacyId;
-      if (pharmId && isCurrentMonth(item.date)) {
+      if (pharmId && isCurrentMonth(item.date) && inSelectedZone(item)) {
         visitedPharmacyIds.add(String(pharmId));
       }
     });
@@ -83,7 +94,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   addVisitedPharmacies(managementRecords);
 
   const totalUniqueVisits = visitedPharmacyIds.size;
-  const totalPharmacies = pharmacies.length;
+  const totalPharmacies = selectedZone === 'Todas' ? pharmacies.length : pharmacies.filter(p => p.zone === selectedZone).length;
   const coveragePercentage = totalPharmacies > 0
     ? Math.round((totalUniqueVisits / totalPharmacies) * 100)
     : 0;
@@ -93,6 +104,11 @@ const Dashboard: React.FC<DashboardProps> = ({
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
   ];
   const monthName = monthNames[selectedMonth];
+
+  const history = [...audits]
+    .filter(a => selectedZone === 'Todas' || getZoneForRecord(a) === selectedZone)
+    .sort((a, b) => parseAuditDate(b.date).getTime() - parseAuditDate(a.date).getTime())
+    .slice(0, 5);
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 pt-4 pb-12">
@@ -107,20 +123,30 @@ const Dashboard: React.FC<DashboardProps> = ({
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]"></span>
             Resumen de gestión - {monthName} {currentYear}
           </p>
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(Number(e.target.value))}
-            className="border border-slate-200 rounded-lg px-3 py-1 text-sm font-medium mt-2"
-          >
-            {[
-              "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-              "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-            ].map((m, i) => (
-              <option key={i} value={i}>
-                {m}
-              </option>
-            ))}
-          </select>
+          <div className="flex gap-2 mt-2">
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(Number(e.target.value))}
+              className="border border-slate-200 rounded-lg px-3 py-1 text-sm font-medium"
+            >
+              {monthNames.map((m, i) => (
+                <option key={i} value={i}>{m}</option>
+              ))}
+            </select>
+
+            {availableZones.length > 0 && (
+              <select
+                value={selectedZone}
+                onChange={(e) => setSelectedZone(e.target.value)}
+                className="border border-slate-200 rounded-lg px-3 py-1 text-sm font-medium"
+              >
+                <option value="Todas">Todas las Zonas</option>
+                {availableZones.map(zone => (
+                  <option key={zone} value={zone}>{zone}</option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
 
         {!readOnly && (
@@ -184,19 +210,18 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           <div className="glass-card p-8 rounded-[2rem] hover:-translate-y-2 transition-all duration-300 group border-l-4 border-l-emerald-500">
-   <div className="flex justify-between items-start mb-4">
-      <div className="p-3 bg-emerald-50 rounded-2xl text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors shadow-sm">
-         <TrendingUp className="w-6 h-6" />
-      </div>
-      <span className="text-[10px] font-black text-slate-400 bg-slate-100/50 px-3 py-1 rounded-full border border-slate-100 uppercase">KPI</span>
-   </div>
-   <p className="text-5xl font-black text-slate-800 mb-1">{coveragePercentage}%</p>
-   <p className="text-slate-500 font-bold text-sm">Índice de Cobertura</p>
-   {/* ✅ NUEVO: muestra X de Y farmacias visitadas */}
-   <p className="text-emerald-600 font-black text-xs mt-2 uppercase tracking-widest">
-     {totalUniqueVisits} de {totalPharmacies} farmacias visitadas
-   </p>
-</div>
+             <div className="flex justify-between items-start mb-4">
+                <div className="p-3 bg-emerald-50 rounded-2xl text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors shadow-sm">
+                   <TrendingUp className="w-6 h-6" />
+                </div>
+                <span className="text-[10px] font-black text-slate-400 bg-slate-100/50 px-3 py-1 rounded-full border border-slate-100 uppercase">KPI</span>
+             </div>
+             <p className="text-5xl font-black text-slate-800 mb-1">{coveragePercentage}%</p>
+             <p className="text-slate-500 font-bold text-sm">Índice de Cobertura</p>
+             <p className="text-emerald-600 font-black text-xs mt-2 uppercase tracking-widest">
+               {totalUniqueVisits} de {totalPharmacies} farmacias visitadas
+             </p>
+          </div>
         </div>
       </div>
 
@@ -263,6 +288,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                 if (score >= 95) auditRiskLabel = 'Bajo';
                 else if (score >= 85) auditRiskLabel = 'Moderado';
                 else if (score >= 75) auditRiskLabel = 'Medio';
+                else if (score
+                                         else if (score >= 75) auditRiskLabel = 'Medio';
                 else if (score >= 65) auditRiskLabel = 'Alto';
 
                 return (
