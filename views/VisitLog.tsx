@@ -119,7 +119,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
         else if (type === 'Inventario CCTV' || type === 'Infraestructura') {
           textoObservacion = item.observations || item.notes || item.comments || "Sin observaciones registradas.";
         } 
-        else if (type === 'Visita Gerencial') {
+        else if (type === 'Visita de Gestión') {
           textoObservacion = item.reason || item.observations || item.notes || "Visita de gestión.";
         }
 
@@ -138,7 +138,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
       ...format(audits, 'Auditoría', 'date'),
       ...format(cctvRecords, 'Inventario CCTV', 'date'),
       ...format(physicalRecords, 'Infraestructura', 'date'),
-      ...format(managementRecords, 'Visita Gerencial', 'date')
+      ...format(managementRecords, 'Visita de Gestión', 'date')
     ].sort((a, b) => {
        const dateA = parseRecordDate(a.date);
        const dateB = parseRecordDate(b.date);
@@ -202,7 +202,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
     if (recordToDelete.type === 'Auditoría') onDeleteAudit(recordToDelete.id);
     if (recordToDelete.type === 'Inventario CCTV') onDeleteCCTV(recordToDelete.id);
     if (recordToDelete.type === 'Infraestructura') onDeletePhysical(recordToDelete.id);
-    if (recordToDelete.type === 'Visita Gerencial') onDeleteManagement(recordToDelete.id);
+    if (recordToDelete.type === 'Visita de Gestión') onDeleteManagement(recordToDelete.id);
 
     setRecordToDelete(null);
   };
@@ -212,7 +212,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
   };
 
   const renderVisitDetailContent = () => {
-    if (!selectedRecord || selectedRecord.type !== 'Visita Gerencial') return null;
+    if (!selectedRecord || selectedRecord.type !== 'Visita de Gestión') return null;
 
     const data = selectedRecord.original;
 
@@ -326,7 +326,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
               <option value="Auditoría">Auditoría</option>
               <option value="Inventario CCTV">Inventario CCTV</option>
               <option value="Infraestructura">Infraestructura</option>
-              <option value="Visita Gerencial">Visita Gerencial</option>
+              <option value="Visita de Gestión">Visita de Gestión</option>
             </select>
           </div>
 
@@ -459,7 +459,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
             <div className="p-6 border-b border-slate-100 flex items-start justify-between gap-4 sticky top-0 bg-white z-10">
               <div>
                 <h3 className="text-2xl font-black text-slate-900 uppercase tracking-normal">
-                  Detalle de Visita Gerencial
+                  Detalle de Visita de Gestión
                 </h3>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
                   Consulta ampliada del registro
