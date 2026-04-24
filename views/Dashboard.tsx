@@ -184,15 +184,19 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           <div className="glass-card p-8 rounded-[2rem] hover:-translate-y-2 transition-all duration-300 group border-l-4 border-l-emerald-500">
-             <div className="flex justify-between items-start mb-4">
-                <div className="p-3 bg-emerald-50 rounded-2xl text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors shadow-sm">
-                   <TrendingUp className="w-6 h-6" />
-                </div>
-                <span className="text-[10px] font-black text-slate-400 bg-slate-100/50 px-3 py-1 rounded-full border border-slate-100 uppercase">KPI</span>
-             </div>
-             <p className="text-5xl font-black text-slate-800 mb-1">{coveragePercentage}%</p>
-             <p className="text-slate-500 font-bold text-sm">Índice de Cobertura</p>
-          </div>
+   <div className="flex justify-between items-start mb-4">
+      <div className="p-3 bg-emerald-50 rounded-2xl text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors shadow-sm">
+         <TrendingUp className="w-6 h-6" />
+      </div>
+      <span className="text-[10px] font-black text-slate-400 bg-slate-100/50 px-3 py-1 rounded-full border border-slate-100 uppercase">KPI</span>
+   </div>
+   <p className="text-5xl font-black text-slate-800 mb-1">{coveragePercentage}%</p>
+   <p className="text-slate-500 font-bold text-sm">Índice de Cobertura</p>
+   {/* ✅ NUEVO: muestra X de Y farmacias visitadas */}
+   <p className="text-emerald-600 font-black text-xs mt-2 uppercase tracking-widest">
+     {totalUniqueVisits} de {totalPharmacies} farmacias visitadas
+   </p>
+</div>
         </div>
       </div>
 
