@@ -108,7 +108,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
     const format = (list: any[], type: string, dateKey: string) => 
       list.map(item => {
         const pId = item.pharmacyId || (item.pharmacy && item.pharmacy.id);
-        const pharmacyData = pharmacies.find(p => p.id === pId);
+        const pharmacyData = pharmacies.find(p => String(p.id) === String(pId));
 
         let textoObservacion = "";
         if (type === 'Auditoría') {
@@ -164,7 +164,9 @@ const VisitLog: React.FC<VisitLogProps> = ({
   const filteredRecords = allRecords.filter(rec => {
     const matchesSearch = rec.pharmacy.toLowerCase().includes(searchTerm.toLowerCase()) || rec.type.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'Todos' || rec.type === filterType;
-    const matchesZone = !canFilterByZone || (filterZone === 'Todas' || rec.pharmacyZone === filterZone);
+    
+    // ✅ CAMBIO REALIZADO: Ahora usamos la zona de la farmacia para filtrar, no la del usuario
+    const matchesZone = filterZone === 'Todas' || rec.pharmacyZone === filterZone;
 
     let matchesMonth = true;
     if (selectedMonth !== 'Todos') {
@@ -376,12 +378,12 @@ const VisitLog: React.FC<VisitLogProps> = ({
                 <tr 
                   key={`${record.type}-${record.id}`} 
                   className={`group transition-colors ${
-                    record.type === 'Visita Gerencial'
+                    record.type === 'Visita de Gestión'
                       ? 'hover:bg-slate-50/50 cursor-pointer'
                       : 'cursor-default'
                   }`}
                   onClick={() => {
-                    if (record.type === 'Visita Gerencial') {
+                    if (record.type === 'Visita de Gestión') {
                       setSelectedRecord(record);
                     }
                   }}
@@ -403,39 +405,38 @@ const VisitLog: React.FC<VisitLogProps> = ({
                     </div>
                   </td>
                   <td className="py-6 px-8 align-top">
-  <div className="flex items-center gap-3">
-    <div className="font-black text-slate-900 text-lg uppercase tracking-normal">
-      {record.pharmacy}
-    </div>
-    
-    {!isReadOnly && record.type === 'Auditoría' && onEditAudit && record.original.createdBy === currentUser?.fullName && (
-      <button 
-        onClick={(e) => {
-          e.stopPropagation();
-          onEditAudit(record.original);
-        }}
-        className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100"
-        title="Editar Auditoría"
-      >
-        <Pencil className="w-3.5 h-3.5" />
-      </button>
-    )}
+                    <div className="flex items-center gap-3">
+                      <div className="font-black text-slate-900 text-lg uppercase tracking-normal">
+                        {record.pharmacy}
+                      </div>
+                      
+                      {!isReadOnly && record.type === 'Auditoría' && onEditAudit && record.original.createdBy === currentUser?.fullName && (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditAudit(record.original);
+                          }}
+                          className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100"
+                          title="Editar Auditoría"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
 
-    {/* ✅ CAMBIO: ahora el botón borrar aparece para TODOS los tipos */}
-    {!isReadOnly && canDeleteRecord(record) && (
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          handleDeleteRecord(record);
-        }}
-        className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm border border-red-100"
-        title="Eliminar Registro"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
-    )}
-  </div>
-</td>
+                      {!isReadOnly && canDeleteRecord(record) && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteRecord(record);
+                          }}
+                          className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm border border-red-100"
+                          title="Eliminar Registro"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
                   <td className="py-6 px-8 align-top">
                     <p className="text-sm text-slate-600 font-medium leading-relaxed italic max-w-2xl whitespace-pre-wrap">
                       {record.details}
@@ -454,7 +455,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
         </div>
       </div>
 
-      {selectedRecord && selectedRecord.type === 'Visita Gerencial' && (
+      {selectedRecord && selectedRecord.type === 'Visita de Gestión' && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-white rounded-[2rem] shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-slate-100 flex items-start justify-between gap-4 sticky top-0 bg-white z-10">
@@ -538,4 +539,4 @@ const VisitLog: React.FC<VisitLogProps> = ({
   );
 };
 
-export default VisitLog; 
+export default VisitLog;
