@@ -389,7 +389,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Ubicación</label>
                  <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
-                    {['Farmacia', 'Corporativo', 'CEDIS', 'Otro'].map(type => (
+                    {['Farmacia', 'Corporativo', 'CENDIS', 'Otro'].map(type => (
                        <button key={type} onClick={() => setFormData({...formData, locationType: type as any})} className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all whitespace-nowrap ${formData.locationType === type ? 'bg-slate-800 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200'}`}>{type}</button>
                     ))}
                  </div>
