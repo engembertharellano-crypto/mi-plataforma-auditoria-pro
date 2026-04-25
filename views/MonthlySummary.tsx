@@ -1,615 +1,587 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  BarChart3, 
-  TrendingUp, 
-  MapPin, 
-  Calendar, 
-  Briefcase, 
-  AlertTriangle,
-  Building2,
-  Trophy,
-  Siren,
-  Target,
-  Zap,
-  Camera,
-  BrickWall,
-  Filter,
-  CheckCircle2,
-  XCircle,
-  FileText,
-  Boxes
+import React, { useState } from 'react';
+import { 
+  Plus, 
+  Search, 
+  MapPin, 
+  User, 
+  MessageSquare, 
+  Clock, 
+  CheckCircle2, 
+  AlertCircle, 
+  X, 
+  Building2,
+  Truck, 
+  MoreHorizontal, 
+  FileText, 
+  ArrowLeft, 
+  Hash, 
+  Pencil, 
+  Save, 
+  Trash2,
+  Calendar 
 } from 'lucide-react';
-import { 
-  Pharmacy, 
-  AuditState, 
-  CCTVInventoryRecord, 
-  PhysicalInventoryRecord, 
-  ManagementVisitRecord, 
-  PendingRecord,
-  CaseRecord 
-} from '../types';
+import { Pharmacy, CaseRecord, CaseTimelineEntry } from '../types';
 
-const QUESTION_MAP: Record<string, string> = {
-  'p1.1': 'Retiro de dinero de cajas para fondo aprobado',
-  'p1.2': 'Gerente/Senior verifica cuadre y firma conformidad',
-  'p2.1': 'Cierre de control de efectivo y reporte diario',
-  'p2.2': 'Entrega de control de efectivo entre Gerente y Senior',
-  'p2.3': 'Registro y soporte de faltantes/sobrantes firmado',
-  'p2.4': 'Control de devoluciones autorizadas por Gerente',
-  'p2.5': 'Control de transacciones canceladas (anulaciones)',
-  'p2.6': 'Dinero resguardado en lugares seguros',
-  'p2.7': 'Remesa de efectivo en zonas previstas',
-  'p3.1': 'Recepción adecuada de mercancía de proveedores',
-  'p3.2': 'Reclamo generado por discrepancias de inventario',
-  'p3.3': 'Control de registro de productos dañados/usados',
-  'p3.4': 'Proveedores sin libre acceso a áreas internas',
-  'p4.1': 'Revisión de pertenencias del personal al salir',
-  'p4.2': 'Revisión aleatoria de bolsas de basura',
-  'p4.3': 'Llaves entregadas a APV nocturno en sobre sellado',
-  'p4.4': 'Vigilantes cumplen actividades y puestos',
-  'p4.5': 'Apertura/Cierre por personal autorizado (no APV)',
-
-  'h1.1': 'Pulsadores anti robo',
-  'h1.2': 'Router para transmisión de datos',
-  'h1.3': 'Sistema de protección contra incendios',
-  'h2.1': 'Dispositivos de grabación DVR/NVR y periféricos',
-  'h2.2': 'Monitores',
-  'h2.3': 'Cámaras de misceláneos / OTC',
-  'h2.4': 'Cámaras de farmacia detrás de línea de cajas',
-  'h2.5': 'Cámaras de otras áreas',
-  'h3.1': 'Cajas de resguardo de efectivo',
-  'h4.1': 'Santa María',
-  'h4.2': 'Puertas de entrada',
-  'h4.3': 'Ventanas de turno',
-  'h4.4': 'Candados para Santa María',
-  'h4.5': 'Llaves para bajar Santa María',
-  'h4.6': 'Manilla para bajar Santa María',
-  'h4.7': 'Llaves para puertas de acceso',
-  'h4.8': 'Candados para puertas de acceso',
-  'h5.1': 'Lámparas de iluminación de periferia',
-  'h5.2': 'Espejos convexos',
-
-  'cctv': 'Sistema CCTV',
-  'dvr': 'Grabador DVR',
-  'alarma': 'Sistema de Alarma',
-  'control_acceso': 'Biométrico/Control',
-  'radio': 'Equipos de Radio'
-};
-
-const getNum = (val: any): number => {
-  if (typeof val === 'number') return val;
-  if (typeof val === 'string') return parseFloat(val) || 0;
-  return 0;
-};
-
-const parseData = (data: any): any => {
-  if (!data) return {};
-  if (typeof data === 'object') return data;
-  if (typeof data === 'string') {
-    try { return JSON.parse(data); } catch (e) { return {}; }
-  }
-  return {};
-};
-
-interface MonthlySummaryProps {
-  pharmacies: Pharmacy[];
-  audits: AuditState[];
-  cctvRecords: CCTVInventoryRecord[];
-  physicalRecords: PhysicalInventoryRecord[];
-  managementRecords: ManagementVisitRecord[];
-  pendingRecords: PendingRecord[];
-  cases: CaseRecord[];
-  users: any[];
-  currentUser: any;
+interface CaseManagementProps {
+  pharmacies: Pharmacy[];
+  cases: CaseRecord[];
+  onAddCase: (newCase: CaseRecord) => void;
+  onUpdateCase: (updatedCase: CaseRecord) => void;
+  onDeleteCase: (id: string) => void;
+  currentUser: any;
+  hasAdminPrivileges: boolean;
 }
 
-const MonthlySummary: React.FC<MonthlySummaryProps> = ({ 
-  pharmacies, 
-  audits, 
-  cctvRecords, 
-  physicalRecords, 
-  managementRecords, 
-  pendingRecords,
-  cases = [], 
-  users,
-  currentUser 
+const CaseManagement: React.FC<CaseManagementProps> = ({ 
+  pharmacies, 
+  cases = [], 
+  onAddCase, 
+  onUpdateCase, 
+  onDeleteCase, 
+  currentUser, 
+  hasAdminPrivileges 
 }) => {
+  const [view, setView] = useState<'list' | 'new' | 'detail'>('list');
+  const [selectedCase, setSelectedCase] = useState<CaseRecord | null>(null);
+  const [filterStatus, setFilterStatus] = useState<'Activos' | 'Cerrados'>('Activos');
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const now = new Date();
-  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
-  const currentYear = now.getFullYear();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  const [selectedZone, setSelectedZone] = useState<string>(() => {
-    const userZone = currentUser?.zone;
-    if (!userZone || userZone.toUpperCase() === 'GLOBAL' || userZone === '') {
-      return 'Todas';
-    }
-    return userZone;
-  });
+  const now = new Date();
+  const defaultDate = now.toLocaleDateString('sv-SE');
+  const defaultTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-  const zones = useMemo(() => {
-    const uniqueZones = new Set(pharmacies.map(p => p.zone).filter(Boolean));
-    return ['Todas', ...Array.from(uniqueZones)];
-  }, [pharmacies]);
+  const [formData, setFormData] = useState<Partial<CaseRecord> & { dateStr: string; timeStr: string }>({
+    id: '', 
+    dateStr: defaultDate,
+    timeStr: defaultTime,
+    priority: 'Media', 
+    channel: 'WhatsApp', 
+    locationType: 'Farmacia', 
+    locationName: '', 
+    reporterName: '', 
+    title: '', 
+    description: ''
+  });
+  
+  const [selectedPharmacyId, setSelectedPharmacyId] = useState('');
+  const [newTimelineNote, setNewTimelineNote] = useState('');
+  const [timelineDateStr, setTimelineDateStr] = useState(defaultDate);
+  const [timelineTimeStr, setTimelineTimeStr] = useState(defaultTime);
 
-  const getRiskLevel = (score: number): 'Bajo' | 'Moderado' | 'Medio' | 'Alto' | 'Extremo' => {
-    if (score >= 95) return 'Bajo';
-    if (score >= 85) return 'Moderado';
-    if (score >= 75) return 'Medio';
-    if (score >= 65) return 'Alto';
-    return 'Extremo';
-  };
+  const [conclusionText, setConclusionText] = useState('');
+  const [closingDateStr, setClosingDateStr] = useState(defaultDate);
+  const [closingTimeStr, setClosingTimeStr] = useState(defaultTime);
 
-  const getRiskColorClass = (risk: string) => {
-    if (risk === 'Bajo') return 'text-emerald-400';
-    if (risk === 'Moderado') return 'text-yellow-400';
-    if (risk === 'Medio') return 'text-orange-400';
-    if (risk === 'Alto') return 'text-red-400';
-    return 'text-red-500';
-  };
+  const [isClosing, setIsClosing] = useState(false);
+  const [isEditingId, setIsEditingId] = useState(false);
+  const [tempOfficialId, setTempOfficialId] = useState('');
 
-  const isCurrentMonth = (dateStr?: string) => {
-    if (!dateStr) return false;
+  const buildISODateTime = (dateStr: string, timeStr: string) => {
+    if (!dateStr) return new Date().toISOString();
 
-    if (dateStr.includes('/')) {
-      const parts = dateStr.split('/');
-      if (parts.length === 3) {
-        const month = parseInt(parts[1], 10) - 1;
-        const year = parseInt(parts[2], 10);
-        return month === selectedMonth && year === currentYear;
-      }
-    }
+    const safeTime = timeStr && timeStr.trim() ? timeStr : '00:00';
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const [hours, minutes] = safeTime.split(':').map(Number);
 
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return false;
+    const combinedDate = new Date(
+      year,
+      (month || 1) - 1,
+      day || 1,
+      hours || 0,
+      minutes || 0,
+      0
+    );
 
-    return d.getMonth() === selectedMonth && d.getFullYear() === currentYear;
-  };
+    return combinedDate.toISOString();
+  };
+  
+  const filteredCases = cases.filter(c => {
+    const matchesStatus = filterStatus === 'Activos' ? c.status !== 'Cerrado' : c.status === 'Cerrado';
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = c.title.toLowerCase().includes(term) || 
+                          c.locationName.toLowerCase().includes(term) || 
+                          c.id.toLowerCase().includes(term) || 
+                          (c.officialId && c.officialId.toLowerCase().includes(term));
+    return matchesStatus && matchesSearch;
+  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const getZoneForRecord = (item: any) => {
-    const pId = item.pharmacyId || item.pharmacy?.id;
-    if (!pId) return undefined;
-    return pharmacies.find(p => String(p.id) === String(pId))?.zone;
-  };
+  const canDelete = selectedCase && (hasAdminPrivileges || selectedCase.createdBy === currentUser?.fullName);
 
-  const filteredData = useMemo(() => {
-    const filterByZone = (item: any) => {
-      if (selectedZone === 'Todas') return true;
-      return getZoneForRecord(item) === selectedZone;
-    };
+  const handleCreateCase = () => {
+    if (!formData.title || !formData.description || !formData.reporterName) return alert("Complete los campos obligatorios.");
+    
+    let internalId = `NOV-${Date.now().toString().slice(-6)}`;
+    let initialOfficialId = formData.id?.trim().toUpperCase() || undefined;
 
-    const filteredPharmacies = selectedZone === 'Todas' 
-      ? pharmacies 
-      : pharmacies.filter(p => p.zone === selectedZone);
-    
-    return {
-      pharmacies: filteredPharmacies,
-      audits: audits.filter(filterByZone),
-      cctv: cctvRecords.filter(filterByZone),
-      physical: physicalRecords.filter(filterByZone),
-      management: managementRecords.filter(filterByZone),
-      cases: cases.filter(filterByZone)
-    };
-  }, [selectedZone, pharmacies, audits, cctvRecords, physicalRecords, managementRecords, cases]);
+    let finalLocationName = formData.locationName;
+    if (formData.locationType === 'Farmacia') {
+       const p = pharmacies.find(ph => ph.id === selectedPharmacyId);
+       if (!p) return alert("Seleccione una farmacia");
+       finalLocationName = p.name;
+    } else if (!finalLocationName) {
+       return alert("Especifique el nombre de la ubicación");
+    }
 
-  const { 
-    pharmacies: currentPharmacies, 
-    audits: currentAudits, 
-    cctv: currentCCTV, 
-    physical: currentPhysical, 
-    management: currentManagement, 
-    cases: currentCases 
-  } = filteredData;
+    const creationDate = buildISODateTime(formData.dateStr, formData.timeStr);
 
-  const monthlyAudits = currentAudits.filter(a => isCurrentMonth(a.date));
-  const monthlyManagementCount = currentManagement.filter(r => isCurrentMonth(r.date)).length;
-  const monthlyCctvCount = currentCCTV.filter(r => isCurrentMonth(r.date)).length;
-  const monthlyPhysicalCount = currentPhysical.filter(r => isCurrentMonth(r.date)).length;
-  const monthlyAuditsCount = monthlyAudits.length;
+    const newCase: CaseRecord = {
+      id: internalId,
+      officialId: initialOfficialId,
+      date: creationDate,
+      status: 'Abierto',
+      priority: formData.priority as any,
+      channel: formData.channel as any,
+      reporterName: formData.reporterName!,
+      locationType: formData.locationType as any,
+      locationName: finalLocationName!,
+      pharmacyId: selectedPharmacyId || undefined,
+      title: formData.title!,
+      description: formData.description!,
+      timeline: [],
+      createdBy: currentUser.fullName
+    };
 
-  const auditScores = monthlyAudits.map(a => a.score || 0);
-  const avgAuditScore = auditScores.length > 0 
-    ? Math.round(auditScores.reduce((a, b) => a + b, 0) / auditScores.length) 
-    : 0;
+    onAddCase(newCase);
+    setView('list');
 
-  const totalPharmaciesCount = currentPharmacies.length;
+    const resetNow = new Date();
+    const resetDate = resetNow.toLocaleDateString('sv-SE');
+    const resetTime = `${String(resetNow.getHours()).padStart(2, '0')}:${String(resetNow.getMinutes()).padStart(2, '0')}`;
+    
+    setFormData({ 
+      id: '', 
+      dateStr: resetDate,
+      timeStr: resetTime,
+      priority: 'Media', 
+      channel: 'WhatsApp', 
+      locationType: 'Farmacia', 
+      locationName: '', 
+      reporterName: '', 
+      title: '', 
+      description: '' 
+    });
+    setSelectedPharmacyId('');
+  };
 
-  // ✅ CORRECCIÓN: Se agrega .filter(id => id !== 'undefined' && id !== 'null') para eliminar la farmacia inexistente que sumaba 29
-  const visitedPharmacies = new Set([
-    ...monthlyAudits.map(a => String(a.pharmacy?.id || a.pharmacyId)).filter(id => id && id !== 'undefined' && id !== 'null'),
-    ...currentManagement
-      .filter(r => isCurrentMonth(r.date))
-      .map(r => String(r.pharmacyId))
-      .filter(id => id && id !== 'undefined' && id !== 'null')
-  ]).size;
+  const confirmDelete = () => {
+    if (!selectedCase) return;
+    onDeleteCase(selectedCase.id); 
+    setShowDeleteModal(false);
+    setSelectedCase(null);
+    setView('list');
+  };
 
-  const coverage = totalPharmaciesCount > 0 ? Math.round((visitedPharmacies / totalPharmaciesCount) * 100) : 0;
+  const handleSaveOfficialId = () => {
+    if (!selectedCase) return;
+    const updatedCase = { ...selectedCase, officialId: tempOfficialId.trim().toUpperCase() || undefined };
+    onUpdateCase(updatedCase);
+    setSelectedCase(updatedCase);
+    setIsEditingId(false);
+  };
 
-  const casesInSelectedMonth = currentCases.filter(c => isCurrentMonth(c.date));
-  const totalCases = casesInSelectedMonth.length;
-  const closedCases = casesInSelectedMonth.filter(c => c.status === 'Cerrado').length;
-  const efficiency = totalCases > 0 ? Math.round((closedCases / totalCases) * 100) : 0;
+  const handleAddTimeline = () => {
+    if (!selectedCase || !newTimelineNote.trim()) return;
 
-  const totalActivities = monthlyAuditsCount + monthlyCctvCount + monthlyPhysicalCount + monthlyManagementCount;
+    const entryDate = buildISODateTime(timelineDateStr, timelineTimeStr);
 
-  let cctvTotal = 0; 
-  let cctvOk = 0;
-  let cctvBad = 0;
-  
-  currentCCTV.filter(r => isCurrentMonth(r.date)).forEach((rawRecord: any) => {
-    const r = parseData(rawRecord);
-    const cams = r.cameras || {};
-    const totalLocal = (cams.analogTotal || 0) + (cams.ipTotal || 0);
-    const okLocal = (cams.analogOperative || 0) + (cams.ipOperative || 0);
-    cctvTotal += totalLocal;
-    cctvOk += okLocal;
-    cctvBad += (totalLocal - okLocal);
-  });
+    const newEntry: CaseTimelineEntry = {
+      id: Date.now().toString(),
+      date: entryDate,
+      note: newTimelineNote,
+      author: currentUser.fullName
+    };
 
-  const cctvHealth = cctvTotal > 0 ? Math.round((cctvOk / cctvTotal) * 100) : 0;
+    const updatedCase = { 
+      ...selectedCase, 
+      status: 'En Proceso' as const, 
+      timeline: [newEntry, ...selectedCase.timeline] 
+    };
 
-  let infraTotal = 0; 
-  let infraOk = 0;
-  
-  const infraFailures: Record<string, number> = {
-    'Santamaría': 0,
-    'Candado': 0,
-    'Espejo': 0,
-    'Iluminación': 0
-  };
-  
-  currentPhysical.filter(r => isCurrentMonth(r.date)).forEach((rawRecord: any) => {
-    const r = parseData(rawRecord);
-    const s = r.santamarias || {};
-    const c = r.candados || {};
-    const e = r.espejos || {};
-    const i = r.iluminacion || {};
+    onUpdateCase(updatedCase);
+    setSelectedCase(updatedCase);
+    setNewTimelineNote('');
 
-    const reqS = s.required || 0; const goodS = s.good || 0;
-    const reqC = c.required || 0; const goodC = c.good || 0;
-    const reqE = e.required || 0; const goodE = e.good || 0;
-    const reqI = i.required || 0; const goodI = i.good || 0;
+    const resetNow = new Date();
+    setTimelineDateStr(resetNow.toLocaleDateString('sv-SE'));
+    setTimelineTimeStr(`${String(resetNow.getHours()).padStart(2, '0')}:${String(resetNow.getMinutes()).padStart(2, '0')}`);
+  };
 
-    infraTotal += (reqS + reqC + reqE + reqI);
-    infraOk += (goodS + goodC + goodE + goodI);
+  const handleCloseCase = () => {
+    if (!selectedCase || !conclusionText.trim()) return alert("Debe ingresar una conclusión.");
 
-    if (reqS > goodS) infraFailures['Santamaría'] += (reqS - goodS);
-    if (reqC > goodC) infraFailures['Candado'] += (reqC - goodC);
-    if (reqE > goodE) infraFailures['Espejo'] += (reqE - goodE);
-    if (reqI > goodI) infraFailures['Iluminación'] += (reqI - goodI);
-  });
+    const closingDateISO = buildISODateTime(closingDateStr, closingTimeStr);
 
-  const infraHealth = infraTotal > 0 ? Math.round((infraOk / infraTotal) * 100) : 0;
+    const closingEntry: CaseTimelineEntry = {
+      id: Date.now().toString(),
+      date: closingDateISO,
+      note: `CASO CERRADO. Conclusión: ${conclusionText}`,
+      author: currentUser.fullName
+    };
 
-  const infraFailureList = Object.entries(infraFailures)
-    .filter(([_, count]) => count > 0)
-    .map(([name, count]) => `${count} ${name}${count > 1 ? 's' : ''}`);
+    const updatedCase = { 
+      ...selectedCase, 
+      status: 'Cerrado' as const, 
+      conclusion: conclusionText, 
+      closedDate: closingDateISO, 
+      timeline: [closingEntry, ...selectedCase.timeline] 
+    };
 
-  const sortedAudits = [...monthlyAudits].sort((a, b) => (a.score || 0) - (b.score || 0));
-  const lowPerforming = sortedAudits.slice(0, 3);
-  const topPerforming = [...sortedAudits].reverse().slice(0, 3);
+    onUpdateCase(updatedCase);
+    setSelectedCase(updatedCase);
+    setIsClosing(false);
+    setConclusionText('');
 
-  const failureCounts: Record<string, number> = {};
-  monthlyAudits.forEach(audit => {
-    if (audit.processAnswers) {
-      Object.entries(audit.processAnswers).forEach(([key, value]: any) => {
-        if (value.status === 'NO') {
-          const readableName = QUESTION_MAP[key] || key; 
-          failureCounts[readableName] = (failureCounts[readableName] || 0) + 1;
-        }
-      });
-    }
-    if (audit.hardwareAnswers) {
-      Object.entries(audit.hardwareAnswers).forEach(([key, value]: any) => {
-        if (value.status !== 'Operativo' && value.status !== 'N/A') {
-          const readableName = QUESTION_MAP[key] || key;
-          failureCounts[readableName] = (failureCounts[readableName] || 0) + 1;
-        }
-      });
-    }
-  });
-  const topFailure = Object.entries(failureCounts).sort((a, b) => b[1] - a[1])[0];
+    const resetNow = new Date();
+    setClosingDateStr(resetNow.toLocaleDateString('sv-SE'));
+    setClosingTimeStr(`${String(resetNow.getHours()).padStart(2, '0')}:${String(resetNow.getMinutes()).padStart(2, '0')}`);
+  };
 
-  const riskCounts: Record<string, number> = {};
-  monthlyAudits.forEach(audit => {
-    const risk = getRiskLevel(audit.score || 0);
-    riskCounts[risk] = (riskCounts[risk] || 0) + 1;
-  });
-  const predominantRisk = Object.entries(riskCounts).sort((a, b) => b[1] - a[1])[0];
+  const getPriorityColor = (p: string) => {
+    switch(p) {
+      case 'Alta': return 'bg-red-100 text-red-700 border-red-200';
+      case 'Media': return 'bg-orange-100 text-orange-700 border-orange-200';
+      case 'Baja': return 'bg-blue-100 text-blue-700 border-blue-200';
+      default: return 'bg-slate-100 text-slate-700';
+    }
+  };
 
-  const highPriorityOpen = casesInSelectedMonth.filter(c => c.priority === 'Alta' && c.status !== 'Cerrado').length;
+  const getStatusBadge = (s: string) => {
+    switch(s) {
+      case 'Abierto': return <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Abierto</span>;
+      case 'En Proceso': return <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-widest flex items-center gap-1"><Clock className="w-3 h-3" /> En Proceso</span>;
+      case 'Cerrado': return <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-500 text-[10px] font-black uppercase tracking-widest flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Cerrado</span>;
+    }
+  };
 
-  const monthNames = [
-    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-  ];
+  return (
+    <div className="max-w-[1600px] mx-auto p-6 md:p-10 animate-in fade-in duration-500 pb-20">
+      
+      <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
+        <div>
+          <h1 className="text-4xl font-black text-white tracking-normal uppercase mb-2">Gestión de Casos</h1>
+          <p className="text-slate-300 font-bold text-sm uppercase tracking-[0.18em]">Control de Novedades e Incidentes</p>
+        </div>
+        {view === 'list' && (
+          <button 
+            onClick={() => setView('new')}
+            className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-xl flex items-center gap-2"
+          >
+            <Plus className="w-5 h-5" /> Nuevo Caso
+          </button>
+        )}
+      </div>
 
-  return (
-    <div className="max-w-[1600px] mx-auto p-6 md:p-10 pb-20 animate-in fade-in duration-500">
-      
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center shadow-2xl shrink-0 border border-slate-700">
-            <BarChart3 className="w-7 h-7 text-white" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-black text-white tracking-normal uppercase drop-shadow-md">Resumen Estadístico</h1>
-            <p className="text-slate-300 font-bold text-xs uppercase tracking-[0.18em]">Gestión de {monthNames[selectedMonth]} {currentYear}</p>
-          </div>
-        </div>
+      {view === 'list' && (
+        <div className="space-y-6">
+          <div className="flex flex-col md:flex-row gap-4">
+             <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm w-fit">
+                <button onClick={() => setFilterStatus('Activos')} className={`px-6 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${filterStatus === 'Activos' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>Activos</button>
+                <button onClick={() => setFilterStatus('Cerrados')} className={`px-6 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${filterStatus === 'Cerrados' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>Histórico</button>
+             </div>
+             <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input 
+                  type="text" 
+                  placeholder="Buscar por N° Expediente, título o sede..." 
+                  className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:border-orange-500 font-bold text-slate-700"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+             </div>
+          </div>
 
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-3 bg-white p-2 pr-6 rounded-xl shadow-lg">
-            <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
-              <Calendar className="w-5 h-5" />
-            </div>
-            <div className="flex flex-col">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Mes de Consulta</label>
-              <select 
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer min-w-[120px]"
-              >
-                {monthNames.map((m, i) => (
-                  <option key={i} value={i}>{m}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+             {filteredCases.map(c => (
+                <div 
+                  key={c.id} 
+                  onClick={() => { 
+                    setSelectedCase(c); 
+                    setView('detail');
 
-          <div className="flex items-center gap-3 bg-white p-2 pr-6 rounded-xl shadow-lg">
-            <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
-              <Filter className="w-5 h-5" />
-            </div>
-            <div className="flex flex-col">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Filtrar por Zona</label>
-              <select 
-                value={selectedZone}
-                onChange={(e) => setSelectedZone(e.target.value)}
-                className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer min-w-[150px]"
-              >
-                {zones.map(zone => (
-                  <option key={zone} value={zone}>{zone}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
+                    const nowDetail = new Date();
+                    const detailDate = nowDetail.toLocaleDateString('sv-SE');
+                    const detailTime = `${String(nowDetail.getHours()).padStart(2, '0')}:${String(nowDetail.getMinutes()).padStart(2, '0')}`;
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-        
-        <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-blue-100"></div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Promedio Auditoría</p>
-          <div className="flex items-end gap-3 relative z-10">
-            <span className="text-5xl font-black text-slate-800 tracking-normal">{avgAuditScore}%</span>
-            <TrendingUp className={`w-6 h-6 mb-2 ${avgAuditScore >= 80 ? 'text-emerald-500' : 'text-orange-500'}`} />
-          </div>
-          <div className="w-full bg-slate-100 h-1.5 rounded-full mt-4 overflow-hidden">
-            <div className="h-full bg-blue-500 rounded-full" style={{ width: `${avgAuditScore}%` }}></div>
-          </div>
-        </div>
+                    setTimelineDateStr(detailDate);
+                    setTimelineTimeStr(detailTime);
+                    setClosingDateStr(detailDate);
+                    setClosingTimeStr(detailTime);
+                  }}
+                  className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all cursor-pointer group relative overflow-hidden"
+                >
+                   <div className={`absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 rounded-full opacity-10 ${c.priority === 'Alta' ? 'bg-red-500' : 'bg-slate-500'}`}></div>
+                   <div className="flex justify-between items-start mb-4 relative">
+                      <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase border ${getPriorityColor(c.priority)}`}>{c.priority}</span>
+                      {getStatusBadge(c.status)}
+                   </div>
+                   <h3 className="text-lg font-black text-slate-800 leading-tight mb-2 line-clamp-2 uppercase tracking-normal">{c.title}</h3>
+                   <div className="flex items-center gap-2 text-xs font-bold text-slate-500 mb-4">
+                      {c.locationType === 'Farmacia' ? <MapPin className="w-4 h-4 text-orange-500" /> : c.locationType === 'Corporativo' ? <Building2 className="w-4 h-4 text-blue-500" /> : <Truck className="w-4 h-4 text-purple-500" />}
+                      <span className="uppercase truncate tracking-normal">{c.locationName}</span>
+                   </div>
+                   <div className="pt-4 border-t border-slate-100 flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      <span className="flex items-center gap-1"><Hash className="w-3 h-3" /> {c.officialId ? <span className="text-slate-800">{c.officialId}</span> : c.id}</span>
+                      <span>{new Date(c.date).toLocaleDateString()}</span>
+                   </div>
+                </div>
+             ))}
+             {filteredCases.length === 0 && <div className="col-span-full py-20 text-center text-slate-400 font-medium">No hay casos {filterStatus.toLowerCase()} encontrados.</div>}
+          </div>
+        </div>
+      )}
 
-        <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-emerald-100"></div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Cobertura Mensual</p>
-          <div className="flex items-end gap-3 relative z-10">
-            <span className="text-5xl font-black text-slate-800 tracking-normal">{coverage}%</span>
-            <MapPin className="w-6 h-6 mb-2 text-emerald-500" />
-          </div>
-          <div className="mt-4 text-xs font-bold text-slate-400">
-            {visitedPharmacies} de {totalPharmaciesCount} farmacias visitadas
-          </div>
-        </div>
+      {view === 'new' && (
+        <div className="max-w-2xl mx-auto bg-white rounded-[2.5rem] shadow-2xl p-8 border border-slate-100">
+           <div className="flex justify-between items-center mb-8">
+              <h2 className="text-2xl font-black text-slate-800 uppercase tracking-normal">Registrar Novedad</h2>
+              <button onClick={() => setView('list')} className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><X className="w-6 h-6" /></button>
+           </div>
+           <div className="space-y-6">
+              
+              <div>
+                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Fecha y hora del incidente</label>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="relative">
+                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input 
+                        type="date" 
+                        className="w-full pl-12 pr-4 py-3 bg-slate-50 rounded-xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500"
+                        value={formData.dateStr}
+                        onChange={(e) => setFormData({...formData, dateStr: e.target.value})}
+                      />
+                    </div>
+                    <div className="relative">
+                      <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input 
+                        type="time" 
+                        className="w-full pl-12 pr-4 py-3 bg-slate-50 rounded-xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500"
+                        value={formData.timeStr}
+                        onChange={(e) => setFormData({...formData, timeStr: e.target.value})}
+                      />
+                    </div>
+                 </div>
+              </div>
 
-        <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-purple-100"></div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Eficiencia Resolución</p>
-          <div className="flex items-end gap-3 relative z-10">
-            <span className="text-5xl font-black text-slate-800 tracking-normal">{efficiency}%</span>
-            <Briefcase className="w-6 h-6 mb-2 text-purple-500" />
-          </div>
-          <div className="mt-4 text-xs font-bold text-slate-400">
-            {closedCases} de {totalCases} Casos Cerrados
-          </div>
-        </div>
+              <div>
+                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Número de Expediente (Opcional)</label>
+                 <div className="relative">
+                    <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <input type="text" placeholder="Dejar vacío si es solo una novedad preliminar" className="w-full pl-12 pr-4 py-3 bg-slate-50 rounded-xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500 uppercase placeholder-slate-400" value={formData.id} onChange={(e) => setFormData({...formData, id: e.target.value})} />
+                 </div>
+                 <p className="text-[10px] text-slate-400 mt-1 ml-2 font-medium">Puede asignar este número más adelante.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                 <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Prioridad</label>
+                    <select className="w-full p-3 bg-slate-50 rounded-xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-orange-500" value={formData.priority} onChange={(e) => setFormData({...formData, priority: e.target.value as any})}>
+                      <option value="Baja">Baja (Informativo)</option><option value="Media">Media (Gestión)</option><option value="Alta">Alta (Urgente)</option>
+                    </select>
+                 </div>
+                 <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Canal</label>
+                    <select className="w-full p-3 bg-slate-50 rounded-xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-orange-500" value={formData.channel} onChange={(e) => setFormData({...formData, channel: e.target.value as any})}>
+                      <option value="WhatsApp">WhatsApp</option><option value="Llamada">Llamada</option><option value="Correo">Correo Electrónico</option><option value="Verbal">Verbal / Presencial</option><option value="Sistema">Sistema</option>
+                    </select>
+                 </div>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Ubicación</label>
+                 <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
+                    {['Farmacia', 'Corporativo', 'CENDIS', 'Otro'].map(type => (
+                       <button key={type} onClick={() => setFormData({...formData, locationType: type as any})} className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all whitespace-nowrap ${formData.locationType === type ? 'bg-slate-800 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200'}`}>{type}</button>
+                    ))}
+                 </div>
+                 {formData.locationType === 'Farmacia' ? (
+                    <select className="w-full p-3 bg-white rounded-xl font-bold text-slate-700 outline-none border border-slate-200 focus:border-orange-500" value={selectedPharmacyId} onChange={(e) => setSelectedPharmacyId(e.target.value)}>
+                       <option value="">Seleccione Farmacia...</option>{pharmacies.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                 ) : (
+                    <input type="text" placeholder="Especifique lugar..." className="w-full p-3 bg-white rounded-xl font-bold text-slate-700 outline-none border border-slate-200 focus:border-orange-500" value={formData.locationName} onChange={(e) => setFormData({...formData, locationName: e.target.value})} />
+                 )}
+              </div>
+              <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">¿Quién reporta?</label><input type="text" placeholder="Nombre y Cargo" className="w-full p-3 bg-slate-50 rounded-xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-orange-500" value={formData.reporterName} onChange={(e) => setFormData({...formData, reporterName: e.target.value})} /></div>
+              <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Título Corto</label><input type="text" placeholder="Ej. Hurto de mercancía" className="w-full p-3 bg-slate-50 rounded-xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-orange-500" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} /></div>
+              <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Descripción Detallada</label><textarea placeholder="Describa los hechos..." className="w-full p-3 bg-slate-50 rounded-xl font-medium text-slate-700 outline-none focus:ring-2 focus:ring-orange-500 h-32 resize-none" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} /></div>
+              <button onClick={handleCreateCase} className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest hover:bg-slate-800 shadow-xl">Crear Expediente</button>
+           </div>
+        </div>
+      )}
 
-        <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-orange-100"></div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Actividad Total</p>
-          <div className="flex items-end gap-3 relative z-10">
-            <span className="text-5xl font-black text-slate-800 tracking-normal">{totalActivities}</span>
-            <Calendar className="w-6 h-6 mb-2 text-orange-500" />
-          </div>
-          
-          <div className="mt-4 pt-4 border-t border-slate-50 space-y-1.5 relative z-10">
-            <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-slate-400">
-              <span className="flex items-center gap-1.5"><FileText className="w-2.5 h-2.5" /> Auditorías</span>
-              <span className="text-slate-600">{monthlyAuditsCount}</span>
-            </div>
-            <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-slate-400">
-              <span className="flex items-center gap-1.5"><Briefcase className="w-2.5 h-2.5" /> Gestión</span>
-              <span className="text-slate-600">{monthlyManagementCount}</span>
-            </div>
-            <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-slate-400">
-              <span className="flex items-center gap-1.5"><Camera className="w-2.5 h-2.5" /> CCTV</span>
-              <span className="text-slate-600">{monthlyCctvCount}</span>
-            </div>
-            <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-slate-400">
-              <span className="flex items-center gap-1.5"><Boxes className="w-2.5 h-2.5" /> Físico</span>
-              <span className="text-slate-600">{monthlyPhysicalCount}</span>
-            </div>
-          </div>
-        </div>
+      {view === 'detail' && selectedCase && (
+         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="space-y-6">
+               <button onClick={() => setView('list')} className="flex items-center gap-2 text-slate-300 font-bold hover:text-white transition-colors mb-4"><ArrowLeft className="w-4 h-4" /> Volver a lista</button>
+               <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100">
+                  <div className="flex justify-between items-start mb-6">
+                     <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase border ${getPriorityColor(selectedCase.priority)}`}>{selectedCase.priority}</span>
+                     {getStatusBadge(selectedCase.status)}
+                  </div>
+                  <h2 className="text-2xl font-black text-slate-800 uppercase leading-tight mb-4 tracking-normal">{selectedCase.title}</h2>
+                  <div className="space-y-4">
+                     <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 relative group">
+                        <Hash className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
+                        <div className="w-full">
+                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex justify-between">
+                             Número de Expediente
+                             {!isEditingId && selectedCase.status !== 'Cerrado' && (
+                               <button onClick={() => { setIsEditingId(true); setTempOfficialId(selectedCase.officialId || ''); }} className="text-orange-500 hover:text-orange-600 transition-colors"><Pencil className="w-3 h-3" /></button>
+                             )}
+                           </p>
+                           {isEditingId ? (
+                             <div className="flex gap-2 mt-1">
+                               <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-sm font-bold uppercase outline-none focus:border-orange-500" value={tempOfficialId} onChange={(e) => setTempOfficialId(e.target.value)} placeholder="Ej. INV-2024-001" autoFocus />
+                               <button onClick={handleSaveOfficialId} className="p-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"><Save className="w-4 h-4" /></button>
+                               <button onClick={() => setIsEditingId(false)} className="p-2 bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300"><X className="w-4 h-4" /></button>
+                             </div>
+                           ) : (
+                             <>
+                               {selectedCase.officialId ? <p className="font-black text-slate-800 text-lg uppercase tracking-normal">{selectedCase.officialId}</p> : <p className="text-sm font-medium text-slate-400 italic">Sin asignar (Preliminar)</p>}
+                               <p className="text-[9px] text-slate-300 font-mono mt-1">REF: {selectedCase.id}</p>
+                             </>
+                           )}
+                        </div>
+                     </div>
+                     <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl"><MapPin className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" /><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ubicación</p><p className="font-bold text-slate-700 uppercase tracking-normal">{selectedCase.locationName}</p><p className="text-xs text-slate-500">{selectedCase.locationType}</p></div></div>
+                     <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl"><User className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" /><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reportado Por</p><p className="font-bold text-slate-700 uppercase tracking-normal">{selectedCase.reporterName}</p><p className="text-xs text-slate-500">Vía {selectedCase.channel}</p></div></div>
+                     <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl"><FileText className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" /><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Descripción</p><p className="text-sm font-medium text-slate-600 leading-relaxed">{selectedCase.description}</p></div></div>
+                  </div>
+                  <div className="mt-8 pt-6 border-t border-slate-100">
+                     <p className="text-[10px] font-black text-slate-400 uppercase mb-2">Acciones</p>
+                     <div className="space-y-3">
+                       {selectedCase.status !== 'Cerrado' ? (
+                          <button onClick={() => setIsClosing(true)} className="w-full py-3 border-2 border-slate-100 text-slate-600 rounded-xl font-bold uppercase text-xs hover:bg-slate-50 transition-all">Cerrar Caso</button>
+                       ) : (
+                          <div className="p-4 bg-slate-100 rounded-xl"><p className="text-[10px] font-black text-slate-500 uppercase mb-1">Conclusión Final</p><p className="text-sm font-medium text-slate-700">{selectedCase.conclusion}</p><p className="text-[10px] text-slate-400 mt-2 text-right">Cerrado el {new Date(selectedCase.closedDate!).toLocaleString()}</p></div>
+                       )}
+                       {canDelete && (
+                         <button onClick={() => setShowDeleteModal(true)} className="w-full py-3 bg-red-50 text-red-600 rounded-xl font-bold uppercase text-xs hover:bg-red-100 flex items-center justify-center gap-2">
+                           <Trash2 className="w-4 h-4" /> Eliminar Expediente
+                         </button>
+                       )}
+                     </div>
+                  </div>
+               </div>
+            </div>
 
-      </div>
+            <div className="lg:col-span-2 space-y-6">
+               <h3 className="text-xl font-black text-slate-300 uppercase tracking-normal flex items-center gap-2"><MoreHorizontal className="w-5 h-5 text-orange-500" /> Bitácora de Seguimiento</h3>
+               {selectedCase.status !== 'Cerrado' && !isClosing && (
+                  <div className="bg-white p-4 rounded-[2rem] shadow-lg border border-slate-100 flex gap-4 items-start">
+                     <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0"><MessageSquare className="w-5 h-5 text-slate-500" /></div>
+                     <div className="flex-1">
+                        <textarea placeholder="Escriba un nuevo avance, gestión o nota..." className="w-full bg-transparent outline-none text-slate-700 font-medium resize-none h-20 placeholder-slate-400" value={newTimelineNote} onChange={(e) => setNewTimelineNote(e.target.value)} />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                          <div className="relative">
+                            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                            <input
+                              type="date"
+                              className="w-full pl-12 pr-4 py-3 bg-slate-50 rounded-xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-orange-500"
+                              value={timelineDateStr}
+                              onChange={(e) => setTimelineDateStr(e.target.value)}
+                            />
+                          </div>
+                          <div className="relative">
+                            <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                            <input
+                              type="time"
+                              className="w-full pl-12 pr-4 py-3 bg-slate-50 rounded-xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-orange-500"
+                              value={timelineTimeStr}
+                              onChange={(e) => setTimelineTimeStr(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end mt-3">
+                          <button onClick={handleAddTimeline} disabled={!newTimelineNote.trim()} className="px-6 py-2 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed">Registrar Avance</button>
+                        </div>
+                     </div>
+                  </div>
+               )}
+               {isClosing && (
+                  <div className="bg-red-50 p-6 rounded-[2rem] border border-red-100 animate-in fade-in slide-in-from-top-2">
+                     <h4 className="text-lg font-black text-red-800 uppercase tracking-normal mb-2">Cierre de Caso</h4>
+                     <p className="text-sm text-red-600 mb-4">Para cerrar el caso, es obligatorio indicar la conclusión o resolución final.</p>
+                     <textarea className="w-full p-4 bg-white rounded-xl outline-none text-slate-700 border border-red-200 focus:border-red-500 h-24 resize-none mb-4" placeholder="Escriba la conclusión final..." value={conclusionText} onChange={(e) => setConclusionText(e.target.value)} />
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                        <div className="relative">
+                          <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                          <input
+                            type="date"
+                            className="w-full pl-12 pr-4 py-3 bg-white rounded-xl font-bold text-slate-700 outline-none border border-red-200 focus:border-red-500"
+                            value={closingDateStr}
+                            onChange={(e) => setClosingDateStr(e.target.value)}
+                          />
+                        </div>
+                        <div className="relative">
+                          <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                          <input
+                            type="time"
+                            className="w-full pl-12 pr-4 py-3 bg-white rounded-xl font-bold text-slate-700 outline-none border border-red-200 focus:border-red-500"
+                            value={closingTimeStr}
+                            onChange={(e) => setClosingTimeStr(e.target.value)}
+                          />
+                        </div>
+                     </div>
+                     <div className="flex justify-end gap-3">
+                        <button onClick={() => setIsClosing(false)} className="px-4 py-2 text-slate-500 font-bold text-xs uppercase">Cancelar</button>
+                        <button onClick={handleCloseCase} className="px-6 py-2 bg-red-600 text-white rounded-lg font-bold text-xs uppercase shadow-lg hover:bg-red-700">Confirmar Cierre</button>
+                     </div>
+                  </div>
+               )}
+               <div className="space-y-6 relative before:absolute before:left-5 before:top-4 before:bottom-4 before:w-0.5 before:bg-white/10">
+                  {selectedCase.timeline.map((entry, idx) => (
+                     <div key={entry.id} className="relative pl-14 group">
+                        <div className="absolute left-3 top-1 w-4 h-4 bg-slate-900 border-2 border-orange-500 rounded-full z-10"></div>
+                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 group-hover:shadow-md transition-all">
+                           <div className="flex justify-between items-center mb-2"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(entry.date).toLocaleString()}</span><span className="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-md uppercase">{entry.author}</span></div><p className="text-sm text-slate-700 font-medium leading-relaxed whitespace-pre-wrap">{entry.note}</p>
+                        </div>
+                     </div>
+                  ))}
+                  <div className="relative pl-14">
+                    <div className="absolute left-3 top-1 w-4 h-4 bg-slate-500 rounded-full z-10"></div>
+                    <div className="text-xs font-black text-white/90 uppercase tracking-widest pt-1 drop-shadow-md">
+                        Caso abierto por {selectedCase.createdBy} el {new Date(selectedCase.date).toLocaleString()}
+                    </div>
+                  </div>
+               </div>
+            </div>
+         </div>
+      )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-        
-        <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between relative overflow-hidden">
-          <div className="flex items-center gap-4 relative z-10">
-            <div className="w-12 h-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-400">
-              <Camera className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-white font-black uppercase text-sm tracking-normal">Blindaje CCTV</p>
-              <p className="text-slate-400 text-xs font-bold">Operatividad Tecnológica</p>
-            </div>
-          </div>
-          <div className="text-right relative z-10">
-             <span className={`text-3xl font-black ${cctvHealth >= 90 ? 'text-emerald-400' : cctvHealth >= 70 ? 'text-orange-400' : 'text-red-400'}`}>
-               {cctvHealth}%
-             </span>
-             {cctvBad > 0 ? (
-               <p className="text-[10px] text-red-400 font-bold uppercase flex items-center justify-end gap-1 mt-1">
-                 <XCircle className="w-3 h-3" /> {cctvBad} Cámaras Inactivas
-               </p>
-             ) : (
-               <p className="text-[10px] text-emerald-400 font-bold uppercase flex items-center justify-end gap-1 mt-1">
-                 <CheckCircle2 className="w-3 h-3" /> 100% Operativo
-               </p>
-             )}
-          </div>
-        </div>
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[250] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2rem] w-full max-w-md p-8 shadow-2xl text-center transform transition-all scale-100">
+             <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-10 h-10 text-red-600" />
+             </div>
+             <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-normal">¿Eliminar Expediente?</h3>
+             <p className="text-slate-500 font-medium mb-8 leading-relaxed">
+                Estás a punto de eliminar el caso <span className="font-bold text-slate-800">{selectedCase?.officialId || selectedCase?.id}</span> permanentemente. <br/><br/>
+                <span className="text-red-600 font-bold text-xs uppercase tracking-widest">Esta acción no se puede deshacer.</span>
+             </p>
+             <div className="flex gap-4">
+               <button 
+                 type="button"
+                 onClick={() => setShowDeleteModal(false)} 
+                 className="flex-1 py-4 rounded-xl border-2 border-slate-100 font-bold text-slate-600 hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest"
+               >
+                 Cancelar
+               </button>
+               <button 
+                 type="button"
+                 onClick={confirmDelete} 
+                 className="flex-1 py-4 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-200 uppercase text-xs tracking-widest"
+               >
+                 Sí, Eliminar
+               </button>
+             </div>
+          </div>
+        </div>
+      )}
 
-        <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between relative overflow-hidden">
-          <div className="flex items-center gap-4 relative z-10">
-            <div className="w-12 h-12 bg-teal-500/20 rounded-2xl flex items-center justify-center text-teal-400">
-              <BrickWall className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-white font-black uppercase text-sm tracking-normal">Estado Infraestructura</p>
-              <p className="text-slate-400 text-xs font-bold">Condiciones Físicas</p>
-            </div>
-          </div>
-          <div className="text-right relative z-10">
-             <span className={`text-3xl font-black ${infraHealth >= 90 ? 'text-emerald-400' : infraHealth >= 70 ? 'text-orange-400' : 'text-red-400'}`}>
-               {infraHealth}%
-             </span>
-             {infraFailureList.length > 0 ? (
-               <div className="flex flex-col items-end mt-1">
-                 {infraFailureList.map((fail, i) => (
-                   <p key={i} className="text-[9px] text-red-400 font-bold uppercase flex items-center gap-1">
-                     <AlertTriangle className="w-3 h-3" /> {fail}
-                   </p>
-                 ))}
-               </div>
-             ) : (
-               <p className="text-[10px] text-emerald-400 font-bold uppercase flex items-center justify-end gap-1 mt-1">
-                 <CheckCircle2 className="w-3 h-3" /> Sin Novedades
-               </p>
-             )}
-          </div>
-        </div>
-
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        <div className="bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-800 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-          
-          <h3 className="text-lg font-black text-white uppercase tracking-normal mb-8 flex items-center gap-3 relative z-10">
-            <Siren className="w-6 h-6 text-red-500 animate-pulse" /> Inteligencia de Riesgos
-          </h3>
-          
-          <div className="space-y-6 relative z-10">
-            
-            <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm transition-colors hover:bg-white/10">
-              <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center text-orange-500 shrink-0">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Incumplimiento más repetido</p>
-                <p className="text-white font-bold leading-tight text-sm">
-                  {topFailure ? topFailure[0] : "Sin hallazgos recurrentes"}
-                </p>
-                <p className="text-xs text-orange-400 mt-1">
-                  {topFailure ? `Detectado en ${topFailure[1]} auditoría(s)` : "Excelente cumplimiento"}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm transition-colors hover:bg-white/10">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-500 shrink-0">
-                <Target className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Nivel de riesgo predominante</p>
-                <p className={`font-bold leading-tight text-sm ${predominantRisk ? getRiskColorClass(predominantRisk[0]) : 'text-white'}`}>
-                  {predominantRisk ? predominantRisk[0] : "Sin auditorías registradas"}
-                </p>
-                <p className="text-xs text-blue-400 mt-1">
-                  {predominantRisk ? `${predominantRisk[1]} auditoría(s) en este nivel` : "Sin datos suficientes"}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm transition-colors hover:bg-white/10">
-              <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-red-500 shrink-0">
-                <Zap className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Casos críticos abiertos</p>
-                <p className="text-white font-bold leading-tight text-sm">
-                  {highPriorityOpen > 0 ? `${highPriorityOpen} caso(s) abiertos` : "Sin casos abiertos"}
-                </p>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-          
-          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-            <h3 className="text-lg font-black text-slate-800 uppercase tracking-normal mb-6 flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-emerald-500" /> Top Rendimiento
-            </h3>
-            <div className="space-y-4">
-              {topPerforming.length > 0 ? topPerforming.map(a => (
-                <div key={a.id} className="flex justify-between items-center p-3 bg-emerald-50 rounded-xl border border-emerald-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white font-bold text-xs"><Building2 className="w-4 h-4"/></div>
-                    <div>
-                      <p className="font-bold text-slate-800 text-xs uppercase tracking-normal">{a.pharmacy?.name}</p>
-                      <p className="text-[10px] text-emerald-600 font-bold">{a.date}</p>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase">{getRiskLevel(a.score || 0)}</p>
-                    </div>
-                  </div>
-                  <span className="text-xl font-black text-emerald-600">{a.score}%</span>
-                </div>
-              )) : <p className="text-slate-400 text-xs text-center py-4">Sin datos suficientes</p>}
-            </div>
-          </div>
-
-          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-            <h3 className="text-lg font-black text-slate-800 uppercase tracking-normal mb-6 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-500" /> Puntos Críticos
-            </h3>
-            <div className="space-y-4">
-              {lowPerforming.length > 0 ? lowPerforming.map(a => (
-                <div key={a.id} className="flex justify-between items-center p-3 bg-red-50 rounded-xl border border-red-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white font-bold text-xs"><AlertTriangle className="w-4 h-4"/></div>
-                    <div>
-                      <p className="font-bold text-slate-800 text-xs uppercase tracking-normal">{a.pharmacy?.name}</p>
-                      <p className="text-[10px] text-red-600 font-bold">{a.date}</p>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase">{getRiskLevel(a.score || 0)}</p>
-                    </div>
-                  </div>
-                  <span className="text-xl font-black text-red-600">{a.score}%</span>
-                </div>
-              )) : <p className="text-slate-400 text-xs text-center py-4">Sin puntos críticos</p>}
-            </div>
-          </div>
-
-        </div>
-
-      </div>
-    </div>
-  );
+    </div>
+  );
 };
 
-export default MonthlySummary;
+export default CaseManagement;
