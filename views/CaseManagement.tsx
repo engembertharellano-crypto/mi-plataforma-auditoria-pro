@@ -172,7 +172,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     return pharmacies.find(p => String(p.id) === String(pId))?.zone;
   };
 
-  // --- FILTRO DE DATA HÍBRIDO (ZONA + INVESTIGADOR) ---
+  // --- FILTRO DE DATA SEGURO ---
   const filteredData = useMemo(() => {
     const filterByZone = (item: any) => {
       if (selectedZone === 'Todas') return true;
@@ -185,8 +185,9 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     const filterCasesByInvestigatorOrZone = (c: CaseRecord) => {
       if (selectedZone === 'Todas') return true;
       
-      const zoneMatch = getZoneForRecord(c) === selectedZone;
-      // Si el caso fue creado por el investigador de la zona, se incluye (aunque sea corporativo)
+      const itemZone = getZoneForRecord(c);
+      const zoneMatch = itemZone === selectedZone;
+      // El investigador match ahora es opcional y seguro
       const investigatorMatch = investigatorOfZone && c.createdBy === investigatorOfZone;
       
       return zoneMatch || investigatorMatch;
