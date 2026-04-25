@@ -119,7 +119,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const currentYear = now.getFullYear();
 
-  // ✅ CORRECCIÓN: Inicio de zona igual que el Dashboard
   const [selectedZone, setSelectedZone] = useState<string>(() => {
     const userZone = currentUser?.zone;
     if (!userZone || userZone.toUpperCase() === 'GLOBAL' || userZone === '') {
@@ -167,14 +166,12 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     return d.getMonth() === selectedMonth && d.getFullYear() === currentYear;
   };
 
-  // Helper para obtener zona del registro por farmacia
   const getZoneForRecord = (item: any) => {
     const pId = item.pharmacyId || item.pharmacy?.id;
     if (!pId) return undefined;
     return pharmacies.find(p => String(p.id) === String(pId))?.zone;
   };
 
-  // --- FILTRO DE DATA UNIFICADO ---
   const filteredData = useMemo(() => {
     const filterByZone = (item: any) => {
       if (selectedZone === 'Todas') return true;
@@ -210,7 +207,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   const monthlyPhysicalCount = currentPhysical.filter(r => isCurrentMonth(r.date)).length;
   const monthlyAuditsCount = monthlyAudits.length;
 
-  // --- KPI LOGIC ---
   const auditScores = monthlyAudits.map(a => a.score || 0);
   const avgAuditScore = auditScores.length > 0 
     ? Math.round(auditScores.reduce((a, b) => a + b, 0) / auditScores.length) 
@@ -218,12 +214,13 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const totalPharmaciesCount = currentPharmacies.length;
 
-  // ✅ IGUAL QUE DASHBOARD: Cuenta farmacias únicas visitadas en el mes (Auditoría + Gestión)
+  // ✅ CORRECCIÓN: Se agrega .filter(id => id !== 'undefined' && id !== 'null') para eliminar la farmacia inexistente que sumaba 29
   const visitedPharmacies = new Set([
-    ...monthlyAudits.map(a => String(a.pharmacy?.id || a.pharmacyId)).filter(id => id !== 'undefined'),
+    ...monthlyAudits.map(a => String(a.pharmacy?.id || a.pharmacyId)).filter(id => id && id !== 'undefined' && id !== 'null'),
     ...currentManagement
       .filter(r => isCurrentMonth(r.date))
       .map(r => String(r.pharmacyId))
+      .filter(id => id && id !== 'undefined' && id !== 'null')
   ]).size;
 
   const coverage = totalPharmaciesCount > 0 ? Math.round((visitedPharmacies / totalPharmaciesCount) * 100) : 0;
@@ -235,7 +232,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const totalActivities = monthlyAuditsCount + monthlyCctvCount + monthlyPhysicalCount + monthlyManagementCount;
 
-  // CCTV HEALTH
   let cctvTotal = 0; 
   let cctvOk = 0;
   let cctvBad = 0;
@@ -252,7 +248,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const cctvHealth = cctvTotal > 0 ? Math.round((cctvOk / cctvTotal) * 100) : 0;
 
-  // INFRA HEALTH
   let infraTotal = 0; 
   let infraOk = 0;
   
