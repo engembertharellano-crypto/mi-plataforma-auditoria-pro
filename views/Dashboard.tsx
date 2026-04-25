@@ -26,7 +26,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const getZoneForRecord = (item: any) => {
     const pId = item.pharmacyId || item.pharmacy?.id;
     if (!pId) return undefined;
-    return pharmacies.find(p => p.id === pId)?.zone;
+    return pharmacies.find(p => String(p.id) === String(pId))?.zone;
   };
 
   const parseAuditDate = (dateStr?: string) => {
@@ -177,7 +177,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               <div className="w-full bg-slate-700/30 h-3 rounded-full mt-8 overflow-hidden backdrop-blur-sm border border-white/5">
                 <div
                   className="bg-gradient-to-r from-orange-500 via-red-500 to-orange-500 h-full rounded-full shadow-[0_0_20px_rgba(249,115,22,0.5)] bg-[length:200%_100%]"
-                  style={{ width: `${coveragePercentage}%` }}
+                  style={{ width: `${Math.min(coveragePercentage, 100)}%` }}
                 ></div>
               </div>
             </div>
