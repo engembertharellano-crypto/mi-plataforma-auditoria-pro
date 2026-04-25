@@ -257,17 +257,10 @@ const App: React.FC = () => {
     setIsSyncing(true);
 
     try {
-      const role = (user.role || '').toLowerCase();
-      const email = (user.email || '').toLowerCase();
-      const userIsBoss =
-        ['super usuario', 'gerente corporativo de seguridad', 'gerente de seguridad', 'lider de investigaciones'].includes(role) ||
-        email === 'directiva@xana.com';
-
       const getTableData = async (table: string) => {
+        // ✅ Se quita el filtro por created_by para que los datos de todas las zonas
+        // se descarguen y puedan ser filtrados visualmente en la Bitácora
         let q: any = sb.from(table).select('*');
-        if (!userIsBoss && !['pharmacies', 'users'].includes(table)) {
-          q = q.eq('created_by', user.fullName);
-        }
         const { data, error } = await q;
         if (error) throw error;
         return data || [];
