@@ -196,17 +196,8 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
   }, [items, searchTerm, filterStatus, filterCategory]);
 
   const visibleItems = useMemo(() => {
-    if (filterStatus === 'Todos') {
-      return filteredItems.filter(
-        item =>
-          item.status === 'Disponible' ||
-          item.status === 'Almacen' ||
-          item.status === 'Transito'
-      );
-    }
-
     return filteredItems;
-  }, [filteredItems, filterStatus]);
+  }, [filteredItems]);
 
   const currentSectionTitle = useMemo(() => {
     if (filterStatus === 'Asignado') return 'Equipos Asignados';
