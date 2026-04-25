@@ -28,8 +28,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   
-  // ✅ CAMBIO: Ahora inicia con la zona del usuario si existe, si no, "Todas"
-  const [selectedZone, setSelectedZone] = useState(currentUser?.zone || 'Todas');
+  // ✅ CAMBIO: Ahora inicia con la zona del usuario si existe y no está vacía, de lo contrario "Todas"
+  const [selectedZone, setSelectedZone] = useState(currentUser?.zone && currentUser.zone !== '' ? currentUser.zone : 'Todas');
   
   const currentYear = now.getFullYear();
 
@@ -73,18 +73,23 @@ const Dashboard: React.FC<DashboardProps> = ({
     return parsed.getMonth() === selectedMonth && parsed.getFullYear() === currentYear;
   };
 
-  const inSelectedZone = (item: any) => selectedZone === 'Todas' || getZoneForRecord(item) === selectedZone;
+  // Lógica unificada de filtrado para asegurar consistencia en los números
+  const filterBySelection = (item: any) => {
+    const monthMatch = isCurrentMonth(item.date);
+    const zoneMatch = selectedZone === 'Todas' || getZoneForRecord(item) === selectedZone;
+    return monthMatch && zoneMatch;
+  };
 
-  const auditsCount = audits.filter(a => isCurrentMonth(a.date) && inSelectedZone(a)).length;
-  const cctvCount = cctvRecords.filter(r => isCurrentMonth(r.date) && inSelectedZone(r)).length;
-  const physicalCount = physicalRecords.filter(r => isCurrentMonth(r.date) && inSelectedZone(r)).length;
-  const managementCount = managementRecords.filter(r => isCurrentMonth(r.date) && inSelectedZone(r)).length;
+  const auditsCount = audits.filter(filterBySelection).length;
+  const cctvCount = cctvRecords.filter(filterBySelection).length;
+  const physicalCount = physicalRecords.filter(filterBySelection).length;
+  const managementCount = managementRecords.filter(filterBySelection).length;
 
   const visitedPharmacyIds = new Set<string>();
   const addVisitedPharmacies = (items: any[]) => {
     items.forEach(item => {
       const pharmId = (item.pharmacy && item.pharmacy.id) ? item.pharmacy.id : item.pharmacyId;
-      if (pharmId && isCurrentMonth(item.date) && inSelectedZone(item)) {
+      if (pharmId && isCurrentMonth(item.date) && (selectedZone === 'Todas' || getZoneForRecord(item) === selectedZone)) {
         visitedPharmacyIds.add(String(pharmId));
       }
     });
