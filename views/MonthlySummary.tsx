@@ -97,10 +97,12 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
    return combinedDate.toISOString();
  };
  
- // ✅ CORRECCIÓN DE ERROR: Se añadió protección (c.officialId || '') para evitar el fallo de .filter()
+ // ✅ SALVAGUARDA CRÍTICA: Se añade (cases || []) para evitar el error 'undefined' que ves en consola
  const filteredCases = (cases || []).filter(c => {
    const matchesStatus = filterStatus === 'Activos' ? c.status !== 'Cerrado' : c.status === 'Cerrado';
    const term = (searchTerm || '').toLowerCase();
+   
+   // Se añaden verificaciones de existencia para cada campo antes de usar toLowerCase()
    const matchesSearch = (c.title || '').toLowerCase().includes(term) || 
                          (c.locationName || '').toLowerCase().includes(term) || 
                          (c.id || '').toLowerCase().includes(term) || 
@@ -141,7 +143,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
      title: formData.title!,
      description: formData.description!,
      timeline: [],
-     createdBy: currentUser?.fullName || 'Sistema'
+     createdBy: currentUser.fullName
    };
 
    onAddCase(newCase);
@@ -191,7 +193,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
      id: Date.now().toString(),
      date: entryDate,
      note: newTimelineNote,
-     author: currentUser?.fullName || 'Sistema'
+     author: currentUser.fullName
    };
 
    const updatedCase = { 
@@ -218,7 +220,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
      id: Date.now().toString(),
      date: closingDateISO,
      note: `CASO CERRADO. Conclusión: ${conclusionText}`,
-     author: currentUser?.fullName || 'Sistema'
+     author: currentUser.fullName
    };
 
    const updatedCase = { 
@@ -531,7 +533,7 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
                  </div>
               )}
               <div className="space-y-6 relative before:absolute before:left-5 before:top-4 before:bottom-4 before:w-0.5 before:bg-white/10">
-                 {(selectedCase.timeline || []).map((entry, idx) => (
+                 {selectedCase.timeline.map((entry, idx) => (
                     <div key={entry.id} className="relative pl-14 group">
                        <div className="absolute left-3 top-1 w-4 h-4 bg-slate-900 border-2 border-orange-500 rounded-full z-10"></div>
                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 group-hover:shadow-md transition-all">
