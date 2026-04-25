@@ -179,7 +179,7 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
   });
 
   const filteredItems = useMemo(() => {
-    return items.filter(item => {
+    return (items || []).filter(item => {
       const matchesSearch =
         item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (item.serialNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -235,14 +235,14 @@ const TechnicalInventory: React.FC<TechnicalInventoryProps> = ({
 
   const stats = useMemo(() => {
     return {
-      total: items.reduce((sum, i) => sum + Number(i.quantity || 1), 0),
-      available: items
+      total: (items || []).reduce((sum, i) => sum + Number(i.quantity || 1), 0),
+      available: (items || [])
         .filter(i => i.status === 'Disponible' || i.status === 'Almacen')
         .reduce((sum, i) => sum + Number(i.quantity || 1), 0),
-      assigned: items
+      assigned: (items || [])
         .filter(i => i.status === 'Asignado')
         .reduce((sum, i) => sum + Number(i.quantity || 1), 0),
-      repair: items
+      repair: (items || [])
         .filter(i => i.status === 'Reparacion')
         .reduce((sum, i) => sum + Number(i.quantity || 1), 0)
     };
