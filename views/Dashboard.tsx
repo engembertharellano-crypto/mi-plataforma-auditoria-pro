@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { FileText, Briefcase, MapPin, Plus, ArrowRight, TrendingUp, Activity, PieChart, Camera, Boxes } from 'lucide-react';
 import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord } from '../types';
 
@@ -11,7 +11,7 @@ interface DashboardProps {
   managementRecords: ManagementVisitRecord[];
   onSelectAudit: (audit: AuditState) => void;
   readOnly?: boolean;
-  currentUser?: any; // Añadido para saber la zona del usuario
+  currentUser?: any; 
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
@@ -28,9 +28,21 @@ const Dashboard: React.FC<DashboardProps> = ({
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   
-  // ✅ CAMBIO: Ahora inicia con la zona del usuario si existe y no está vacía, de lo contrario "Todas"
-  const [selectedZone, setSelectedZone] = useState(currentUser?.zone && currentUser.zone !== '' ? currentUser.zone : 'Todas');
-  
+  // Estado inicial dinámico
+  const [selectedZone, setSelectedZone] = useState(() => {
+    const userZone = currentUser?.zone;
+    if (!userZone || userZone.toUpperCase() === 'GLOBAL' || userZone === '') {
+      return 'Todas';
+    }
+    return userZone;
+  });
+
+  // ✅ ESTA ES LA CORRECCIÓN: Fuerza el recalculo al montar el componente
+  const [refreshKey, setRefreshKey] = useState(0);
+  useEffect(() => {
+    setRefreshKey(prev => prev + 1);
+  }, [pharmacies, audits]);
+
   const currentYear = now.getFullYear();
 
   const getZoneForRecord = (item: any) => {
@@ -73,23 +85,21 @@ const Dashboard: React.FC<DashboardProps> = ({
     return parsed.getMonth() === selectedMonth && parsed.getFullYear() === currentYear;
   };
 
-  // Lógica unificada de filtrado para asegurar consistencia en los números
-  const filterBySelection = (item: any) => {
-    const monthMatch = isCurrentMonth(item.date);
-    const zoneMatch = selectedZone === 'Todas' || getZoneForRecord(item) === selectedZone;
-    return monthMatch && zoneMatch;
+  const inSelectedZone = (item: any) => {
+    if (selectedZone === 'Todas') return true;
+    return getZoneForRecord(item) === selectedZone;
   };
 
-  const auditsCount = audits.filter(filterBySelection).length;
-  const cctvCount = cctvRecords.filter(filterBySelection).length;
-  const physicalCount = physicalRecords.filter(filterBySelection).length;
-  const managementCount = managementRecords.filter(filterBySelection).length;
+  const auditsCount = audits.filter(a => isCurrentMonth(a.date) && inSelectedZone(a)).length;
+  const cctvCount = cctvRecords.filter(r => isCurrentMonth(r.date) && inSelectedZone(r)).length;
+  const physicalCount = physicalRecords.filter(r => isCurrentMonth(r.date) && inSelectedZone(r)).length;
+  const managementCount = managementRecords.filter(r => isCurrentMonth(r.date) && inSelectedZone(r)).length;
 
   const visitedPharmacyIds = new Set<string>();
   const addVisitedPharmacies = (items: any[]) => {
     items.forEach(item => {
       const pharmId = (item.pharmacy && item.pharmacy.id) ? item.pharmacy.id : item.pharmacyId;
-      if (pharmId && isCurrentMonth(item.date) && (selectedZone === 'Todas' || getZoneForRecord(item) === selectedZone)) {
+      if (pharmId && isCurrentMonth(item.date) && inSelectedZone(item)) {
         visitedPharmacyIds.add(String(pharmId));
       }
     });
@@ -118,7 +128,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     .slice(0, 5);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 pt-4 pb-12">
+    <div key={refreshKey} className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 pt-4 pb-12">
 
       <div className="glass-card rounded-[2rem] p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
@@ -208,7 +218,6 @@ const Dashboard: React.FC<DashboardProps> = ({
             <p className="text-5xl font-black text-slate-800 mb-1">{auditsCount + cctvCount + physicalCount + managementCount}</p>
             <p className="text-slate-500 font-bold text-sm mb-4">Actividades Totales</p>
             
-            {/* DESGLOSE DETALLADO */}
             <div className="space-y-2 border-t border-slate-50 pt-4">
               <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 <span className="flex items-center gap-2"><FileText className="w-3 h-3" /> Auditorías</span>
