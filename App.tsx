@@ -586,20 +586,21 @@ const App: React.FC = () => {
         }`}
       >
         {currentView === 'dashboard' && (
-          <Dashboard
-            onNavigate={setCurrentView}
-            pharmacies={visiblePharmacies}
-            audits={userData.audits}
-            cctvRecords={userData.cctvRecords}
-            physicalRecords={userData.physicalRecords}
-            managementRecords={userData.managementRecords}
-            onSelectAudit={(a) => {
-              setSelectedAudit(a);
-              setCurrentView('audit-results');
-            }}
-            readOnly={isReadOnly}
-          />
-        )}
+  <Dashboard
+    onNavigate={setCurrentView}
+    pharmacies={visiblePharmacies}
+    audits={userData.audits}
+    cctvRecords={userData.cctvRecords}
+    physicalRecords={userData.physicalRecords}
+    managementRecords={userData.managementRecords}
+    onSelectAudit={(a) => {
+      setSelectedAudit(a);
+      setCurrentView('audit-results');
+    }}
+    readOnly={isReadOnly}
+    currentUser={currentUser}
+  />
+)}
 
         {currentView === 'ai-assistant' && !isReadOnly && (
           <AIAssistant
