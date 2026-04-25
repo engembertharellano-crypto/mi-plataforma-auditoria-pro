@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { FileText, Briefcase, MapPin, Plus, ArrowRight, TrendingUp, Activity, PieChart } from 'lucide-react';
+import { FileText, Briefcase, MapPin, Plus, ArrowRight, TrendingUp, Activity, PieChart, Camera, Boxes } from 'lucide-react';
 import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord } from '../types';
 
 interface DashboardProps {
@@ -196,7 +196,27 @@ const Dashboard: React.FC<DashboardProps> = ({
               <span className="text-[10px] font-black text-slate-400 bg-slate-100/50 px-3 py-1 rounded-full border border-slate-100 uppercase">Este Mes</span>
             </div>
             <p className="text-5xl font-black text-slate-800 mb-1">{auditsCount + cctvCount + physicalCount + managementCount}</p>
-            <p className="text-slate-500 font-bold text-sm">Actividades Totales</p>
+            <p className="text-slate-500 font-bold text-sm mb-4">Actividades Totales</p>
+            
+            {/* DESGLOSE DETALLADO */}
+            <div className="space-y-2 border-t border-slate-50 pt-4">
+              <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="flex items-center gap-2"><FileText className="w-3 h-3" /> Auditorías</span>
+                <span className="text-slate-700">{auditsCount}</span>
+              </div>
+              <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="flex items-center gap-2"><Briefcase className="w-3 h-3" /> Gestión</span>
+                <span className="text-slate-700">{managementCount}</span>
+              </div>
+              <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="flex items-center gap-2"><Camera className="w-3 h-3" /> CCTV</span>
+                <span className="text-slate-700">{cctvCount}</span>
+              </div>
+              <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="flex items-center gap-2"><Boxes className="w-3 h-3" /> Físico</span>
+                <span className="text-slate-700">{physicalCount}</span>
+              </div>
+            </div>
           </div>
 
           <div className="glass-card p-8 rounded-[2rem] hover:-translate-y-2 transition-all duration-300 group border-l-4 border-l-emerald-500">
