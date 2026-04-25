@@ -76,14 +76,12 @@ const QUESTION_MAP: Record<string, string> = {
   'radio': 'Equipos de Radio'
 };
 
-// --- HELPER PARA FORZAR NÚMEROS ---
 const getNum = (val: any): number => {
   if (typeof val === 'number') return val;
   if (typeof val === 'string') return parseFloat(val) || 0;
   return 0;
 };
 
-// --- HELPER PARA PARSEAR DATA ---
 const parseData = (data: any): any => {
   if (!data) return {};
   if (typeof data === 'object') return data;
@@ -120,7 +118,15 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const currentYear = now.getFullYear();
-  const [selectedZone, setSelectedZone] = useState<string>('Todas');
+
+  // ✅ CORRECCIÓN: Inicio de zona igual que el Dashboard
+  const [selectedZone, setSelectedZone] = useState<string>(() => {
+    const userZone = currentUser?.zone;
+    if (!userZone || userZone.toUpperCase() === 'GLOBAL' || userZone === '') {
+      return 'Todas';
+    }
+    return userZone;
+  });
 
   const zones = useMemo(() => {
     const uniqueZones = new Set(pharmacies.map(p => p.zone).filter(Boolean));
@@ -161,23 +167,31 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     return d.getMonth() === selectedMonth && d.getFullYear() === currentYear;
   };
 
-  // --- FILTRO DE DATA ---
+  // Helper para obtener zona del registro por farmacia
+  const getZoneForRecord = (item: any) => {
+    const pId = item.pharmacyId || item.pharmacy?.id;
+    if (!pId) return undefined;
+    return pharmacies.find(p => String(p.id) === String(pId))?.zone;
+  };
+
+  // --- FILTRO DE DATA UNIFICADO ---
   const filteredData = useMemo(() => {
+    const filterByZone = (item: any) => {
+      if (selectedZone === 'Todas') return true;
+      return getZoneForRecord(item) === selectedZone;
+    };
+
     const filteredPharmacies = selectedZone === 'Todas' 
       ? pharmacies 
       : pharmacies.filter(p => p.zone === selectedZone);
     
-    const pharmacyIds = new Set(filteredPharmacies.map(p => String(p.id)));
-
     return {
       pharmacies: filteredPharmacies,
-      audits: audits.filter(a => a.pharmacy?.id && pharmacyIds.has(String(a.pharmacy.id))),
-      cctv: cctvRecords.filter(r => pharmacyIds.has(String(r.pharmacyId))),
-      physical: physicalRecords.filter(r => pharmacyIds.has(String(r.pharmacyId))),
-      management: managementRecords.filter(r => pharmacyIds.has(String(r.pharmacyId))),
-      cases: selectedZone === 'Todas'
-        ? cases
-        : cases.filter(c => c.pharmacyId && pharmacyIds.has(String(c.pharmacyId)))
+      audits: audits.filter(filterByZone),
+      cctv: cctvRecords.filter(filterByZone),
+      physical: physicalRecords.filter(filterByZone),
+      management: managementRecords.filter(filterByZone),
+      cases: cases.filter(filterByZone)
     };
   }, [selectedZone, pharmacies, audits, cctvRecords, physicalRecords, managementRecords, cases]);
 
@@ -190,7 +204,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     cases: currentCases 
   } = filteredData;
 
-  // ✅ SOLO AUDITORÍAS DEL MES SELECCIONADO PARA ESTOS BLOQUES
   const monthlyAudits = currentAudits.filter(a => isCurrentMonth(a.date));
   const monthlyManagementCount = currentManagement.filter(r => isCurrentMonth(r.date)).length;
   const monthlyCctvCount = currentCCTV.filter(r => isCurrentMonth(r.date)).length;
@@ -205,9 +218,9 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const totalPharmaciesCount = currentPharmacies.length;
 
-  // ✅ MISMO CRITERIO QUE DASHBOARD: Auditorías + Visitas de Gestión del mes seleccionado
+  // ✅ IGUAL QUE DASHBOARD: Cuenta farmacias únicas visitadas en el mes (Auditoría + Gestión)
   const visitedPharmacies = new Set([
-    ...monthlyAudits.map(a => String(a.pharmacy?.id)),
+    ...monthlyAudits.map(a => String(a.pharmacy?.id || a.pharmacyId)).filter(id => id !== 'undefined'),
     ...currentManagement
       .filter(r => isCurrentMonth(r.date))
       .map(r => String(r.pharmacyId))
@@ -215,20 +228,14 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const coverage = totalPharmaciesCount > 0 ? Math.round((visitedPharmacies / totalPharmaciesCount) * 100) : 0;
 
-  // ✅ CASOS: Filtrados por mes
   const casesInSelectedMonth = currentCases.filter(c => isCurrentMonth(c.date));
   const totalCases = casesInSelectedMonth.length;
   const closedCases = casesInSelectedMonth.filter(c => c.status === 'Cerrado').length;
   const efficiency = totalCases > 0 ? Math.round((closedCases / totalCases) * 100) : 0;
 
-  // ✅ ACTIVIDAD TOTAL: responde a selectedMonth
   const totalActivities = monthlyAuditsCount + monthlyCctvCount + monthlyPhysicalCount + monthlyManagementCount;
 
-  // =========================================================================
-  // CÁLCULO DE DETALLES (QUÉ FALLÓ) - Filtrado por mes
-  // =========================================================================
-
-  // 1. CCTV
+  // CCTV HEALTH
   let cctvTotal = 0; 
   let cctvOk = 0;
   let cctvBad = 0;
@@ -236,10 +243,8 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   currentCCTV.filter(r => isCurrentMonth(r.date)).forEach((rawRecord: any) => {
     const r = parseData(rawRecord);
     const cams = r.cameras || {};
-    
     const totalLocal = (cams.analogTotal || 0) + (cams.ipTotal || 0);
     const okLocal = (cams.analogOperative || 0) + (cams.ipOperative || 0);
-    
     cctvTotal += totalLocal;
     cctvOk += okLocal;
     cctvBad += (totalLocal - okLocal);
@@ -247,7 +252,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   const cctvHealth = cctvTotal > 0 ? Math.round((cctvOk / cctvTotal) * 100) : 0;
 
-  // 2. INFRAESTRUCTURA (Filtrado por mes)
+  // INFRA HEALTH
   let infraTotal = 0; 
   let infraOk = 0;
   
@@ -285,12 +290,10 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     .filter(([_, count]) => count > 0)
     .map(([name, count]) => `${count} ${name}${count > 1 ? 's' : ''}`);
 
-  // --- ORDENAMIENTO: SOLO MES SELECCIONADO ---
   const sortedAudits = [...monthlyAudits].sort((a, b) => (a.score || 0) - (b.score || 0));
   const lowPerforming = sortedAudits.slice(0, 3);
   const topPerforming = [...sortedAudits].reverse().slice(0, 3);
 
-  // --- LÓGICA INTELIGENTE: SOLO MES SELECCIONADO ---
   const failureCounts: Record<string, number> = {};
   monthlyAudits.forEach(audit => {
     if (audit.processAnswers) {
@@ -329,7 +332,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   return (
     <div className="max-w-[1600px] mx-auto p-6 md:p-10 pb-20 animate-in fade-in duration-500">
       
-      {/* HEADER CON FILTROS */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center shadow-2xl shrink-0 border border-slate-700">
@@ -342,7 +344,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-4">
-          {/* Selector de Mes */}
           <div className="flex items-center gap-3 bg-white p-2 pr-6 rounded-xl shadow-lg">
             <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
               <Calendar className="w-5 h-5" />
@@ -361,7 +362,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
             </div>
           </div>
 
-          {/* Selector de Zona */}
           <div className="flex items-center gap-3 bg-white p-2 pr-6 rounded-xl shadow-lg">
             <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
               <Filter className="w-5 h-5" />
@@ -382,7 +382,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
         </div>
       </div>
 
-      {/* KPI CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
@@ -429,7 +428,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
             <Calendar className="w-6 h-6 mb-2 text-orange-500" />
           </div>
           
-          {/* DESGLOSE DETALLADO DE ACTIVIDADES */}
           <div className="mt-4 pt-4 border-t border-slate-50 space-y-1.5 relative z-10">
             <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-slate-400">
               <span className="flex items-center gap-1.5"><FileText className="w-2.5 h-2.5" /> Auditorías</span>
@@ -452,7 +450,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
       </div>
 
-      {/* ESTADO DE FUERZA (CCTV + INFRAESTRUCTURA) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
         
         <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between relative overflow-hidden">
@@ -513,7 +510,6 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
       </div>
 
-      {/* SECCIÓN INFERIOR */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         <div className="bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-800 relative overflow-hidden">
