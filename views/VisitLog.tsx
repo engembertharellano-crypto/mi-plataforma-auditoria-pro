@@ -45,7 +45,16 @@ const VisitLog: React.FC<VisitLogProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('Todos');
-  const [filterZone, setFilterZone] = useState('Todas');
+
+  // ✅ CAMBIO REALIZADO: Ahora la Bitácora inicia con la zona del usuario por defecto
+  const [filterZone, setFilterZone] = useState(() => {
+    const userZone = currentUser?.zone;
+    if (!userZone || userZone.toUpperCase() === 'GLOBAL' || userZone === '') {
+      return 'Todas';
+    }
+    return userZone;
+  });
+
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [recordToDelete, setRecordToDelete] = useState<any | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
@@ -165,7 +174,7 @@ const VisitLog: React.FC<VisitLogProps> = ({
     const matchesSearch = rec.pharmacy.toLowerCase().includes(searchTerm.toLowerCase()) || rec.type.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'Todos' || rec.type === filterType;
     
-    // ✅ CAMBIO REALIZADO: Ahora usamos la zona de la farmacia para filtrar, no la del usuario
+    // ✅ FILTRADO POR ZONA GEOGRÁFICA (Permite ver lo de otros en tu zona)
     const matchesZone = filterZone === 'Todas' || rec.pharmacyZone === filterZone;
 
     let matchesMonth = true;
