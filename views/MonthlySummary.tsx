@@ -15,7 +15,9 @@ import {
   BrickWall,
   Filter,
   CheckCircle2,
-  XCircle
+  XCircle,
+  FileText,
+  Boxes
 } from 'lucide-react';
 import { 
   Pharmacy, 
@@ -190,6 +192,10 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
   // ✅ SOLO AUDITORÍAS DEL MES SELECCIONADO PARA ESTOS BLOQUES
   const monthlyAudits = currentAudits.filter(a => isCurrentMonth(a.date));
+  const monthlyManagementCount = currentManagement.filter(r => isCurrentMonth(r.date)).length;
+  const monthlyCctvCount = currentCCTV.filter(r => isCurrentMonth(r.date)).length;
+  const monthlyPhysicalCount = currentPhysical.filter(r => isCurrentMonth(r.date)).length;
+  const monthlyAuditsCount = monthlyAudits.length;
 
   // --- KPI LOGIC ---
   const auditScores = monthlyAudits.map(a => a.score || 0);
@@ -216,11 +222,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   const efficiency = totalCases > 0 ? Math.round((closedCases / totalCases) * 100) : 0;
 
   // ✅ ACTIVIDAD TOTAL: responde a selectedMonth
-  const totalActivities =
-    audits.filter(a => isCurrentMonth(a.date)).length +
-    cctvRecords.filter(r => isCurrentMonth(r.date)).length +
-    physicalRecords.filter(r => isCurrentMonth(r.date)).length +
-    managementRecords.filter(r => isCurrentMonth(r.date)).length;
+  const totalActivities = monthlyAuditsCount + monthlyCctvCount + monthlyPhysicalCount + monthlyManagementCount;
 
   // =========================================================================
   // CÁLCULO DE DETALLES (QUÉ FALLÓ) - Filtrado por mes
@@ -426,7 +428,26 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
             <span className="text-5xl font-black text-slate-800 tracking-normal">{totalActivities}</span>
             <Calendar className="w-6 h-6 mb-2 text-orange-500" />
           </div>
-          <p className="mt-4 text-xs font-bold text-slate-400">Registros en {monthNames[selectedMonth]}</p>
+          
+          {/* DESGLOSE DETALLADO DE ACTIVIDADES */}
+          <div className="mt-4 pt-4 border-t border-slate-50 space-y-1.5 relative z-10">
+            <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-slate-400">
+              <span className="flex items-center gap-1.5"><FileText className="w-2.5 h-2.5" /> Auditorías</span>
+              <span className="text-slate-600">{monthlyAuditsCount}</span>
+            </div>
+            <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-slate-400">
+              <span className="flex items-center gap-1.5"><Briefcase className="w-2.5 h-2.5" /> Gestión</span>
+              <span className="text-slate-600">{monthlyManagementCount}</span>
+            </div>
+            <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-slate-400">
+              <span className="flex items-center gap-1.5"><Camera className="w-2.5 h-2.5" /> CCTV</span>
+              <span className="text-slate-600">{monthlyCctvCount}</span>
+            </div>
+            <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-slate-400">
+              <span className="flex items-center gap-1.5"><Boxes className="w-2.5 h-2.5" /> Físico</span>
+              <span className="text-slate-600">{monthlyPhysicalCount}</span>
+            </div>
+          </div>
         </div>
 
       </div>
