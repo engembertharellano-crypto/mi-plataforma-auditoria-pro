@@ -289,7 +289,8 @@ const App: React.FC = () => {
         lns,
         casesData,
         dbUsers,
-        schs
+        schs,
+        techInvData
       ] = await Promise.all([
         pharmQuery,
         getTableData('audits'),
@@ -304,7 +305,8 @@ const App: React.FC = () => {
         getTableData('loans'),
         getTableData('cases'),
         sb.from('users').select('*'),
-        getTableData('schedule')
+        getTableData('schedule'),
+        getTableData('technical_inventory')
       ]);
 
       const process = (items: any[]) =>
@@ -346,6 +348,7 @@ const App: React.FC = () => {
           loans: process(lns),
           cases: process(casesData),
           schedule: process(schs),
+          technicalInventory: process(techInvData),
           users: ((dbUsers.data) || []).map((u: any) => ({
             ...u,
             fullName: u.full_name,
@@ -818,6 +821,7 @@ const App: React.FC = () => {
                 ...prev,
                 technicalInventory: [item, ...prev.technicalInventory]
               }));
+              await saveToCloud('technical_inventory', item.id, item);
             }}
             onUpdateItem={async (item) => {
               if (!checkPermission()) return;
@@ -825,6 +829,7 @@ const App: React.FC = () => {
                 ...prev,
                 technicalInventory: prev.technicalInventory.map(x => x.id === item.id ? item : x)
               }));
+              await saveToCloud('technical_inventory', item.id, item);
             }}
             onDeleteItem={async (id) => {
               if (!checkPermission()) return;
@@ -832,6 +837,7 @@ const App: React.FC = () => {
                 ...prev,
                 technicalInventory: prev.technicalInventory.filter(x => x.id !== id)
               }));
+              await deleteFromCloud('technical_inventory', id);
             }}
           />
         )}
