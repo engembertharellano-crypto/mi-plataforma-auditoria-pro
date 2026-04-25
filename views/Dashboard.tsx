@@ -11,6 +11,7 @@ interface DashboardProps {
   managementRecords: ManagementVisitRecord[];
   onSelectAudit: (audit: AuditState) => void;
   readOnly?: boolean;
+  currentUser?: any; // Añadido para saber la zona del usuario
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
@@ -21,8 +22,17 @@ const Dashboard: React.FC<DashboardProps> = ({
   physicalRecords,
   managementRecords,
   onSelectAudit,
-  readOnly = false
+  readOnly = false,
+  currentUser
 }) => {
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
+  
+  // ✅ CAMBIO: Ahora inicia con la zona del usuario si existe, si no, "Todas"
+  const [selectedZone, setSelectedZone] = useState(currentUser?.zone || 'Todas');
+  
+  const currentYear = now.getFullYear();
+
   const getZoneForRecord = (item: any) => {
     const pId = item.pharmacyId || item.pharmacy?.id;
     if (!pId) return undefined;
@@ -41,11 +51,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     const fallback = new Date(dateStr);
     return isNaN(fallback.getTime()) ? new Date(0) : fallback;
   };
-
-  const now = new Date();
-  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
-  const [selectedZone, setSelectedZone] = useState('Todas');
-  const currentYear = now.getFullYear();
 
   const availableZones = useMemo(() => {
     const zones = new Set<string>();
@@ -177,7 +182,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               <div className="w-full bg-slate-700/30 h-3 rounded-full mt-8 overflow-hidden backdrop-blur-sm border border-white/5">
                 <div
                   className="bg-gradient-to-r from-orange-500 via-red-500 to-orange-500 h-full rounded-full shadow-[0_0_20px_rgba(249,115,22,0.5)] bg-[length:200%_100%]"
-                  style={{ width: `${Math.min(coveragePercentage, 100)}%` }}
+                  style={{ width: `${coveragePercentage}%` }}
                 ></div>
               </div>
             </div>
