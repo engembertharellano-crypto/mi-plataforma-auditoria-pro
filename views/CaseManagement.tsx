@@ -99,12 +99,16 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
   
   const filteredCases = cases.filter(c => {
     const matchesStatus = filterStatus === 'Activos' ? c.status !== 'Cerrado' : c.status === 'Cerrado';
+    
+    // Filtro por permisos: Admin ve todo, usuario solo lo que abrió
+    const canSeeCase = hasAdminPrivileges || c.createdBy === currentUser?.fullName;
+
     const term = searchTerm.toLowerCase();
     const matchesSearch = c.title.toLowerCase().includes(term) || 
                           c.locationName.toLowerCase().includes(term) || 
                           c.id.toLowerCase().includes(term) || 
                           (c.officialId && c.officialId.toLowerCase().includes(term));
-    return matchesStatus && matchesSearch;
+    return matchesStatus && canSeeCase && matchesSearch;
   }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const canDelete = selectedCase && (hasAdminPrivileges || selectedCase.createdBy === currentUser?.fullName);
@@ -423,24 +427,24 @@ const CaseManagement: React.FC<CaseManagementProps> = ({
                      <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 relative group">
                         <Hash className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
                         <div className="w-full">
-                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex justify-between">
-                             Número de Expediente
-                             {!isEditingId && selectedCase.status !== 'Cerrado' && (
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex justify-between">
+                              Número de Expediente
+                              {!isEditingId && selectedCase.status !== 'Cerrado' && (
                                <button onClick={() => { setIsEditingId(true); setTempOfficialId(selectedCase.officialId || ''); }} className="text-orange-500 hover:text-orange-600 transition-colors"><Pencil className="w-3 h-3" /></button>
-                             )}
-                           </p>
-                           {isEditingId ? (
+                              )}
+                            </p>
+                            {isEditingId ? (
                              <div className="flex gap-2 mt-1">
                                <input type="text" className="w-full p-2 bg-white border border-slate-300 rounded-lg text-sm font-bold uppercase outline-none focus:border-orange-500" value={tempOfficialId} onChange={(e) => setTempOfficialId(e.target.value)} placeholder="Ej. INV-2024-001" autoFocus />
                                <button onClick={handleSaveOfficialId} className="p-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"><Save className="w-4 h-4" /></button>
                                <button onClick={() => setIsEditingId(false)} className="p-2 bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300"><X className="w-4 h-4" /></button>
                              </div>
-                           ) : (
+                            ) : (
                              <>
                                {selectedCase.officialId ? <p className="font-black text-slate-800 text-lg uppercase tracking-normal">{selectedCase.officialId}</p> : <p className="text-sm font-medium text-slate-400 italic">Sin asignar (Preliminar)</p>}
                                <p className="text-[9px] text-slate-300 font-mono mt-1">REF: {selectedCase.id}</p>
                              </>
-                           )}
+                            )}
                         </div>
                      </div>
                      <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl"><MapPin className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" /><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ubicación</p><p className="font-bold text-slate-700 uppercase tracking-normal">{selectedCase.locationName}</p><p className="text-xs text-slate-500">{selectedCase.locationType}</p></div></div>
