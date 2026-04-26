@@ -173,9 +173,13 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   };
 
   const filteredData = useMemo(() => {
-    const filterByZone = (item: any) => {
-      if (selectedZone === 'Todas') return true;
-      return getZoneForRecord(item) === selectedZone;
+    const filterByZoneAndOwner = (item: any) => {
+      // Condición 1: Pertenece a la zona seleccionada
+      const matchesZone = selectedZone === 'Todas' || getZoneForRecord(item) === selectedZone;
+      // Condición 2: El registro fue creado por el usuario actual
+      const isOwner = item.createdBy === currentUser?.fullName;
+
+      return matchesZone || isOwner;
     };
 
     const filteredPharmacies = selectedZone === 'Todas' 
@@ -184,13 +188,13 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     
     return {
       pharmacies: filteredPharmacies,
-      audits: audits.filter(filterByZone),
-      cctv: cctvRecords.filter(filterByZone),
-      physical: physicalRecords.filter(filterByZone),
-      management: managementRecords.filter(filterByZone),
-      cases: cases.filter(filterByZone)
+      audits: audits.filter(filterByZoneAndOwner),
+      cctv: cctvRecords.filter(filterByZoneAndOwner),
+      physical: physicalRecords.filter(filterByZoneAndOwner),
+      management: managementRecords.filter(filterByZoneAndOwner),
+      cases: cases.filter(filterByZoneAndOwner)
     };
-  }, [selectedZone, pharmacies, audits, cctvRecords, physicalRecords, managementRecords, cases]);
+  }, [selectedZone, pharmacies, audits, cctvRecords, physicalRecords, managementRecords, cases, currentUser]);
 
   const { 
     pharmacies: currentPharmacies, 
