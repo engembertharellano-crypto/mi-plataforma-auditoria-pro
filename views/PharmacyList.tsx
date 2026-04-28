@@ -84,15 +84,15 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ 
   });
 
   const [formData, setFormData] = useState({
-    name: '',
-    address: '',
-    corporatePhone: '',
-    zone: initialZone as Pharmacy['zone'],
-    location: null as { lat: number; lng: number } | null,
-    photo: null as string | null,
-    hasSecurityOfficer: false
-  });
-
+    name: '',
+    address: '',
+    corporatePhone: '',
+    zone: initialZone as Pharmacy['zone'],
+    location: null as { lat: number; lng: number } | null,
+    photo: null as string | null,
+    hasSecurityOfficer: false,
+    activa: true
+  });
   const [showMapModal, setShowMapModal] = useState(false);
   const [mapMode, setMapMode] = useState<'edit' | 'create'>('edit');
   const [showCropModal, setShowCropModal] = useState(false);
@@ -222,7 +222,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ 
     onUpdate({ 
       ...editingPharmacy, 
       ...formData, 
-      location: formData.location || undefined, 
+      location: formData.location || undefined,  
       photo: formData.photo || undefined, 
       hasSecurityOfficer: formData.hasSecurityOfficer,
       activa: formData.activa
