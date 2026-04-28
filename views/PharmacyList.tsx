@@ -26,7 +26,9 @@ import {
   Users,
   Navigation,
   ShieldCheck,
-  ShieldAlert
+  ShieldAlert,
+  Power,
+  PowerOff
 } from 'lucide-react';
 import { Pharmacy, StaffRecord } from '../types';
 
@@ -79,7 +81,8 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
     zone: initialZone as Pharmacy['zone'],
     location: null as { lat: number; lng: number } | null,
     photo: null as string | null,
-    hasSecurityOfficer: false
+    hasSecurityOfficer: false,
+    isActive: true
   });
 
   const [formData, setFormData] = useState({
@@ -89,7 +92,8 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
     zone: initialZone as Pharmacy['zone'],
     location: null as { lat: number; lng: number } | null,
     photo: null as string | null,
-    hasSecurityOfficer: false
+    hasSecurityOfficer: false,
+    isActive: true
   });
 
   const [showMapModal, setShowMapModal] = useState(false);
@@ -157,7 +161,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         const orangeIcon = L.divIcon({ className: 'custom-marker', html: `<div style="background-color: #ea580c; width: 24px; height: 24px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.3);"></div>`, iconSize: [24, 24], iconAnchor: [12, 24], tooltipAnchor: [15, -15] });
         
-        const zonePharmacies = pharmacies.filter(p => p.location);
+        const zonePharmacies = filteredPharmacies.filter(p => p.location);
         const bounds = L.latLngBounds([]);
         zonePharmacies.forEach(p => {
           if (p.location) {
@@ -174,7 +178,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
     return () => { clearTimeout(timeout); if (globalMapInstanceRef.current) { globalMapInstanceRef.current.remove(); globalMapInstanceRef.current = null; } };
   }, [showGlobalMap, pharmacies]);
 
-  const openGPS = (lat: number, lng: number) => window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+  const openGPS = (lat: number, lng: number) => window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank');
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) return;
@@ -194,10 +198,20 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
     );
   };
 
-  const filteredPharmacies = pharmacies.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.address.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredPharmacies = useMemo(() => {
+    return pharmacies.filter(p => {
+      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            p.address.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // CAMBIO 1: Solo mostrar farmacias activas/operativas para mediciones y vista general
+      const isOperational = p.isActive !== false;
+
+      // CAMBIO 2: Si es modo viaje o admin, ve todas. Si no, solo su zona.
+      const canSeeZone = (isTravelMode || isAdmin) || p.zone === currentUser?.zone;
+
+      return matchesSearch && isOperational && canSeeZone;
+    });
+  }, [pharmacies, searchTerm, isTravelMode, isAdmin, currentUser]);
 
   const handleEditClick = (pharmacy: Pharmacy) => {
     if (isReadOnly) return; // ✅ BLOQUEO DIRECTIVA
@@ -209,7 +223,8 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
       zone: pharmacy.zone, 
       location: pharmacy.location || null, 
       photo: pharmacy.photo || null, 
-      hasSecurityOfficer: pharmacy.hasSecurityOfficer || false 
+      hasSecurityOfficer: pharmacy.hasSecurityOfficer || false,
+      isActive: pharmacy.isActive !== false
     });
   };
 
@@ -221,7 +236,8 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
       ...formData, 
       location: formData.location || undefined, 
       photo: formData.photo || undefined, 
-      hasSecurityOfficer: formData.hasSecurityOfficer 
+      hasSecurityOfficer: formData.hasSecurityOfficer,
+      isActive: formData.isActive
     }); 
     setEditingPharmacy(null); 
   };
@@ -238,7 +254,8 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
       location: newPharmacyData.location || undefined, 
       status: 'Sin auditorías previas', 
       photo: newPharmacyData.photo || undefined, 
-      hasSecurityOfficer: newPharmacyData.hasSecurityOfficer 
+      hasSecurityOfficer: newPharmacyData.hasSecurityOfficer,
+      isActive: newPharmacyData.isActive
     }); 
     setShowNewPharmacyModal(false); 
     setNewPharmacyData({ 
@@ -248,7 +265,8 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
       zone: initialZone as Pharmacy['zone'], 
       location: null, 
       photo: null, 
-      hasSecurityOfficer: false 
+      hasSecurityOfficer: false,
+      isActive: true
     }); 
   };
 
@@ -621,6 +639,21 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
                 </div>
               </div>
 
+              {/* CAMBIO 1: Interruptor de Estado Operativo */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Estado Operativo</label>
+                <button 
+                  onClick={() => setNewPharmacyData({...newPharmacyData, isActive: !newPharmacyData.isActive})}
+                  className={`w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between ${newPharmacyData.isActive ? 'border-emerald-100 bg-emerald-50 text-emerald-700' : 'border-slate-100 bg-slate-50 text-slate-500'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    {newPharmacyData.isActive ? <Power className="w-5 h-5" /> : <PowerOff className="w-5 h-5" />}
+                    <span className="font-bold uppercase text-xs tracking-widest">{newPharmacyData.isActive ? 'Farmacia Operativa / Activa' : 'Farmacia No Operativa / Reciente'}</span>
+                  </div>
+                  <div className={`w-3 h-3 rounded-full ${newPharmacyData.isActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
+                </button>
+              </div>
+
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Dirección</label>
                 <textarea rows={2} className="w-full p-3 border border-slate-200 rounded-xl outline-none resize-none" value={newPharmacyData.address} onChange={e => setNewPharmacyData({...newPharmacyData, address: e.target.value})} />
@@ -702,6 +735,21 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
                 </div>
               </div>
 
+              {/* CAMBIO 1: Interruptor de Estado Operativo */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Estado Operativo</label>
+                <button 
+                  onClick={() => setFormData({...formData, isActive: !formData.isActive})}
+                  className={`w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between ${formData.isActive ? 'border-emerald-100 bg-emerald-50 text-emerald-700' : 'border-slate-100 bg-slate-50 text-slate-500'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    {formData.isActive ? <Power className="w-5 h-5" /> : <PowerOff className="w-5 h-5" />}
+                    <span className="font-bold uppercase text-xs tracking-widest">{formData.isActive ? 'Farmacia Operativa / Activa' : 'Farmacia No Operativa / Reciente'}</span>
+                  </div>
+                  <div className={`w-3 h-3 rounded-full ${formData.isActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
+                </button>
+              </div>
+
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Dirección</label>
                 <textarea rows={2} className="w-full p-3 border border-slate-200 rounded-xl outline-none resize-none" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
@@ -738,7 +786,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
         </div>
       )}
 
-      {/* MODAL: VIEW DETAILS (igual, solo lectura OK) */}
+      {/* MODAL: VIEW DETAILS */}
       {viewingPharmacy && (() => {
         const pharmacyStaff = staffRecords.filter(s => s.pharmacyId === viewingPharmacy.id);
         const manager = pharmacyStaff.find(s => s.role === 'Gerente') || pharmacyStaff.find(s => s.role === 'Gerente/Regente');
@@ -768,7 +816,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
                     {viewingPharmacy.photo ? (
                       <div className="rounded-3xl overflow-hidden shadow-xl border-4 border-slate-50 bg-slate-100 aspect-video relative">
                         <img src={viewingPharmacy.photo} alt={viewingPharmacy.name} className="w-full h-full object-cover" />
-                        <div className="absolute top-4 left-4">
+                        <div className="absolute top-4 left-4 flex gap-2">
                           {viewingPharmacy.hasSecurityOfficer ? (
                             <span className="bg-emerald-600/90 backdrop-blur text-white text-xs font-black px-3 py-1.5 rounded-xl uppercase flex items-center gap-2 shadow-lg">
                               <ShieldCheck className="w-4 h-4" /> Oficial de Seguridad
@@ -776,6 +824,11 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
                           ) : (
                             <span className="bg-slate-800/80 backdrop-blur text-white text-xs font-black px-3 py-1.5 rounded-xl uppercase flex items-center gap-2 shadow-lg">
                               <ShieldAlert className="w-4 h-4" /> Sin Vigilancia
+                            </span>
+                          )}
+                          {viewingPharmacy.isActive === false && (
+                            <span className="bg-orange-600/90 backdrop-blur text-white text-xs font-black px-3 py-1.5 rounded-xl uppercase flex items-center gap-2 shadow-lg">
+                              <AlertTriangle className="w-4 h-4" /> No Operativa
                             </span>
                           )}
                         </div>
@@ -897,8 +950,6 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
 
       {showCropModal && renderCropModal()}
 
-      {/* Cámara / mapa / delete confirmation: directiva nunca los abrirá porque no tiene botones,
-          pero igual los dejamos protegidos por isReadOnly arriba (handlers no hacen nada). */}
       {showCameraModal && (
         <div className="fixed inset-0 bg-black z-[500] flex flex-col animate-in fade-in duration-300">
           <div className="p-6 flex justify-between items-center text-white bg-black/50 absolute top-0 w-full z-[510] backdrop-blur-md">
