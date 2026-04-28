@@ -79,7 +79,8 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ 
     zone: initialZone as Pharmacy['zone'],
     location: null as { lat: number; lng: number } | null,
     photo: null as string | null,
-    hasSecurityOfficer: false
+    hasSecurityOfficer: false,
+    activa: true
   });
 
   const [formData, setFormData] = useState({
@@ -194,10 +195,11 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ 
     );
   };
 
-  const filteredPharmacies = pharmacies.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.address.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredPharmacies = pharmacies.filter(p => {
+    if (p.activa === false) return false;
+    return p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+           p.address.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   const handleEditClick = (pharmacy: Pharmacy) => {
     if (isReadOnly) return; // ✅ BLOQUEO DIRECTIVA
@@ -209,8 +211,9 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ 
       zone: pharmacy.zone, 
       location: pharmacy.location || null, 
       photo: pharmacy.photo || null, 
-      hasSecurityOfficer: pharmacy.hasSecurityOfficer || false 
-    });
+      hasSecurityOfficer: pharmacy.hasSecurityOfficer || false,
+      activa: pharmacy.activa !== false
+    });
   };
 
   const handleSaveEdit = () => { 
@@ -221,9 +224,10 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ 
       ...formData, 
       location: formData.location || undefined, 
       photo: formData.photo || undefined, 
-      hasSecurityOfficer: formData.hasSecurityOfficer 
-    }); 
-    setEditingPharmacy(null); 
+      hasSecurityOfficer: formData.hasSecurityOfficer,
+      activa: formData.activa
+    }); 
+    setEditingPharmacy(null); 
   };
 
   const handleSaveNew = () => { 
@@ -238,9 +242,10 @@ const PharmacyList: React.FC<PharmacyListProps> = ({ 
       location: newPharmacyData.location || undefined, 
       status: 'Sin auditorías previas', 
       photo: newPharmacyData.photo || undefined, 
-      hasSecurityOfficer: newPharmacyData.hasSecurityOfficer 
-    }); 
-    setShowNewPharmacyModal(false); 
+      hasSecurityOfficer: newPharmacyData.hasSecurityOfficer,
+      activa: newPharmacyData.activa
+    }); 
+    setShowNewPharmacyModal(false); 
     setNewPharmacyData({ 
       name: '', 
       address: '', 
