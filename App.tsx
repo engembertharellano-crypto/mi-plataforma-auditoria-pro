@@ -316,12 +316,12 @@ const App: React.FC = () => {
           zone: p.zone,
           status: p.status,
           risk: p.risk,
-          corporatePhone: (p as any).corporate_phone ?? (p as any).corporatePhone,
+          corporatePhone: p.corporate_phone ?? p.corporatePhone,
           photo: p.photo,
           location: p.location,
-          hasSecurityOfficer: (p as any).has_security_officer ?? (p as any).hasSecurityOfficer,
-          activa: p.activa,
-          operativa: p.operativa
+          hasSecurityOfficer: p.has_security_officer ?? p.hasSecurityOfficer,
+          activa: p.activa ?? true,
+          operativa: p.operativa ?? true
         }));
 
         if (cloudPharms.length === 0 && prev.pharmacies.length > 0 && !(pharms as any).data) return prev;
@@ -488,8 +488,8 @@ const App: React.FC = () => {
         photo: updatedPharmacy.photo,
         location: updatedPharmacy.location,
         has_security_officer: updatedPharmacy.hasSecurityOfficer,
-        activa: updatedPharmacy.activa,
-        operativa: updatedPharmacy.operativa
+        activa: updatedPharmacy.activa ?? true,
+        operativa: updatedPharmacy.operativa ?? true
       });
     }
 
@@ -651,8 +651,8 @@ const App: React.FC = () => {
                 photo: p.photo,
                 location: p.location,
                 has_security_officer: p.hasSecurityOfficer,
-                activa: p.activa,
-                operativa: p.operativa
+                activa: p.activa ?? true,
+                operativa: p.operativa ?? true
               });
             }}
           />
@@ -940,8 +940,8 @@ const App: React.FC = () => {
                 photo: p.photo,
                 location: p.location,
                 has_security_officer: p.hasSecurityOfficer,
-                activa: p.activa,
-                operativa: p.operativa
+                activa: p.activa ?? true,
+                operativa: p.operativa ?? true
               });
             }}
             onDelete={async (id) => {
@@ -963,8 +963,8 @@ const App: React.FC = () => {
                 photo: p.photo,
                 location: p.location,
                 has_security_officer: p.hasSecurityOfficer,
-                activa: p.activa,
-                operativa: p.operativa
+                activa: p.activa ?? true,
+                operativa: p.operativa ?? true
               });
             }}
             currentUser={currentUser}
