@@ -187,7 +187,8 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
       : pharmacies.filter(p => p.zone === selectedZone);
     
     return {
-      pharmacies: filteredPharmacies,
+      // ✅ Se filtran las farmacias para que solo cuenten las operativas
+      pharmacies: filteredPharmacies.filter(p => p.operativa !== false),
       audits: audits.filter(filterByZoneAndOwner),
       cctv: cctvRecords.filter(filterByZoneAndOwner),
       physical: physicalRecords.filter(filterByZoneAndOwner),
@@ -219,13 +220,18 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   const totalPharmaciesCount = currentPharmacies.length;
 
   // ✅ CORRECCIÓN: Se agrega .filter(id => id !== 'undefined' && id !== 'null') para eliminar la farmacia inexistente que sumaba 29
-  const visitedPharmacies = new Set([
+  const visitedPharmaciesSet = new Set([
     ...monthlyAudits.map(a => String(a.pharmacy?.id || a.pharmacyId)).filter(id => id && id !== 'undefined' && id !== 'null'),
     ...currentManagement
       .filter(r => isCurrentMonth(r.date))
       .map(r => String(r.pharmacyId))
       .filter(id => id && id !== 'undefined' && id !== 'null')
-  ]).size;
+  ]);
+
+  // Asegurarse de que solo contamos farmacias visitadas que aún están en la lista de operativas
+  const visitedPharmacies = Array.from(visitedPharmaciesSet).filter(id => 
+    currentPharmacies.some(p => String(p.id) === id)
+  ).length;
 
   const coverage = totalPharmaciesCount > 0 ? Math.round((visitedPharmacies / totalPharmaciesCount) * 100) : 0;
 
@@ -403,7 +409,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
             <MapPin className="w-6 h-6 mb-2 text-emerald-500" />
           </div>
           <div className="mt-4 text-xs font-bold text-slate-400">
-            {visitedPharmacies} de {totalPharmaciesCount} farmacias visitadas
+            {visitedPharmacies} de {totalPharmaciesCount} farmacias operativas
           </div>
         </div>
 
