@@ -99,7 +99,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   const addVisitedPharmacies = (items: any[]) => {
     items.forEach(item => {
       const pharmId = (item.pharmacy && item.pharmacy.id) ? item.pharmacy.id : item.pharmacyId;
-      if (pharmId && isCurrentMonth(item.date) && inSelectedZone(item)) {
+      // Solo contar como visita si la farmacia existe en la lista y es operativa
+      const pharmacyRef = pharmacies.find(p => String(p.id) === String(pharmId));
+      if (pharmId && isCurrentMonth(item.date) && inSelectedZone(item) && pharmacyRef?.operativa !== false) {
         visitedPharmacyIds.add(String(pharmId));
       }
     });
@@ -109,9 +111,14 @@ const Dashboard: React.FC<DashboardProps> = ({
   addVisitedPharmacies(managementRecords);
 
   const totalUniqueVisits = visitedPharmacyIds.size;
+
+  // Filtrar farmacias operativas para el cálculo del total
+  const operativePharmacies = pharmacies.filter(p => p.operativa !== false);
+
   const totalPharmacies = selectedZone === 'Todas'
-    ? pharmacies.length
-    : pharmacies.filter(p => p.zone === selectedZone).length;
+    ? operativePharmacies.length
+    : operativePharmacies.filter(p => p.zone === selectedZone).length;
+
   const coveragePercentage = totalPharmacies > 0
     ? Math.round((totalUniqueVisits / totalPharmacies) * 100)
     : 0;
@@ -248,7 +255,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             <p className="text-5xl font-black text-slate-800 mb-1">{coveragePercentage}%</p>
             <p className="text-slate-500 font-bold text-sm">Índice de Cobertura</p>
             <p className="text-emerald-600 font-black text-xs mt-2 uppercase tracking-widest">
-              {totalUniqueVisits} de {totalPharmacies} farmacias visitadas
+              {totalUniqueVisits} de {totalPharmacies} farmacias operativas
             </p>
           </div>
         </div>
