@@ -14,6 +14,8 @@ export interface Pharmacy {
     lng: number;
   } | null;
   hasSecurityOfficer?: boolean;
+  activa?: boolean;
+  operativa?: boolean;
 }
 
 export interface HardwareItem {
@@ -270,6 +272,7 @@ export interface CaseRecord {
   closedDate?: string;
   createdBy: string;
 }
+
 // =====================================
 // INVENTARIO TÉCNICO
 // =====================================
@@ -316,31 +319,22 @@ export type InventoryUnitType =
 export interface TechnicalInventoryItem {
   id: string;
   itemCode?: string;
-
   name: string;
   category: InventoryCategory;
-
   brand?: string;
   model?: string;
   serialNumber?: string;
-
   quantity: number;
   unitType: InventoryUnitType;
-
   condition: InventoryCondition;
   status: InventoryStatus;
-
   originType: InventoryOrigin;
   originReference?: string;
-
   entryDate: string;
-
   currentLocationType?: 'Almacen' | 'Farmacia' | 'Corporativo' | 'Otro';
   currentLocationId?: string;
   currentLocationName?: string;
-
   assignedTo?: string;
-
   notes?: string;
   createdBy?: string;
 }
@@ -360,25 +354,17 @@ export type InventoryMovementType =
 
 export interface TechnicalInventoryMovement {
   id: string;
-
   inventoryItemId: string;
-
   movementType: InventoryMovementType;
-
   date: string;
-
   fromLocationType?: string;
   fromLocationId?: string;
   fromLocationName?: string;
-
   toLocationType?: string;
   toLocationId?: string;
   toLocationName?: string;
-
   quantity: number;
-
   reason?: string;
   notes?: string;
-
   createdBy?: string;
 }
