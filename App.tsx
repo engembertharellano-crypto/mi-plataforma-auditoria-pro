@@ -258,8 +258,6 @@ const App: React.FC = () => {
 
     try {
       const getTableData = async (table: string) => {
-        // ✅ Se quita el filtro por created_by para que los datos de todas las zonas
-        // se descarguen y puedan ser filtrados visualmente en la Bitácora
         let q: any = sb.from(table).select('*');
         const { data, error } = await q;
         if (error) throw error;
@@ -321,7 +319,9 @@ const App: React.FC = () => {
           corporatePhone: (p as any).corporate_phone ?? (p as any).corporatePhone,
           photo: p.photo,
           location: p.location,
-          hasSecurityOfficer: (p as any).has_security_officer ?? (p as any).hasSecurityOfficer
+          hasSecurityOfficer: (p as any).has_security_officer ?? (p as any).hasSecurityOfficer,
+          activa: p.activa,
+          operativa: p.operativa
         }));
 
         if (cloudPharms.length === 0 && prev.pharmacies.length > 0 && !(pharms as any).data) return prev;
@@ -487,7 +487,9 @@ const App: React.FC = () => {
         corporate_phone: updatedPharmacy.corporatePhone,
         photo: updatedPharmacy.photo,
         location: updatedPharmacy.location,
-        has_security_officer: updatedPharmacy.hasSecurityOfficer
+        has_security_officer: updatedPharmacy.hasSecurityOfficer,
+        activa: updatedPharmacy.activa,
+        operativa: updatedPharmacy.operativa
       });
     }
 
@@ -586,21 +588,21 @@ const App: React.FC = () => {
         }`}
       >
         {currentView === 'dashboard' && (
-  <Dashboard
-    onNavigate={setCurrentView}
-    pharmacies={visiblePharmacies}
-    audits={userData.audits}
-    cctvRecords={userData.cctvRecords}
-    physicalRecords={userData.physicalRecords}
-    managementRecords={userData.managementRecords}
-    onSelectAudit={(a) => {
-      setSelectedAudit(a);
-      setCurrentView('audit-results');
-    }}
-    readOnly={isReadOnly}
-    currentUser={currentUser}
-  />
-)}
+          <Dashboard
+            onNavigate={setCurrentView}
+            pharmacies={visiblePharmacies}
+            audits={userData.audits}
+            cctvRecords={userData.cctvRecords}
+            physicalRecords={userData.physicalRecords}
+            managementRecords={userData.managementRecords}
+            onSelectAudit={(a) => {
+              setSelectedAudit(a);
+              setCurrentView('audit-results');
+            }}
+            readOnly={isReadOnly}
+            currentUser={currentUser}
+          />
+        )}
 
         {currentView === 'ai-assistant' && !isReadOnly && (
           <AIAssistant
@@ -648,7 +650,9 @@ const App: React.FC = () => {
                 corporate_phone: p.corporatePhone,
                 photo: p.photo,
                 location: p.location,
-                has_security_officer: p.hasSecurityOfficer
+                has_security_officer: p.hasSecurityOfficer,
+                activa: p.activa,
+                operativa: p.operativa
               });
             }}
           />
@@ -935,7 +939,9 @@ const App: React.FC = () => {
                 corporate_phone: p.corporatePhone,
                 photo: p.photo,
                 location: p.location,
-                has_security_officer: p.hasSecurityOfficer
+                has_security_officer: p.hasSecurityOfficer,
+                activa: p.activa,
+                operativa: p.operativa
               });
             }}
             onDelete={async (id) => {
@@ -956,7 +962,9 @@ const App: React.FC = () => {
                 corporate_phone: p.corporatePhone,
                 photo: p.photo,
                 location: p.location,
-                has_security_officer: p.hasSecurityOfficer
+                has_security_officer: p.hasSecurityOfficer,
+                activa: p.activa,
+                operativa: p.operativa
               });
             }}
             currentUser={currentUser}
