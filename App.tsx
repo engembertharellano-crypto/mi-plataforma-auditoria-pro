@@ -909,7 +909,7 @@ const App: React.FC = () => {
             }}
             onUpdateCase={async (c) => {
               if (!checkPermission()) return;
-              setUserData(prev => ({ ...prev, cases: prev.cases.map(x => (x.id === c.id ? c : x)) }));
+              setUserData(prev => ({ ...prev, boxes: prev.cases.map(x => (x.id === c.id ? c : x)) }));
               await saveToCloud('cases', c.id, c);
             }}
             onDeleteCase={async (id) => {
