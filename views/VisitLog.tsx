@@ -120,12 +120,12 @@ const VisitLog: React.FC<VisitLogProps> = ({
         const pharmacyData = pharmacies.find(p => String(p.id) === String(pId));
 
         let textoObservacion = "";
-        if (type === 'Auditoría') {
+        if (type === 'Inspección') {
           const score = item.score || 0;
           const riskLevel = getRiskLevel(score);
           textoObservacion = `Nivel de cumplimiento: ${score}%. Nivel de riesgo: ${riskLevel}. El análisis detallado de los hallazgos y métricas se encuentra disponible en el Dashboard.`;
         } 
-        else if (type === 'Inventario CCTV' || type === 'Infraestructura') {
+        else if (type === 'Protección CCTV' || type === 'Infraestructura') {
           textoObservacion = item.observations || item.notes || item.comments || "Sin observaciones registradas.";
         } 
         else if (type === 'Visita de Gestión') {
@@ -144,16 +144,16 @@ const VisitLog: React.FC<VisitLogProps> = ({
       });
 
     return [
-      ...format(audits, 'Auditoría', 'date'),
-      ...format(cctvRecords, 'Inventario CCTV', 'date'),
+      ...format(audits, 'Inspección', 'date'),
+      ...format(cctvRecords, 'Protección CCTV', 'date'),
       ...format(physicalRecords, 'Infraestructura', 'date'),
       ...format(managementRecords, 'Visita de Gestión', 'date')
     ].sort((a, b) => {
-       const dateA = parseRecordDate(a.date);
-       const dateB = parseRecordDate(b.date);
-       const tA = dateA ? dateA.getTime() : 0;
-       const tB = dateB ? dateB.getTime() : 0;
-       return tB - tA;
+        const dateA = parseRecordDate(a.date);
+        const dateB = parseRecordDate(b.date);
+        const tA = dateA ? dateA.getTime() : 0;
+        const tB = dateB ? dateB.getTime() : 0;
+        return tB - tA;
     });
   }, [audits, cctvRecords, physicalRecords, managementRecords, pharmacies]);
 
@@ -210,8 +210,8 @@ const VisitLog: React.FC<VisitLogProps> = ({
   const confirmDeleteRecord = () => {
     if (!recordToDelete) return;
 
-    if (recordToDelete.type === 'Auditoría') onDeleteAudit(recordToDelete.id);
-    if (recordToDelete.type === 'Inventario CCTV') onDeleteCCTV(recordToDelete.id);
+    if (recordToDelete.type === 'Inspección') onDeleteAudit(recordToDelete.id);
+    if (recordToDelete.type === 'Protección CCTV') onDeleteCCTV(recordToDelete.id);
     if (recordToDelete.type === 'Infraestructura') onDeletePhysical(recordToDelete.id);
     if (recordToDelete.type === 'Visita de Gestión') onDeleteManagement(recordToDelete.id);
 
@@ -334,8 +334,8 @@ const VisitLog: React.FC<VisitLogProps> = ({
               onChange={(e) => setFilterType(e.target.value)}
             >
               <option value="Todos">Todos los Tipos</option>
-              <option value="Auditoría">Auditoría</option>
-              <option value="Inventario CCTV">Inventario CCTV</option>
+              <option value="Inspección">Inspección</option>
+              <option value="Protección CCTV">Protección CCTV</option>
               <option value="Infraestructura">Infraestructura</option>
               <option value="Visita de Gestión">Visita de Gestión</option>
             </select>
@@ -402,8 +402,8 @@ const VisitLog: React.FC<VisitLogProps> = ({
                   </td>
                   <td className="py-6 px-8 align-top">
                     <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${
-                      record.type === 'Auditoría' ? 'bg-orange-100 text-orange-700' :
-                      record.type === 'Inventario CCTV' ? 'bg-blue-100 text-blue-700' :
+                      record.type === 'Inspección' ? 'bg-orange-100 text-orange-700' :
+                      record.type === 'Protección CCTV' ? 'bg-blue-100 text-blue-700' :
                       record.type === 'Infraestructura' ? 'bg-purple-100 text-purple-700' :
                       'bg-slate-100 text-slate-600'
                     }`}>
@@ -419,14 +419,14 @@ const VisitLog: React.FC<VisitLogProps> = ({
                         {record.pharmacy}
                       </div>
                       
-                      {!isReadOnly && record.type === 'Auditoría' && onEditAudit && record.original.createdBy === currentUser?.fullName && (
+                      {!isReadOnly && record.type === 'Inspección' && onEditAudit && record.original.createdBy === currentUser?.fullName && (
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
                             onEditAudit(record.original);
                           }}
                           className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100"
-                          title="Editar Auditoría"
+                          title="Editar Inspección"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
