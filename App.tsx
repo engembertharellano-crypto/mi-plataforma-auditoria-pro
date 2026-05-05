@@ -382,7 +382,7 @@ const App: React.FC = () => {
     const processWeights = {
       '1. CAJA (10%)': 0.10,
       '2. ADMINISTRATIVO (25%)': 0.25,
-      '3. INVENTARIO (50%)': 0.50,
+      '3. EQUIPOS DE PROTECCIÓN FÍSICA (50%)': 0.50,
       '4. PREVENCIÓN (15%)': 0.15,
     };
 
@@ -511,9 +511,9 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white p-6">
         <div className="max-w-md text-center">
-          <h1 className="text-2xl font-black mb-2">Error de Configuración</h1>
+          <h1 className="text-2xl font-black mb-2">Error de Sistema</h1>
           <p className="text-slate-300 text-sm font-medium">
-            No se pudo inicializar Supabase. Revisa las variables de entorno (VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY) en Vercel.
+            No se pudo conectar con el servicio central. Por favor, verifique su conexión.
           </p>
         </div>
       </div>
@@ -909,7 +909,7 @@ const App: React.FC = () => {
             }}
             onUpdateCase={async (c) => {
               if (!checkPermission()) return;
-              setUserData(prev => ({ ...prev, boxes: prev.cases.map(x => (x.id === c.id ? c : x)) }));
+              setUserData(prev => ({ ...prev, cases: prev.cases.map(x => (x.id === c.id ? c : x)) }));
               await saveToCloud('cases', c.id, c);
             }}
             onDeleteCase={async (id) => {
