@@ -177,7 +177,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             <div className="bg-orange-50 p-1.5 rounded-lg group-hover:rotate-90 transition-transform duration-300">
               <Plus className="w-5 h-5" />
             </div>
-            Nueva Auditoría
+            Nueva Inspección
           </button>
         )}
       </div>
@@ -227,7 +227,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             
             <div className="space-y-2 border-t border-slate-50 pt-4">
               <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                <span className="flex items-center gap-2"><FileText className="w-3 h-3" /> Auditorías</span>
+                <span className="flex items-center gap-2"><FileText className="w-3 h-3" /> Inspecciones</span>
                 <span className="text-slate-700">{auditsCount}</span>
               </div>
               <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -269,7 +269,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         </h3>
         <div className="grid grid-cols-2 lg:grid-cols-2 gap-6">
           {[
-            { label: 'Auditorías', count: auditsCount, icon: FileText, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200' },
+            { label: 'Inspecciones', count: auditsCount, icon: FileText, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200' },
             { label: 'Visitas Gestión', count: managementCount, icon: Briefcase, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
           ].map((item, i) => (
             <div key={i} className={`glass-card p-6 rounded-[1.5rem] hover:shadow-2xl transition-all duration-300 group hover:-translate-y-2 border-t-4 ${item.border}`}>
@@ -292,7 +292,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500"></span>
             </span>
-            Auditorías Recientes
+            Inspecciones Recientes
           </h2>
           <button
             onClick={() => onNavigate('visit-log')}
@@ -379,7 +379,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                       <div className="p-6 bg-slate-50 rounded-full border border-slate-100">
                         <FileText className="w-10 h-10 opacity-20" />
                       </div>
-                      <span className="font-medium">No hay auditorías recientes.</span>
+                      <span className="font-medium">No hay inspecciones recientes.</span>
                     </div>
                   </td>
                 </tr>
