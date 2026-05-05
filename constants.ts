@@ -1,4 +1,3 @@
-
 import { Pharmacy, HardwareItem, ProcessItem } from './types';
 
 // Database initialized empty as per user request. 
@@ -50,11 +49,11 @@ export const PROCESS_CHECKLIST: ProcessItem[] = [
   { id: 'p2.6', category: '2. ADMINISTRATIVO (25%)', text: 'Dinero resguardado lugares seguros (Caja llave paso).', verification: 'Presencial' },
   { id: 'p2.7', category: '2. ADMINISTRATIVO (25%)', text: 'Remesa de efectivo en zonas previstas.', verification: 'CCTV' },
 
-  // 3. INVENTARIO
-  { id: 'p3.1', category: '3. INVENTARIO (50%)', text: 'Mercancía proveedores recibida adecuadamente.', verification: 'CCTV/Presencial' },
-  { id: 'p3.2', category: '3. INVENTARIO (50%)', text: 'Discrepancias (sobrantes/faltantes) reclamo generado.', verification: 'Reporte Ajuste' },
-  { id: 'p3.3', category: '3. INVENTARIO (50%)', text: 'Control registro productos dañados/usados.', verification: 'Registro Físico' },
-  { id: 'p3.4', category: '3. INVENTARIO (50%)', text: 'Proveedores sin libre acceso a áreas internas.', verification: 'CCTV/Sitio' },
+  // 3. CONTROL DE MERMA Y RECEPCIÓN
+  { id: 'p3.1', category: '3. CONTROL DE MERMA Y RECEPCIÓN (50%)', text: 'Mercancía proveedores recibida adecuadamente.', verification: 'CCTV/Presencial' },
+  { id: 'p3.2', category: '3. CONTROL DE MERMA Y RECEPCIÓN (50%)', text: 'Discrepancias (sobrantes/faltantes) reclamo generado.', verification: 'Reporte Ajuste' },
+  { id: 'p3.3', category: '3. CONTROL DE MERMA Y RECEPCIÓN (50%)', text: 'Control registro productos dañados/usados.', verification: 'Registro Físico' },
+  { id: 'p3.4', category: '3. CONTROL DE MERMA Y RECEPCIÓN (50%)', text: 'Proveedores sin libre acceso a áreas internas.', verification: 'CCTV/Sitio' },
 
   // 4. PREVENCION
   { id: 'p4.1', category: '4. PREVENCIÓN (15%)', text: 'Revisión pertenencias personal al salir.', verification: 'CCTV' },
