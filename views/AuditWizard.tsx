@@ -182,8 +182,8 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
 
       await Promise.resolve(onFinish(auditData));
     } catch (error) {
-      console.error('Error guardando auditoría:', error);
-      alert('Ocurrió un error al guardar la auditoría. Intenta nuevamente.');
+      console.error('Error guardando inspección:', error);
+      alert('Ocurrió un error al guardar la inspección. Intenta nuevamente.');
       setIsSubmitting(false);
     }
   };
@@ -208,7 +208,7 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-3xl font-black text-white uppercase tracking-tighter">
-            {initialAudit ? 'Editar Auditoría' : 'Nueva Auditoría'}
+            {initialAudit ? 'Editar Inspección' : 'Nueva Inspección'}
           </h2>
           <p className="text-slate-400 font-medium">Paso {step} de 5</p>
         </div>
@@ -275,7 +275,7 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
                                   <div className="flex gap-2">
                                      {['Operativo', 'Inactivo', 'N/A'].map(opt => (
                                         <button key={opt} onClick={() => handleHardwareChange(item.id, 'status', opt)} disabled={isSubmitting} className={`px-2 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${hardwareAnswers[item.id]?.status === opt ? (opt === 'Operativo' ? 'bg-emerald-500 text-white' : opt === 'Inactivo' ? 'bg-red-500 text-white' : 'bg-slate-500 text-white') : 'bg-white border border-slate-200 text-slate-400'} disabled:opacity-60`}>
-                                          {opt}
+                                           {opt}
                                         </button>
                                      ))}
                                   </div>
@@ -305,7 +305,7 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
                                   <div className="flex gap-2">
                                      {['SI', 'NO', 'N/A'].map(opt => (
                                         <button key={opt} onClick={() => handleProcessChange(item.id, 'status', opt)} disabled={isSubmitting} className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${processAnswers[item.id]?.status === opt ? (opt === 'SI' ? 'bg-emerald-500 text-white' : opt === 'NO' ? 'bg-red-500 text-white' : 'bg-slate-500 text-white') : 'bg-white border border-blue-100 text-slate-400'} disabled:opacity-60`}>
-                                          {opt}
+                                           {opt}
                                         </button>
                                      ))}
                                   </div>
@@ -491,7 +491,7 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
               <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
                  <CheckCircle2 className="w-12 h-12 text-emerald-600" />
               </div>
-              <h3 className="text-2xl font-black text-slate-800 uppercase mb-2">Auditoría Completa</h3>
+              <h3 className="text-2xl font-black text-slate-800 uppercase mb-2">Inspección Completa</h3>
               <p className="text-slate-500 max-w-md mx-auto mb-8">
                  Has completado todos los pasos. Al finalizar, se generará el reporte y podrás exportarlo.
                  {initialAudit && <span className="block mt-2 font-bold text-orange-500">ESTÁS EN MODO EDICIÓN: Se actualizará el registro existente.</span>}
@@ -507,7 +507,7 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
                      Guardando...
                    </>
                  ) : (
-                   initialAudit ? 'Actualizar Auditoría' : 'Finalizar y Guardar'
+                   initialAudit ? 'Actualizar Inspección' : 'Finalizar y Guardar'
                  )}
               </button>
            </div>
