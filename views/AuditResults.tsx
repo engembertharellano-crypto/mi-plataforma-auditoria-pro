@@ -51,7 +51,7 @@ const WEIGHTS = {
     categories: {
       '1. CAJA (10%)': 0.10,
       '2. ADMINISTRATIVO (25%)': 0.25,
-      '3. INVENTARIO (50%)': 0.50,
+      '3. CONTROL DE MERMA Y RECEPCIÓN (50%)': 0.50,
       '4. PREVENCIÓN (15%)': 0.15,
     }
   }
@@ -206,7 +206,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
         ? `FONDO DE TRABAJO CONSOLIDADO: ${currentWorkingFund.boxCount || 0} cajas activas. USD asignado ${Number(currentWorkingFund.usd?.assigned || 0).toFixed(2)}, USD presente ${Number(currentWorkingFund.usd?.physical || 0).toFixed(2)}, diferencia USD ${Number(currentWorkingFund.usd?.difference || 0).toFixed(2)}. VES asignado ${Number(currentWorkingFund.ves?.assigned || 0).toFixed(2)}, VES presente ${Number(currentWorkingFund.ves?.physical || 0).toFixed(2)}, diferencia VES ${Number(currentWorkingFund.ves?.difference || 0).toFixed(2)}.`
         : "Fondo de trabajo consolidado: Sin registro.";
 
-      const prompt = `Genera un INFORME DE AUDITORÍA DE SEGURIDAD CORPORATIVA formal, técnico y detallado.
+      const prompt = `Genera un INFORME DE INSPECCIÓN DE SEGURIDAD CORPORATIVA formal, técnico y detallado.
       
       DATOS DEL REPORTE:
       - Auditor Responsable: ${auditorName}
@@ -316,7 +316,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
     return (
       <div className="flex flex-col items-center justify-center p-20 min-h-[60vh] text-white">
         <Loader2 className="w-12 h-12 animate-spin text-orange-500 mb-6" />
-        <p className="text-xl font-black uppercase tracking-[0.3em] animate-pulse">Analizando Auditoría...</p>
+        <p className="text-xl font-black uppercase tracking-[0.3em] animate-pulse">Analizando Inspección...</p>
       </div>
     );
   }
@@ -397,7 +397,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
               <div className="mt-10 bg-slate-900 text-white p-6 rounded-[1.5rem] flex items-center justify-between shadow-2xl border border-slate-800">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-orange-600 rounded-xl"><Award className="w-8 h-8 text-white" /></div>
-                  <div><p className="text-[8px] font-black uppercase tracking-[0.3em] text-orange-400">Puntaje Definitivo</p><h3 className="text-xl font-black tracking-tight uppercase">Auditoría XANA</h3></div>
+                  <div><p className="text-[8px] font-black uppercase tracking-[0.3em] text-orange-400">Puntaje Definitivo</p><h3 className="text-xl font-black tracking-tight uppercase">INSPECCIÓN XANA</h3></div>
                 </div>
                 <div className="text-right"><p className="text-6xl font-black tracking-tighter text-white">{calculatedData.finalScore.toFixed(2)}%</p></div>
               </div>
@@ -619,7 +619,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
               <div className="mb-4 p-4 bg-slate-100 border-l-4 border-slate-500 text-slate-700 rounded-lg flex items-start gap-3">
                 <Lock className="w-5 h-5 shrink-0 mt-0.5" />
                 <div className="text-[10px] font-bold uppercase tracking-wide">
-                  Este informe solo puede ser modificado por el auditor que creó la auditoría.
+                  Este informe solo puede ser modificado por el auditor que creó la inspección.
                 </div>
               </div>
             )}
@@ -669,21 +669,21 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                      <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
                         <div className="px-4 py-2 bg-blue-600 text-white font-black text-[9px] uppercase tracking-widest">Bolívares (VES)</div>
                         <div className="p-6 space-y-3">
-                           <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Sistema:</span><span className="text-slate-700">{audit.vaultCount.ves.system.toFixed(2)} Bs.</span></div>
-                           <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Físico:</span><span className="text-slate-900">{audit.vaultCount.ves.physical.toFixed(2)} Bs.</span></div>
-                           <div className={`pt-3 border-t flex justify-between font-black ${audit.vaultCount.ves.difference === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                            <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Sistema:</span><span className="text-slate-700">{audit.vaultCount.ves.system.toFixed(2)} Bs.</span></div>
+                            <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Físico:</span><span className="text-slate-900">{audit.vaultCount.ves.physical.toFixed(2)} Bs.</span></div>
+                            <div className={`pt-3 border-t flex justify-between font-black ${audit.vaultCount.ves.difference === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                               <span>Diferencia:</span><span>{audit.vaultCount.ves.difference.toFixed(2)} Bs.</span>
-                           </div>
+                            </div>
                         </div>
                      </div>
                      <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
                         <div className="px-4 py-2 bg-emerald-600 text-white font-black text-[9px] uppercase tracking-widest">Dólares (USD)</div>
                         <div className="p-6 space-y-3">
-                           <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Sistema:</span><span className="text-slate-700">{audit.vaultCount.usd.system.toFixed(2)} $</span></div>
-                           <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Físico:</span><span className="text-slate-900">{audit.vaultCount.usd.physical.toFixed(2)} $</span></div>
-                           <div className={`pt-3 border-t flex justify-between font-black ${audit.vaultCount.usd.difference === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                            <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Sistema:</span><span className="text-slate-700">{audit.vaultCount.usd.system.toFixed(2)} $</span></div>
+                            <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Físico:</span><span className="text-slate-900">{audit.vaultCount.usd.physical.toFixed(2)} $</span></div>
+                            <div className={`pt-3 border-t flex justify-between font-black ${audit.vaultCount.usd.difference === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                               <span>Diferencia:</span><span>{audit.vaultCount.usd.difference.toFixed(2)} $</span>
-                           </div>
+                            </div>
                         </div>
                      </div>
                   </div>
@@ -777,8 +777,8 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                                   const ans = audit.hardwareAnswers[item.id] || { status: 'N/A', notes: '' };
                                   return (
                                     <div key={item.id} className="p-4 flex items-start gap-4 hover:bg-white transition-all">
-                                       <div className="mt-1">{ans.status === 'Operativo' ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : ans.status === 'Inactivo' ? <XCircle className="w-5 h-5 text-red-500" /> : <Minus className="w-5 h-5 text-slate-300" />}</div>
-                                       <div className="flex-1"><p className="font-black text-slate-800 text-xs uppercase tracking-tight">{item.name}</p>{ans.notes && <div className="mt-2 text-[10px] bg-orange-50 border-l-2 border-orange-500 p-2 text-slate-700 italic">"{ans.notes}"</div>}</div>
+                                        <div className="mt-1">{ans.status === 'Operativo' ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : ans.status === 'Inactivo' ? <XCircle className="w-5 h-5 text-red-500" /> : <Minus className="w-5 h-5 text-slate-300" />}</div>
+                                        <div className="flex-1"><p className="font-black text-slate-800 text-xs uppercase tracking-tight">{item.name}</p>{ans.notes && <div className="mt-2 text-[10px] bg-orange-50 border-l-2 border-orange-500 p-2 text-slate-700 italic">"{ans.notes}"</div>}</div>
                                     </div>
                                   );
                                })}
@@ -802,8 +802,8 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                                   const ans = audit.processAnswers[item.id] || { status: 'N/A', notes: '' };
                                   return (
                                     <div key={item.id} className="p-4 flex items-start gap-4 hover:bg-white transition-all">
-                                       <div className="mt-1">{ans.status === 'SI' ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : ans.status === 'NO' ? <XCircle className="w-5 h-5 text-red-500" /> : <Minus className="w-5 h-5 text-slate-300" />}</div>
-                                       <div className="flex-1"><p className="font-black text-slate-800 text-xs uppercase tracking-tight">{item.text}</p>{ans.notes && <div className="mt-2 text-[10px] bg-blue-50 border-l-2 border-blue-500 p-2 text-slate-700 italic">"{ans.notes}"</div>}</div>
+                                        <div className="mt-1">{ans.status === 'SI' ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : ans.status === 'NO' ? <XCircle className="w-5 h-5 text-red-500" /> : <Minus className="w-5 h-5 text-slate-300" />}</div>
+                                        <div className="flex-1"><p className="font-black text-slate-800 text-xs uppercase tracking-tight">{item.text}</p>{ans.notes && <div className="mt-2 text-[10px] bg-blue-50 border-l-2 border-blue-500 p-2 text-slate-700 italic">"{ans.notes}"</div>}</div>
                                     </div>
                                   );
                                })}
