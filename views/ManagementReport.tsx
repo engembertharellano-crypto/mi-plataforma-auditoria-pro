@@ -118,9 +118,9 @@ const ManagementReport: React.FC<ManagementReportProps> = ({
           estadoInfraestructura: `${physicalHealth.toFixed(2)}%`,
           totalOperaciones: totalActivities,
           desglose: {
-            auditorias: monthlyAudits.length,
-            censosCCTV: monthlyCCTV.length,
-            inventariosFisicos: monthlyPhysical.length,
+            inspecciones: monthlyAudits.length,
+            proteccionCCTV: monthlyCCTV.length,
+            infraestructuraFisica: monthlyPhysical.length,
             gestionesEspeciales: monthlyMgmt.length
           }
         }
@@ -232,7 +232,7 @@ const ManagementReport: React.FC<ManagementReportProps> = ({
               <p style="font-size: 8pt; color: #94a3b8; margin: 0;">Global</p>
             </td>
             <td width="25%" style="background-color: #f8fafc; border-left: 6px solid #3b82f6; padding: 15px;">
-              <p style="font-size: 7pt; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 5px;">SALUD CCTV</p>
+              <p style="font-size: 7pt; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 5px;">PROTECCIÓN CCTV</p>
               <p style="font-size: 24pt; font-weight: bold; color: #0f172a; margin: 0;">${cctvHealth.toFixed(0)}%</p>
               <p style="font-size: 8pt; color: #94a3b8; margin: 0;">Operativo</p>
             </td>
@@ -308,7 +308,7 @@ const ManagementReport: React.FC<ManagementReportProps> = ({
                   <td style="font-weight: bold; border-bottom: 1px solid #f1f5f9;">${a.score?.toFixed(2)}%</td>
                   <td align="right" style="font-weight: bold; color: ${getRiskColor(a.score || 0)}; border-bottom: 1px solid #f1f5f9;">${getRiskLevel(a.score || 0).toUpperCase()}</td>
                 </tr>
-              `).join('') : `<tr><td colspan="4" align="center" style="color: #cbd5e1; padding: 40px;">SIN ACTIVIDADES DE AUDITORÍA EN ESTE PERIODO</td></tr>`}
+              `).join('') : `<tr><td colspan="4" align="center" style="color: #cbd5e1; padding: 40px;">SIN ACTIVIDADES DE INSPECCIÓN EN ESTE PERIODO</td></tr>`}
             </tbody>
           </table>
         </div>
@@ -369,7 +369,7 @@ const ManagementReport: React.FC<ManagementReportProps> = ({
               </div>
            </div>
            <div className="bg-[#f8fafc] border-l-[10px] border-l-[#3b82f6] p-8 shadow-sm">
-              <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-4">Salud CCTV</p>
+              <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-4">Protección CCTV</p>
               <div className="flex items-baseline gap-1">
                 <p className="text-5xl font-black text-slate-900 tracking-tighter">{cctvHealth.toFixed(0)}%</p>
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Operativo</span>
