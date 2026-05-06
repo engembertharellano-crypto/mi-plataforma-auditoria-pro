@@ -319,7 +319,7 @@ const App: React.FC = () => {
           corporatePhone: p.corporate_phone ?? p.corporatePhone,
           photo: p.photo,
           location: p.location,
-          hasSecurityOfficer: p.has_security_officer ?? p.hasSecurityOfficer,
+          has_security_officer: p.has_security_officer ?? p.hasSecurityOfficer,
           activa: p.activa ?? true,
           operativa: p.operativa ?? true
         }));
@@ -382,7 +382,7 @@ const App: React.FC = () => {
     const processWeights = {
       '1. CAJA (10%)': 0.10,
       '2. ADMINISTRATIVO (25%)': 0.25,
-      '3. EQUIPOS DE PROTECCIÓN FÍSICA (50%)': 0.50,
+      '3. CONTROL DE MERMA Y RECEPCIÓN (50%)': 0.50,
       '4. PREVENCIÓN (15%)': 0.15,
     };
 
