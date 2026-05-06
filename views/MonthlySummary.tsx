@@ -154,7 +154,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     if (dateStr.includes('/')) {
       const parts = dateStr.split('/');
       if (parts.length === 3) {
-        const month = parseInt(parts[1], 10) - 1;
+        const month = parseInt(parts[0], 10) - 1;
         const year = parseInt(parts[2], 10);
         return month === selectedMonth && year === currentYear;
       }
@@ -312,7 +312,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     if (audit.hardwareAnswers) {
       Object.entries(audit.hardwareAnswers).forEach(([key, value]: any) => {
         if (value.status !== 'Operativo' && value.status !== 'N/A') {
-          const readableName = QUESTION_MAP[key] || key;
+          const readableName = QUESTION_MAP[key] || key; 
           failureCounts[readableName] = (failureCounts[readableName] || 0) + 1;
         }
       });
@@ -391,7 +391,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
         
         <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-[4rem] -mr-4 -mt-4 transition-colors group-hover:bg-blue-100"></div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Promedio Auditoría</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Promedio Inspección</p>
           <div className="flex items-end gap-3 relative z-10">
             <span className="text-5xl font-black text-slate-800 tracking-normal">{avgAuditScore}%</span>
             <TrendingUp className={`w-6 h-6 mb-2 ${avgAuditScore >= 80 ? 'text-emerald-500' : 'text-orange-500'}`} />
@@ -435,7 +435,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           
           <div className="mt-4 pt-4 border-t border-slate-50 space-y-1.5 relative z-10">
             <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-slate-400">
-              <span className="flex items-center gap-1.5"><FileText className="w-2.5 h-2.5" /> Auditorías</span>
+              <span className="flex items-center gap-1.5"><FileText className="w-2.5 h-2.5" /> Inspecciones</span>
               <span className="text-slate-600">{monthlyAuditsCount}</span>
             </div>
             <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-slate-400">
@@ -443,11 +443,11 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
               <span className="text-slate-600">{monthlyManagementCount}</span>
             </div>
             <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-slate-400">
-              <span className="flex items-center gap-1.5"><Camera className="w-2.5 h-2.5" /> CCTV</span>
+              <span className="flex items-center gap-1.5"><Camera className="w-2.5 h-2.5" /> Protección CCTV</span>
               <span className="text-slate-600">{monthlyCctvCount}</span>
             </div>
             <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-slate-400">
-              <span className="flex items-center gap-1.5"><Boxes className="w-2.5 h-2.5" /> Físico</span>
+              <span className="flex items-center gap-1.5"><Boxes className="w-2.5 h-2.5" /> Infraestructura</span>
               <span className="text-slate-600">{monthlyPhysicalCount}</span>
             </div>
           </div>
@@ -536,7 +536,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                   {topFailure ? topFailure[0] : "Sin hallazgos recurrentes"}
                 </p>
                 <p className="text-xs text-orange-400 mt-1">
-                  {topFailure ? `Detectado en ${topFailure[1]} auditoría(s)` : "Excelente cumplimiento"}
+                  {topFailure ? `Detectado en ${topFailure[1]} inspección(es)` : "Excelente cumplimiento"}
                 </p>
               </div>
             </div>
@@ -548,10 +548,10 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Nivel de riesgo predominante</p>
                 <p className={`font-bold leading-tight text-sm ${predominantRisk ? getRiskColorClass(predominantRisk[0]) : 'text-white'}`}>
-                  {predominantRisk ? predominantRisk[0] : "Sin auditorías registradas"}
+                  {predominantRisk ? predominantRisk[0] : "Sin inspecciones registradas"}
                 </p>
                 <p className="text-xs text-blue-400 mt-1">
-                  {predominantRisk ? `${predominantRisk[1]} auditoría(s) en este nivel` : "Sin datos suficientes"}
+                  {predominantRisk ? `${predominantRisk[1]} inspección(es) en este nivel` : "Sin datos suficientes"}
                 </p>
               </div>
             </div>
