@@ -103,7 +103,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       const emailLower = formData.email.toLowerCase();
       const isSuperUser = emailLower === 'engemberth.arellano@gmail.com';
       const isCorpManager = emailLower === 'gustavo.fernandez@dronena.com';
-      const isGlobalRole = formData.role === 'Gerente de seguridad' || formData.role === 'Lider de investigaciones' || isCorpManager;
+      const readOnlyRoles = ['Directiva', 'Auditoria', 'Finanzas', 'Mantenimiento', 'Tecnologia', 'Operaciones', 'Seguridad (Lectura)', 'Recursos Humanos'];
+      const isGlobalRole = formData.role === 'Gerente de seguridad' || formData.role === 'Lider de investigaciones' || readOnlyRoles.includes(formData.role) || isCorpManager;
       
       const newUser = {
         email: emailLower,
@@ -203,17 +204,19 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         <option value="Recursos Humanos">Recursos Humanos (Solo Lectura)</option>
                       </select>
                     </div>
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase mb-1.5 pl-1 tracking-[0.1em]">Zona Asignada</label>
-                      <select 
-                        disabled={isLoading}
-                        className="w-full px-4 py-3 bg-slate-800 border border-white/10 rounded-xl text-white font-bold text-xs outline-none focus:border-orange-500/50 disabled:opacity-50" 
-                        value={formData.zone} 
-                        onChange={e => setFormData({...formData, zone: e.target.value})}
-                      >
-                        {ZONES.map(z => <option key={z} value={z}>{z}</option>)}
-                      </select>
-                    </div>
+                    {!(formData.role === 'Gerente de seguridad' || formData.role === 'Lider de investigaciones' || ['Directiva', 'Auditoria', 'Finanzas', 'Mantenimiento', 'Tecnologia', 'Operaciones', 'Seguridad (Lectura)', 'Recursos Humanos'].includes(formData.role)) && (
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase mb-1.5 pl-1 tracking-[0.1em]">Zona Asignada</label>
+                        <select 
+                          disabled={isLoading}
+                          className="w-full px-4 py-3 bg-slate-800 border border-white/10 rounded-xl text-white font-bold text-xs outline-none focus:border-orange-500/50 disabled:opacity-50" 
+                          value={formData.zone} 
+                          onChange={e => setFormData({...formData, zone: e.target.value})}
+                        >
+                          {ZONES.map(z => <option key={z} value={z}>{z}</option>)}
+                        </select>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
