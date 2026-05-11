@@ -494,7 +494,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
             </span>
             {cctvBad > 0 ? (
               <div className="group relative">
-                <p className="text-[10px] text-red-400 font-bold uppercase flex items-center justify-end gap-1 mt-1 cursor-help">
+                <p className="text-[10px] text-red-400 font-bold uppercase flex items-center justify-end gap-1 mt-1 cursor-pointer">
                   <XCircle className="w-3 h-3" /> {cctvBad} Cámaras Inactivas
                 </p>
                 <div className="absolute right-0 top-full mt-3 hidden group-hover:block bg-slate-900/95 backdrop-blur-xl border border-slate-700 p-4 rounded-2xl shadow-2xl z-[100] min-w-[220px] animate-in fade-in zoom-in-95 duration-200 pointer-events-none group-hover:pointer-events-auto">
@@ -535,7 +535,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
               <div className="flex flex-col items-end mt-1 space-y-1">
                 {infraFailureList.map((fail, i) => (
                   <div key={i} className="group relative">
-                    <p className="text-[9px] text-red-400 font-bold uppercase flex items-center gap-1 cursor-help">
+                    <p className="text-[9px] text-red-400 font-bold uppercase flex items-center gap-1 cursor-pointer">
                       <AlertTriangle className="w-3 h-3" /> {fail.count} {fail.name}{fail.count > 1 ? 's' : ''}
                     </p>
                     <div className="absolute right-0 top-full mt-3 hidden group-hover:block bg-slate-900/95 backdrop-blur-xl border border-slate-700 p-4 rounded-2xl shadow-2xl z-[100] min-w-[220px] animate-in fade-in zoom-in-95 duration-200 pointer-events-none group-hover:pointer-events-auto">
