@@ -478,7 +478,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
        
-       <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between relative group shadow-2xl">
+       <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between relative shadow-2xl">
          <div className="flex items-center gap-4 relative z-10">
            <div className="w-12 h-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-400">
              <Camera className="w-6 h-6" />
@@ -493,7 +493,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
               {cctvHealth}%
             </span>
             {cctvBad > 0 ? (
-              <div className="relative">
+              <div className="group relative">
                 <p className="text-[10px] text-red-400 font-bold uppercase flex items-center justify-end gap-1 mt-1 cursor-help">
                   <XCircle className="w-3 h-3" /> {cctvBad} Cámaras Inactivas
                 </p>
@@ -517,7 +517,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
          </div>
        </div>
 
-       <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between relative group shadow-2xl">
+       <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between relative shadow-2xl">
          <div className="flex items-center gap-4 relative z-10">
            <div className="w-12 h-12 bg-teal-500/20 rounded-2xl flex items-center justify-center text-teal-400">
              <BrickWall className="w-6 h-6" />
@@ -534,7 +534,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
             {infraFailureList.length > 0 ? (
               <div className="flex flex-col items-end mt-1 space-y-1">
                 {infraFailureList.map((fail, i) => (
-                  <div key={i} className="relative">
+                  <div key={i} className="group relative">
                     <p className="text-[9px] text-red-400 font-bold uppercase flex items-center gap-1 cursor-help">
                       <AlertTriangle className="w-3 h-3" /> {fail.count} {fail.name}{fail.count > 1 ? 's' : ''}
                     </p>
