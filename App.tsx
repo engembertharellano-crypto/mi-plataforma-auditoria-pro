@@ -161,18 +161,31 @@ const App: React.FC = () => {
     if (sessionUser) setCurrentUser(JSON.parse(sessionUser));
   }, []);
 
+  const READ_ONLY_ROLES = [
+    'directiva', 
+    'auditoria', 
+    'finanzas', 
+    'mantenimiento', 
+    'tecnologia', 
+    'operaciones', 
+    'seguridad (lectura)', 
+    'recursos humanos'
+  ];
+
   const isReadOnly = useMemo(() => {
-    if (!currentUser || !currentUser.email) return false;
-    return currentUser.email.trim().toLowerCase() === 'directiva@xana.com';
+    if (!currentUser) return false;
+    const role = (currentUser.role || '').toLowerCase();
+    const email = (currentUser.email || '').trim().toLowerCase();
+    return READ_ONLY_ROLES.includes(role) || email === 'directiva@xana.com';
   }, [currentUser]);
 
   const isBoss = useMemo(() => {
     if (!currentUser) return false;
     const email = currentUser.email ? currentUser.email.trim().toLowerCase() : '';
-    if (email === 'directiva@xana.com') return true;
     const role = (currentUser.role || '').toLowerCase();
+    if (email === 'directiva@xana.com' || READ_ONLY_ROLES.includes(role)) return true;
     return ['super usuario', 'gerente corporativo de seguridad', 'gerente de seguridad', 'lider de investigaciones'].includes(role);
-  }, [currentUser]);
+  }, [currentUser, READ_ONLY_ROLES]);
 
   const visiblePharmacies = useMemo(() => {
     if (!userData.pharmacies) return [];

@@ -38,7 +38,8 @@ const AccessManagement: React.FC<AccessManagementProps> = ({ users, onApprove, o
   const ADMIN_ROLES = ['Super Usuario', 'Gerente Corporativo de Seguridad'];
 
   const isProtected = (user: any) => {
-    return ADMIN_EMAILS.includes(user.email) || ADMIN_ROLES.includes(user.role);
+    const role = (user.role || '').toLowerCase();
+    return ADMIN_EMAILS.includes(user.email) || ADMIN_ROLES.some(r => r.toLowerCase() === role);
   };
 
   const pendingUsers = useMemo(() => users.filter(u => !u.isApproved && !isProtected(u) && !u.isBlocked), [users]);

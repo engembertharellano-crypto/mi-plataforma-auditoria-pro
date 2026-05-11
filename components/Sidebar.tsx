@@ -70,11 +70,21 @@ const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   const email = (user?.email || '').trim().toLowerCase();
-  const role = (user?.role || '').trim();
-  const isDirectiva = email === 'directiva@xana.com';
+  const role = (user?.role || '').trim().toLowerCase();
+  const READ_ONLY_ROLES = [
+    'directiva', 
+    'auditoria', 
+    'finanzas', 
+    'mantenimiento', 
+    'tecnologia', 
+    'operaciones', 
+    'seguridad (lectura)', 
+    'recursos humanos'
+  ];
+  const isReadOnlyView = email === 'directiva@xana.com' || READ_ONLY_ROLES.includes(role);
 
   // Admin real (no directiva por email)
-  const isAdmin = role === 'Super Usuario';
+  const isAdmin = role === 'super usuario';
 
   // ✅ Lo que Directiva SÍ debe ver (sin Reporte Gerencial, sin Configuración)
   const DIRECTIVA_ALLOWED: ViewName[] = [
@@ -90,7 +100,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     if (item.adminOnly && !isAdmin) return false;
 
     // Directiva: menú reducido (solo lectura + info relevante)
-    if (isDirectiva) {
+    if (isReadOnlyView) {
       return DIRECTIVA_ALLOWED.includes(item.id);
     }
 
@@ -138,7 +148,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {/* MODO VIAJE (solo para NO directiva y NO admin) */}
-          {!isDirectiva && !isAdmin && (
+          {!isReadOnlyView && !isAdmin && (
             <button 
               onClick={onToggleTravelMode}
               className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${

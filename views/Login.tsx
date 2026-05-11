@@ -193,6 +193,14 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         <option value="Coordinador de seguridad">Coordinador de Seguridad</option>
                         <option value="Gerente de seguridad">Gerente de Seguridad</option>
                         <option value="Lider de investigaciones">Líder de Investigaciones</option>
+                        <option value="Directiva">Directiva (Dueños)</option>
+                        <option value="Auditoria">Auditoría (Solo Lectura)</option>
+                        <option value="Finanzas">Finanzas (Solo Lectura)</option>
+                        <option value="Mantenimiento">Mantenimiento (Solo Lectura)</option>
+                        <option value="Tecnologia">Tecnología (Solo Lectura)</option>
+                        <option value="Operaciones">Operaciones (Solo Lectura)</option>
+                        <option value="Seguridad (Lectura)">Seguridad (Solo Lectura)</option>
+                        <option value="Recursos Humanos">Recursos Humanos (Solo Lectura)</option>
                       </select>
                     </div>
                     <div>
