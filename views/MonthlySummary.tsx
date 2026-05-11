@@ -237,58 +237,84 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
  const totalActivities = monthlyAuditsCount + monthlyCctvCount + monthlyPhysicalCount + monthlyManagementCount;
 
- let cctvTotal = 0; 
- let cctvOk = 0;
- let cctvBad = 0;
- 
- currentCCTV.filter(r => isCurrentMonth(r.date)).forEach((rawRecord: any) => {
-   const r = parseData(rawRecord);
-   const cams = r.cameras || {};
-   const totalLocal = (cams.analogTotal || 0) + (cams.ipTotal || 0);
-   const okLocal = (cams.analogOperative || 0) + (cams.ipOperative || 0);
-   cctvTotal += totalLocal;
-   cctvOk += okLocal;
-   cctvBad += (totalLocal - okLocal);
- });
+  let cctvTotal = 0; 
+  let cctvOk = 0;
+  let cctvBad = 0;
+  const cctvFailuresDetails: Record<string, number> = {};
+  
+  currentCCTV.filter(r => isCurrentMonth(r.date)).forEach((rawRecord: any) => {
+    const r = parseData(rawRecord);
+    const pharmacyName = pharmacies.find(p => String(p.id) === String(rawRecord.pharmacyId))?.name || 'Desconocida';
+    const cams = r.cameras || {};
+    const totalLocal = (cams.analogTotal || 0) + (cams.ipTotal || 0);
+    const okLocal = (cams.analogOperative || 0) + (cams.ipOperative || 0);
+    const badLocal = totalLocal - okLocal;
+    
+    cctvTotal += totalLocal;
+    cctvOk += okLocal;
+    cctvBad += badLocal;
+    
+    if (badLocal > 0) {
+      cctvFailuresDetails[pharmacyName] = (cctvFailuresDetails[pharmacyName] || 0) + badLocal;
+    }
+  });
 
  const cctvHealth = cctvTotal > 0 ? Math.round((cctvOk / cctvTotal) * 100) : 0;
 
  let infraTotal = 0; 
  let infraOk = 0;
  
- const infraFailures: Record<string, number> = {
-   'Santamaría': 0,
-   'Candado': 0,
-   'Espejo': 0,
-   'Iluminación': 0
- };
- 
- currentPhysical.filter(r => isCurrentMonth(r.date)).forEach((rawRecord: any) => {
-   const r = parseData(rawRecord);
-   const s = r.santamarias || {};
-   const c = r.candados || {};
-   const e = r.espejos || {};
-   const i = r.iluminacion || {};
+  const infraFailures: Record<string, { count: number, pharms: Record<string, number> }> = {
+    'Santamaría': { count: 0, pharms: {} },
+    'Candado': { count: 0, pharms: {} },
+    'Espejo': { count: 0, pharms: {} },
+    'Iluminación': { count: 0, pharms: {} }
+  };
+  
+  currentPhysical.filter(r => isCurrentMonth(r.date)).forEach((rawRecord: any) => {
+    const r = parseData(rawRecord);
+    const pharmacyName = pharmacies.find(p => String(p.id) === String(rawRecord.pharmacyId))?.name || 'Desconocida';
+    
+    const s = r.santamarias || {};
+    const c = r.candados || {};
+    const e = r.espejos || {};
+    const i = r.iluminacion || {};
 
-   const reqS = s.required || 0; const goodS = s.good || 0;
-   const reqC = c.required || 0; const goodC = c.good || 0;
-   const reqE = e.required || 0; const goodE = e.good || 0;
-   const reqI = i.required || 0; const goodI = i.good || 0;
+    const reqS = s.required || 0; const goodS = s.good || 0;
+    const reqC = c.required || 0; const goodC = c.good || 0;
+    const reqE = e.required || 0; const goodE = e.good || 0;
+    const reqI = i.required || 0; const goodI = i.good || 0;
 
-   infraTotal += (reqS + reqC + reqE + reqI);
-   infraOk += (goodS + goodC + goodE + goodI);
+    infraTotal += (reqS + reqC + reqE + reqI);
+    infraOk += (goodS + goodC + goodE + goodI);
 
-   if (reqS > goodS) infraFailures['Santamaría'] += (reqS - goodS);
-   if (reqC > goodC) infraFailures['Candado'] += (reqC - goodC);
-   if (reqE > goodE) infraFailures['Espejo'] += (reqE - goodE);
-   if (reqI > goodI) infraFailures['Iluminación'] += (reqI - goodI);
- });
+    if (reqS > goodS) {
+      const diff = reqS - goodS;
+      infraFailures['Santamaría'].count += diff;
+      infraFailures['Santamaría'].pharms[pharmacyName] = (infraFailures['Santamaría'].pharms[pharmacyName] || 0) + diff;
+    }
+    if (reqC > goodC) {
+      const diff = reqC - goodC;
+      infraFailures['Candado'].count += diff;
+      infraFailures['Candado'].pharms[pharmacyName] = (infraFailures['Candado'].pharms[pharmacyName] || 0) + diff;
+    }
+    if (reqE > goodE) {
+      const diff = reqE - goodE;
+      infraFailures['Espejo'].count += diff;
+      infraFailures['Espejo'].pharms[pharmacyName] = (infraFailures['Espejo'].pharms[pharmacyName] || 0) + diff;
+    }
+    if (reqI > goodI) {
+      const diff = reqI - goodI;
+      infraFailures['Iluminación'].count += diff;
+      infraFailures['Iluminación'].pharms[pharmacyName] = (infraFailures['Iluminación'].pharms[pharmacyName] || 0) + diff;
+    }
+  });
 
  const infraHealth = infraTotal > 0 ? Math.round((infraOk / infraTotal) * 100) : 0;
 
- const infraFailureList = Object.entries(infraFailures)
-   .filter(([_, count]) => count > 0)
-   .map(([name, count]) => `${count} ${name}${count > 1 ? 's' : ''}`);
+  const infraFailureList = Object.entries(infraFailures)
+    .filter(([_, data]) => data.count > 0)
+    .map(([name, data]) => ({ name, count: data.count, pharms: data.pharms }));
 
  const sortedAudits = [...monthlyAudits].sort((a, b) => (a.score || 0) - (b.score || 0));
  const lowPerforming = sortedAudits.slice(0, 3);
@@ -467,9 +493,22 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
               {cctvHealth}%
             </span>
             {cctvBad > 0 ? (
-              <p className="text-[10px] text-red-400 font-bold uppercase flex items-center justify-end gap-1 mt-1">
-                <XCircle className="w-3 h-3" /> {cctvBad} Cámaras Inactivas
-              </p>
+              <div className="group relative">
+                <p className="text-[10px] text-red-400 font-bold uppercase flex items-center justify-end gap-1 mt-1 cursor-help">
+                  <XCircle className="w-3 h-3" /> {cctvBad} Cámaras Inactivas
+                </p>
+                <div className="absolute right-0 bottom-full mb-3 hidden group-hover:block bg-slate-900/95 backdrop-blur-xl border border-slate-700 p-4 rounded-2xl shadow-2xl z-[100] min-w-[220px] animate-in fade-in zoom-in-95 duration-200">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2">Detalle por Sede</p>
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
+                    {Object.entries(cctvFailuresDetails).map(([pName, count]) => (
+                      <div key={pName} className="flex justify-between items-center gap-4">
+                        <span className="text-[10px] font-bold text-white uppercase truncate max-w-[140px]">{pName}</span>
+                        <span className="text-xs font-black text-red-400 bg-red-400/10 px-2 py-0.5 rounded-md">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             ) : (
               <p className="text-[10px] text-emerald-400 font-bold uppercase flex items-center justify-end gap-1 mt-1">
                 <CheckCircle2 className="w-3 h-3" /> 100% Operativo
@@ -493,11 +532,24 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
               {infraHealth}%
             </span>
             {infraFailureList.length > 0 ? (
-              <div className="flex flex-col items-end mt-1">
+              <div className="flex flex-col items-end mt-1 space-y-1">
                 {infraFailureList.map((fail, i) => (
-                  <p key={i} className="text-[9px] text-red-400 font-bold uppercase flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" /> {fail}
-                  </p>
+                  <div key={i} className="group relative">
+                    <p className="text-[9px] text-red-400 font-bold uppercase flex items-center gap-1 cursor-help">
+                      <AlertTriangle className="w-3 h-3" /> {fail.count} {fail.name}{fail.count > 1 ? 's' : ''}
+                    </p>
+                    <div className="absolute right-0 bottom-full mb-3 hidden group-hover:block bg-slate-900/95 backdrop-blur-xl border border-slate-700 p-4 rounded-2xl shadow-2xl z-[100] min-w-[220px] animate-in fade-in zoom-in-95 duration-200">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2">{fail.name}s por Sede</p>
+                      <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
+                        {Object.entries(fail.pharms).map(([pName, count]) => (
+                          <div key={pName} className="flex justify-between items-center gap-4">
+                            <span className="text-[10px] font-bold text-white uppercase truncate max-w-[140px]">{pName}</span>
+                            <span className="text-xs font-black text-red-400 bg-red-400/10 px-2 py-0.5 rounded-md">{count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : (
