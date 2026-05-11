@@ -478,7 +478,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
        
-       <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between relative overflow-hidden">
+       <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between relative group shadow-2xl">
          <div className="flex items-center gap-4 relative z-10">
            <div className="w-12 h-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-400">
              <Camera className="w-6 h-6" />
@@ -493,11 +493,11 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
               {cctvHealth}%
             </span>
             {cctvBad > 0 ? (
-              <div className="group relative">
+              <div className="relative">
                 <p className="text-[10px] text-red-400 font-bold uppercase flex items-center justify-end gap-1 mt-1 cursor-help">
                   <XCircle className="w-3 h-3" /> {cctvBad} Cámaras Inactivas
                 </p>
-                <div className="absolute right-0 bottom-full mb-3 hidden group-hover:block bg-slate-900/95 backdrop-blur-xl border border-slate-700 p-4 rounded-2xl shadow-2xl z-[100] min-w-[220px] animate-in fade-in zoom-in-95 duration-200">
+                <div className="absolute right-0 top-full mt-3 hidden group-hover:block bg-slate-900/95 backdrop-blur-xl border border-slate-700 p-4 rounded-2xl shadow-2xl z-[100] min-w-[220px] animate-in fade-in zoom-in-95 duration-200 pointer-events-none group-hover:pointer-events-auto">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2">Detalle por Sede</p>
                   <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
                     {Object.entries(cctvFailuresDetails).map(([pName, count]) => (
@@ -517,7 +517,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
          </div>
        </div>
 
-       <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between relative overflow-hidden">
+       <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex items-center justify-between relative group shadow-2xl">
          <div className="flex items-center gap-4 relative z-10">
            <div className="w-12 h-12 bg-teal-500/20 rounded-2xl flex items-center justify-center text-teal-400">
              <BrickWall className="w-6 h-6" />
@@ -534,11 +534,11 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
             {infraFailureList.length > 0 ? (
               <div className="flex flex-col items-end mt-1 space-y-1">
                 {infraFailureList.map((fail, i) => (
-                  <div key={i} className="group relative">
+                  <div key={i} className="relative">
                     <p className="text-[9px] text-red-400 font-bold uppercase flex items-center gap-1 cursor-help">
                       <AlertTriangle className="w-3 h-3" /> {fail.count} {fail.name}{fail.count > 1 ? 's' : ''}
                     </p>
-                    <div className="absolute right-0 bottom-full mb-3 hidden group-hover:block bg-slate-900/95 backdrop-blur-xl border border-slate-700 p-4 rounded-2xl shadow-2xl z-[100] min-w-[220px] animate-in fade-in zoom-in-95 duration-200">
+                    <div className="absolute right-0 top-full mt-3 hidden group-hover:block bg-slate-900/95 backdrop-blur-xl border border-slate-700 p-4 rounded-2xl shadow-2xl z-[100] min-w-[220px] animate-in fade-in zoom-in-95 duration-200 pointer-events-none group-hover:pointer-events-auto">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2">{fail.name}s por Sede</p>
                       <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
                         {Object.entries(fail.pharms).map(([pName, count]) => (
