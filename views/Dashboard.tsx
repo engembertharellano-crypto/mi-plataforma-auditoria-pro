@@ -53,22 +53,25 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const parseAuditDate = (dateStr?: string) => {
     if (!dateStr) return new Date(0);
-    const parts = dateStr.split('/');
-    if (parts.length === 3) {
-      const day = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1;
-      const year = parseInt(parts[2], 10);
-      return new Date(year, month, day);
+    if (dateStr.includes('/')) {
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const year = parseInt(parts[2], 10);
+        return new Date(year, month, day);
+      }
+    } else if (dateStr.includes('-')) {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const [yyyy, mm, dd] = parts;
+        const cleanDd = dd.split('T')[0];
+        return new Date(parseInt(yyyy, 10), parseInt(mm, 10) - 1, parseInt(cleanDd, 10));
+      }
     }
     const fallback = new Date(dateStr);
     return isNaN(fallback.getTime()) ? new Date(0) : fallback;
   };
-
-  const availableZones = useMemo(() => {
-    const zones = new Set<string>();
-    pharmacies.forEach(p => { if (p.zone) zones.add(p.zone); });
-    return Array.from(zones).sort();
-  }, [pharmacies]);
 
   const isCurrentMonth = (dateStr?: string) => {
     if (!dateStr) return false;
@@ -79,11 +82,24 @@ const Dashboard: React.FC<DashboardProps> = ({
         const year = parseInt(parts[2], 10);
         return month === selectedMonth && year === currentYear;
       }
+    } else if (dateStr.includes('-')) {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        return month === selectedMonth && year === currentYear;
+      }
     }
     const parsed = new Date(dateStr);
     if (isNaN(parsed.getTime())) return false;
     return parsed.getMonth() === selectedMonth && parsed.getFullYear() === currentYear;
   };
+
+  const availableZones = useMemo(() => {
+    const zones = new Set<string>();
+    pharmacies.forEach(p => { if (p.zone) zones.add(p.zone); });
+    return Array.from(zones).sort();
+  }, [pharmacies]);
 
   const inSelectedZone = (item: any) => {
     if (selectedZone === 'Todas') return true;

@@ -91,8 +91,15 @@ const VisitLog: React.FC<VisitLogProps> = ({
       const parts = raw.split('/');
       if (parts.length === 3) {
         const [dd, mm, yyyy] = parts;
-        const iso = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
-        const d = new Date(iso);
+        const d = new Date(parseInt(yyyy, 10), parseInt(mm, 10) - 1, parseInt(dd, 10));
+        return isNaN(d.getTime()) ? null : d;
+      }
+    } else if (raw.includes('-')) {
+      const parts = raw.split('-');
+      if (parts.length === 3) {
+        const [yyyy, mm, dd] = parts;
+        const cleanDd = dd.split('T')[0];
+        const d = new Date(parseInt(yyyy, 10), parseInt(mm, 10) - 1, parseInt(cleanDd, 10));
         return isNaN(d.getTime()) ? null : d;
       }
     }

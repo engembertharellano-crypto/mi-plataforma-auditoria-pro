@@ -149,23 +149,30 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
  };
 
  // CORRECCIÓN TÉCNICA DE FECHA: Posicionando el mes correctamente en el split
- const isCurrentMonth = (dateStr?: string) => {
-   if (!dateStr) return false;
+  const isCurrentMonth = (dateStr?: string) => {
+    if (!dateStr) return false;
 
-   if (dateStr.includes('/')) {
-     const parts = dateStr.split('/');
-     if (parts.length === 3) {
-       const month = parseInt(parts[1], 10) - 1; // Ajuste: El mes está en la posición 1 (DD/MM/AAAA)
-       const year = parseInt(parts[2], 10);
-       return month === selectedMonth && year === currentYear;
-     }
-   }
+    if (dateStr.includes('/')) {
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        const month = parseInt(parts[1], 10) - 1; // Ajuste: El mes está en la posición 1 (DD/MM/AAAA)
+        const year = parseInt(parts[2], 10);
+        return month === selectedMonth && year === currentYear;
+      }
+    } else if (dateStr.includes('-')) {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        return month === selectedMonth && year === currentYear;
+      }
+    }
 
-   const d = new Date(dateStr);
-   if (isNaN(d.getTime())) return false;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return false;
 
-   return d.getMonth() === selectedMonth && d.getFullYear() === currentYear;
- };
+    return d.getMonth() === selectedMonth && d.getFullYear() === currentYear;
+  };
 
  const getZoneForRecord = (item: any) => {
    const pId = item.pharmacyId || item.pharmacy?.id;
