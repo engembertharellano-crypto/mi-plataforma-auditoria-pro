@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { FileText, Briefcase, MapPin, Plus, ArrowRight, TrendingUp, Activity, PieChart, Camera, Boxes } from 'lucide-react';
+import { FileText, Briefcase, MapPin, Plus, ArrowRight, TrendingUp, Activity, PieChart, Camera, Boxes, RefreshCw } from 'lucide-react';
 import { ViewName, Pharmacy, AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord } from '../types';
 
 interface DashboardProps {
@@ -11,7 +11,9 @@ interface DashboardProps {
   managementRecords: ManagementVisitRecord[];
   onSelectAudit: (audit: AuditState) => void;
   readOnly?: boolean;
-  currentUser?: any; 
+  currentUser?: any;
+  onSync?: () => void;
+  isSyncing?: boolean;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
@@ -23,7 +25,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   managementRecords,
   onSelectAudit,
   readOnly = false,
-  currentUser
+  currentUser,
+  onSync,
+  isSyncing = false
 }) => {
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
@@ -185,17 +189,30 @@ const Dashboard: React.FC<DashboardProps> = ({
             )}
           </div>
         </div>
-        {!readOnly && (
-          <button
-            onClick={() => onNavigate('audit-wizard')}
-            className="relative z-10 group bg-slate-900 hover:bg-slate-800 text-white px-8 py-4 rounded-2xl shadow-xl shadow-slate-900/20 transition-all flex items-center gap-3 font-bold transform hover:-translate-y-1 active:translate-y-0 active:scale-95"
-          >
-            <div className="bg-orange-50 p-1.5 rounded-lg group-hover:rotate-90 transition-transform duration-300">
-              <Plus className="w-5 h-5" />
-            </div>
-            Nueva Inspección
-          </button>
-        )}
+        <div className="relative z-10 flex gap-3">
+          {onSync && (
+            <button
+              onClick={onSync}
+              disabled={isSyncing}
+              title="Actualizar datos desde la nube"
+              className="group flex items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 px-5 py-4 rounded-2xl shadow-md transition-all font-bold disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin text-blue-500' : ''}`} />
+              <span className="hidden sm:inline">{isSyncing ? 'Actualizando...' : 'Actualizar'}</span>
+            </button>
+          )}
+          {!readOnly && (
+            <button
+              onClick={() => onNavigate('audit-wizard')}
+              className="relative z-10 group bg-slate-900 hover:bg-slate-800 text-white px-8 py-4 rounded-2xl shadow-xl shadow-slate-900/20 transition-all flex items-center gap-3 font-bold transform hover:-translate-y-1 active:translate-y-0 active:scale-95"
+            >
+              <div className="bg-orange-50 p-1.5 rounded-lg group-hover:rotate-90 transition-transform duration-300">
+                <Plus className="w-5 h-5" />
+              </div>
+              Nueva Inspección
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

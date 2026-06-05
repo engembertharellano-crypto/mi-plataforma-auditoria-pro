@@ -86,6 +86,7 @@ const App: React.FC = () => {
   const [isTravelMode, setIsTravelMode] = useState(false);
 
   const syncInProgress = useRef(false);
+  const lastSyncTime = useRef<number>(0);
 
   const [userData, setUserData] = useState<UserData>(() => {
     const saved = localStorage.getItem('xana_hybrid_cache');
@@ -280,8 +281,12 @@ const App: React.FC = () => {
   }, [sb]);
 
   const fullSync = useCallback(async (user: any) => {
-    if (!user || !sb || syncInProgress.current) return;
+    if (!user || !sb) return;
+    // Allow sync if not currently in progress, OR if last sync was more than 5 seconds ago
+    const now = Date.now();
+    if (syncInProgress.current && (now - lastSyncTime.current) < 5000) return;
     syncInProgress.current = true;
+    lastSyncTime.current = now;
     setIsSyncing(true);
 
     try {
@@ -639,6 +644,8 @@ const App: React.FC = () => {
             }}
             readOnly={isReadOnly}
             currentUser={currentUser}
+            onSync={() => fullSync(currentUser)}
+            isSyncing={isSyncing}
           />
         )}
 
