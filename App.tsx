@@ -264,6 +264,21 @@ const App: React.FC = () => {
     }
   };
 
+  const fetchFreshAudit = useCallback(async (auditId: string): Promise<any | null> => {
+    if (!sb) return null;
+    try {
+      const { data, error } = await sb.from('audits').select('*').eq('id', auditId).single();
+      if (error || !data) return null;
+      const item = data;
+      if (item.data && typeof item.data === 'object' && !Array.isArray(item.data)) {
+        return { ...item.data, id: item.id || item.data.id, createdBy: item.created_by || item.data.createdBy };
+      }
+      return { ...item, createdBy: item.created_by || item.createdBy };
+    } catch {
+      return null;
+    }
+  }, [sb]);
+
   const fullSync = useCallback(async (user: any) => {
     if (!user || !sb || syncInProgress.current) return;
     syncInProgress.current = true;
@@ -575,6 +590,10 @@ const App: React.FC = () => {
         onNavigate={(view) => {
           if (view !== 'audit-wizard') setAuditToEdit(null);
           setCurrentView(view);
+          // Sync fresh data every time the user navigates to the dashboard
+          if (view === 'dashboard' && currentUser) {
+            fullSync(currentUser);
+          }
         }}
         user={currentUser}
         onLogout={() => {
@@ -608,9 +627,15 @@ const App: React.FC = () => {
             cctvRecords={userData.cctvRecords}
             physicalRecords={userData.physicalRecords}
             managementRecords={userData.managementRecords}
-            onSelectAudit={(a) => {
+            onSelectAudit={async (a) => {
               setSelectedAudit(a);
               setCurrentView('audit-results');
+              // Re-fetch from Supabase to get latest data
+              const fresh = await fetchFreshAudit(a.id);
+              if (fresh) {
+                setSelectedAudit(fresh);
+                setUserData(prev => ({ ...prev, audits: prev.audits.map(x => x.id === fresh.id ? fresh : x) }));
+              }
             }}
             readOnly={isReadOnly}
             currentUser={currentUser}
