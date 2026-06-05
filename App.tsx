@@ -87,6 +87,7 @@ const App: React.FC = () => {
 
   const syncInProgress = useRef(false);
   const lastSyncTime = useRef<number>(0);
+  const [isLoadingAudit, setIsLoadingAudit] = useState(false);
 
   const [userData, setUserData] = useState<UserData>(() => {
     const saved = localStorage.getItem('xana_hybrid_cache');
@@ -633,14 +634,16 @@ const App: React.FC = () => {
             physicalRecords={userData.physicalRecords}
             managementRecords={userData.managementRecords}
             onSelectAudit={async (a) => {
-              setSelectedAudit(a);
-              setCurrentView('audit-results');
-              // Re-fetch from Supabase to get latest data
+              setIsLoadingAudit(true);
+              // First fetch fresh data from Supabase, THEN navigate
               const fresh = await fetchFreshAudit(a.id);
+              const auditToShow = fresh || a;
+              setSelectedAudit(auditToShow);
               if (fresh) {
-                setSelectedAudit(fresh);
                 setUserData(prev => ({ ...prev, audits: prev.audits.map(x => x.id === fresh.id ? fresh : x) }));
               }
+              setIsLoadingAudit(false);
+              setCurrentView('audit-results');
             }}
             readOnly={isReadOnly}
             currentUser={currentUser}
@@ -708,6 +711,7 @@ const App: React.FC = () => {
             audit={selectedAudit}
             cctvRecords={userData.cctvRecords}
             physicalRecords={userData.physicalRecords}
+            isLoadingFresh={isLoadingAudit}
             onBack={() => setCurrentView('dashboard')}
             onSaveReport={async (id, text, lockReport = false) => {
               if (!checkPermission()) return;
