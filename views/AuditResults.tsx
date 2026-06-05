@@ -190,9 +190,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
       };
       const riskDesc = riskContext[calculatedData.riskLevel] || 'requiriendo atención por parte del equipo responsable';
 
-      const executiveSummary = reportText
-        ? reportText.replace(/\n/g, '<br/>')
-        : `
+      const executiveSummary = `
         En el marco del plan de visitas de campo, se realizó una inspección integral de seguridad el día <strong>${date}</strong> a la sede <strong>${pharmacyName}</strong>, siendo ejecutada por el auditor responsable <strong>${auditor}</strong>. La evaluación abarca los sistemas de protección física, el cumplimiento de los protocolos operativos internos y la verificación de la integridad financiera en sitío.
         <br/><br/>
         Como resultado de la inspección, la sede obtuvo un <strong style="color:#ea580c">nivel de cumplimiento global de ${finalScoreStr}%</strong>, posicionándola en un nivel de riesgo <strong>${riskLevelStr}</strong>, ${riskDesc}.
@@ -200,7 +198,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
         ${failuresSummary}
         <br/><br/>
         ${vaultSummary}
-      `.trim();
+      `;
 
       const sectionHeader = (title: string, color: string) =>
         `<tr><td colspan="2" style="background:${color};padding:8px 12px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#fff">${title}</td></tr>`;
@@ -239,8 +237,9 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
         `INFORME CONSOLIDADO DE VISITA - ${pharmacyName}`,
         `Fecha: ${date} | Auditor: ${auditor}`,
         '',
-        `1. RESUMEN EJECUTIVO`,
-        reportText || `Cumplimiento: ${finalScoreStr}% (Riesgo: ${riskLevelStr})`,
+        `1. INSPECCIÓN GENERAL`,
+        `Cumplimiento: ${finalScoreStr}% (Riesgo: ${riskLevelStr})`,
+        processFailures.length > 0 ? `Fallas: ${processFailures.join(', ')}` : 'Fallas: Ninguna',
         '',
         `2. CCTV`,
         matchedCctv

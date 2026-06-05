@@ -635,7 +635,10 @@ const App: React.FC = () => {
             managementRecords={userData.managementRecords}
             onSelectAudit={async (a) => {
               setIsLoadingAudit(true);
-              // First fetch fresh data from Supabase, THEN navigate
+              // First run a full sync to ensure CCTV, Physical, and all other records are up to date
+              if (currentUser) {
+                await fullSync(currentUser);
+              }
               const fresh = await fetchFreshAudit(a.id);
               const auditToShow = fresh || a;
               setSelectedAudit(auditToShow);
