@@ -332,7 +332,7 @@ const App: React.FC = () => {
           corporatePhone: p.corporate_phone ?? p.corporatePhone,
           photo: p.photo,
           location: p.location,
-          has_security_officer: p.has_security_officer ?? p.hasSecurityOfficer,
+          hasSecurityOfficer: p.has_security_officer ?? p.hasSecurityOfficer,
           activa: p.activa ?? true,
           operativa: p.operativa ?? true
         }));
@@ -674,6 +674,8 @@ const App: React.FC = () => {
         {currentView === 'audit-results' && selectedAudit && (
           <AuditResults
             audit={selectedAudit}
+            cctvRecords={userData.cctvRecords}
+            physicalRecords={userData.physicalRecords}
             onBack={() => setCurrentView('dashboard')}
             onSaveReport={async (id, text, lockReport = false) => {
               if (!checkPermission()) return;

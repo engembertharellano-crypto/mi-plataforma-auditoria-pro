@@ -25,12 +25,14 @@ import {
   RefreshCw,
   Lock
 } from 'lucide-react';
-import { AuditState } from '../types';
+import { AuditState, CCTVInventoryRecord, PhysicalInventoryRecord } from '../types';
 import { HARDWARE_CHECKLIST, PROCESS_CHECKLIST } from '../constants';
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 
 interface AuditResultsProps {
   audit: AuditState;
+  cctvRecords?: CCTVInventoryRecord[];
+  physicalRecords?: PhysicalInventoryRecord[];
   onBack: () => void;
   onSaveReport: (auditId: string, newReportText: string, showAlert?: boolean) => void;
 }
@@ -57,7 +59,7 @@ const WEIGHTS = {
   }
 };
 
-const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport }) => {
+const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physicalRecords, onBack, onSaveReport }) => {
   const sessionUser = useMemo(() => {
     try {
       return JSON.parse(sessionStorage.getItem('xana_active_user') || '{}');
@@ -75,11 +77,195 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
   const [calculatedData, setCalculatedData] = useState<any>(null);
   const [isCopying, setIsCopying] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [copySummarySuccess, setCopySummarySuccess] = useState(false);
+  const [isCopyingSummary, setIsCopyingSummary] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState<'summary' | 'details'>('summary');
   
   const hasGenerated = useRef(false);
   const summaryRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+
+  const matchedCctv = useMemo(() => {
+    if (!cctvRecords || !audit.pharmacy) return null;
+    const pharmCctvs = cctvRecords.filter(r => r.pharmacyId === audit.pharmacy!.id);
+    if (pharmCctvs.length === 0) return null;
+    const exactMatch = pharmCctvs.find(r => r.date === audit.date);
+    if (exactMatch) return exactMatch;
+    return pharmCctvs[pharmCctvs.length - 1];
+  }, [cctvRecords, audit]);
+
+  const matchedPhysical = useMemo(() => {
+    if (!physicalRecords || !audit.pharmacy) return null;
+    const pharmPhys = physicalRecords.filter(r => r.pharmacyId === audit.pharmacy!.id);
+    if (pharmPhys.length === 0) return null;
+    const exactMatch = pharmPhys.find(r => r.date === audit.date);
+    if (exactMatch) return exactMatch;
+    return pharmPhys[pharmPhys.length - 1];
+  }, [physicalRecords, audit]);
+
+  const handleCopyUnifiedSummary = async () => {
+    if (!calculatedData) return;
+    setIsCopyingSummary(true);
+
+    try {
+      const pharmacyName = (audit.pharmacy?.name || 'Sede').toUpperCase();
+      const date = audit.date || '';
+      const auditor = (audit as any).createdBy || 'Auditor';
+      const finalScoreStr = calculatedData.finalScore.toFixed(2);
+      const riskLevelStr = calculatedData.riskLevel.toUpperCase();
+
+      // Capture the full report card as image
+      let imageDataUrl = '';
+      if (summaryRef.current) {
+        try {
+          const html2canvas = (window as any).html2canvas;
+          const canvas = await html2canvas(summaryRef.current, { scale: 1.5, useCORS: true, backgroundColor: '#0f172a' });
+          imageDataUrl = canvas.toDataURL('image/png');
+        } catch (_) { /* image optional */ }
+      }
+
+      // Build vault HTML
+      let vaultHtml = '';
+      if (audit.vaultCount) {
+        const vaultStatus = calculatedData.hasVaultIncident
+          ? `<span style="color:#dc2626;font-weight:700">⚠ DIFERENCIA DETECTADA</span>`
+          : `<span style="color:#16a34a;font-weight:700">✔ CONFORME</span>`;
+        vaultHtml = `
+          <tr><td colspan="2" style="background:#f8fafc;padding:6px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#475569;border-bottom:1px solid #e2e8f0">
+            ARQUEO DE BÓVEDA &nbsp;${vaultStatus}
+          </td></tr>
+          <tr>
+            <td style="padding:6px 10px;font-size:11px;color:#64748b"><b>USD Físico:</b></td>
+            <td style="padding:6px 10px;font-size:11px;font-weight:700;color:#1e293b">${audit.vaultCount.usd.physical.toFixed(2)} $&nbsp;&nbsp;<span style="color:${audit.vaultCount.usd.difference===0?'#16a34a':'#dc2626'}">Dif: ${audit.vaultCount.usd.difference>=0?'+':''}${audit.vaultCount.usd.difference.toFixed(2)}</span></td>
+          </tr>
+          <tr>
+            <td style="padding:6px 10px;font-size:11px;color:#64748b"><b>VES Físico:</b></td>
+            <td style="padding:6px 10px;font-size:11px;font-weight:700;color:#1e293b">${audit.vaultCount.ves.physical.toFixed(2)} Bs.&nbsp;&nbsp;<span style="color:${audit.vaultCount.ves.difference===0?'#16a34a':'#dc2626'}">Dif: ${audit.vaultCount.ves.difference>=0?'+':''}${audit.vaultCount.ves.difference.toFixed(2)}</span></td>
+          </tr>
+          ${audit.vaultCount.notes ? `<tr><td colspan="2" style="padding:6px 10px;font-size:11px"><b style="color:#ea580c">Observación Bóveda:</b> <em>${audit.vaultCount.notes}</em></td></tr>` : ''}
+        `;
+      }
+      // Build CCTV observations only
+      const cctvObsHtml = matchedCctv
+        ? (matchedCctv.notes
+            ? `<em>"${matchedCctv.notes}"</em>`
+            : '<span style="color:#64748b">Sin observaciones registradas.</span>')
+        : '<span style="color:#64748b">Sin registro de levantamiento CCTV reciente.</span>';
+
+      // Build Physical observations only
+      const physObsHtml = matchedPhysical
+        ? (matchedPhysical.notes
+            ? `<em>"${matchedPhysical.notes}"</em>`
+            : '<span style="color:#64748b">Sin observaciones registradas.</span>')
+        : '<span style="color:#64748b">Sin registro de levantamiento de Infraestructura reciente.</span>';
+
+      // Build process failures for section 1 summary
+      const processFailures: string[] = [];
+      Object.entries(audit.processAnswers).forEach(([id, ans]) => {
+        if ((ans as any).status === 'NO') {
+          const item = PROCESS_CHECKLIST.find(i => i.id === id);
+          if (item) processFailures.push(item.text);
+        }
+      });
+
+      // Build extended executive summary paragraph for section 1
+      const vaultSummary = audit.vaultCount
+        ? (calculatedData.hasVaultIncident
+          ? `En cuanto a la integridad financiera, la validación de bóveda arrojó un descuadre de efectivo: USD ${audit.vaultCount.usd.difference >= 0 ? '+' : ''}${audit.vaultCount.usd.difference.toFixed(2)} y VES ${audit.vaultCount.ves.difference >= 0 ? '+' : ''}${audit.vaultCount.ves.difference.toFixed(2)}. Esta incidencia financiera requiere atención y seguimiento inmediato por parte de las áreas de Auditoría y Operaciones.`
+          : `En cuanto a la integridad financiera, la validación de bóveda resultó completamente conforme, sin ningún descuadre de efectivo detectado en moneda nacional ni extranjera.`)
+        : '';
+
+      const failuresSummary = processFailures.length > 0
+        ? `Durante el recorrido se identificaron <strong style="color:#dc2626">${processFailures.length} hallazgo(s) de proceso</strong> que no cumplen con los estándares corporativos establecidos: <em>${processFailures.join('; ')}</em>. Dichos hallazgos deben ser atendidos y subsanados en el menor tiempo posible.`
+        : `No se identificaron hallazgos críticos en los protocolos de proceso evaluados. La sede demuestra un adecuado seguimiento de los lineamientos operativos establecidos.`;
+
+      const riskContext: Record<string, string> = {
+        'Bajo': 'lo que refleja un excelente nivel de gestión y control de los activos y procesos de la sede',
+        'Moderado': 'lo que indica que existen áreas de mejora que, de no ser atendidas oportunamente, podrían comprometer la seguridad operacional',
+        'Medio': 'lo que indica un nivel de exposición considerable que requiere acciones correctivas coordinadas con las áreas responsables',
+        'Alto': 'lo que representa una exposición significativa al riesgo operacional y patrimonial que exige acción inmediata',
+        'Extremo': 'lo que representa una situación crítica de alto riesgo que demanda intervención urgente e inmediata por parte de la Gerencia y Área de Auditoría',
+      };
+      const riskDesc = riskContext[calculatedData.riskLevel] || 'requiriendo atención por parte del equipo responsable';
+
+      const executiveSummary = `
+        En el marco del plan de visitas de campo, se realizó una inspección integral de seguridad el día <strong>${date}</strong> a la sede <strong>${pharmacyName}</strong>, siendo ejecutada por el auditor responsable <strong>${auditor}</strong>. La evaluación abarca los sistemas de protección física, el cumplimiento de los protocolos operativos internos y la verificación de la integridad financiera en sitío.
+        <br/><br/>
+        Como resultado de la inspección, la sede obtuvo un <strong style="color:#ea580c">nivel de cumplimiento global de ${finalScoreStr}%</strong>, posicionándola en un nivel de riesgo <strong>${riskLevelStr}</strong>, ${riskDesc}.
+        <br/><br/>
+        ${failuresSummary}
+        <br/><br/>
+        ${vaultSummary}
+      `;
+
+      const sectionHeader = (title: string, color: string) =>
+        `<tr><td colspan="2" style="background:${color};padding:8px 12px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#fff">${title}</td></tr>`;
+
+      const htmlContent = `
+        <div style="font-family:Arial,sans-serif;max-width:700px;margin:0 auto;background:#ffffff">
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #e2e8f0">
+            ${sectionHeader('1. Resumen Ejecutivo', '#1e293b')}
+            <tr><td colspan="2" style="padding:12px 14px;font-size:12px;color:#1e293b;line-height:1.7">
+              ${executiveSummary}
+            </td></tr>
+            ${vaultHtml ? sectionHeader('Bóveda y Fondo', '#334155') + vaultHtml : ''}
+          </table>
+
+          ${imageDataUrl ? `<img src="${imageDataUrl}" style="width:100%;max-width:700px;display:block;border:1px solid #e2e8f0;border-top:none;border-bottom:none" alt="Resumen Inspección" />` : ''}
+
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #e2e8f0">
+            ${sectionHeader('2. Protección CCTV — Observación', '#1d4ed8')}
+            <tr><td colspan="2" style="padding:12px 14px;font-size:12px;color:#1e293b;line-height:1.6">
+              ${cctvObsHtml}
+            </td></tr>
+            ${sectionHeader('3. Infraestructura — Observación', '#0f766e')}
+            <tr><td colspan="2" style="padding:12px 14px;font-size:12px;color:#1e293b;line-height:1.6">
+              ${physObsHtml}
+            </td></tr>
+          </table>
+
+          <div style="padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px">
+            <p style="margin:0;font-size:9px;color:#94a3b8;text-align:center">Generado automáticamente por XANA PRO &bull; Confidencial</p>
+          </div>
+        </div>
+      `;
+
+      // Also build plain text fallback
+      const plainText = [
+        `INFORME CONSOLIDADO DE VISITA - ${pharmacyName}`,
+        `Fecha: ${date} | Auditor: ${auditor}`,
+        '',
+        `1. INSPECCIÓN GENERAL`,
+        `Cumplimiento: ${finalScoreStr}% (Riesgo: ${riskLevelStr})`,
+        processFailures.length > 0 ? `Fallas: ${processFailures.join(', ')}` : 'Fallas: Ninguna',
+        '',
+        `2. CCTV`,
+        matchedCctv
+          ? `Grabador: ${matchedCctv.equipment.recorderType} | Cámaras: ${matchedCctv.cameras.analogTotal + matchedCctv.cameras.ipTotal} | Obs: ${matchedCctv.notes || 'Ninguna'}`
+          : 'Sin registro',
+        '',
+        `3. INFRAESTRUCTURA`,
+        matchedPhysical ? `Obs: ${matchedPhysical.notes || 'Ninguna'}` : 'Sin registro',
+        '',
+        'Generado por XANA PRO',
+      ].join('\n');
+
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': new Blob([htmlContent], { type: 'text/html' }),
+          'text/plain': new Blob([plainText], { type: 'text/plain' }),
+        })
+      ]);
+
+      setCopySummarySuccess(true);
+      setTimeout(() => setCopySummarySuccess(false), 2500);
+    } catch (err) {
+      console.error('Error copiando resumen:', err);
+    } finally {
+      setIsCopyingSummary(false);
+    }
+  };
 
   useEffect(() => {
     setReportText(audit.reportText || '');
@@ -331,16 +517,27 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
              <button onClick={() => setActiveTab('details')} className={`px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'details' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/60 hover:text-white'}`}>Evidencia</button>
           </div>
         </div>
-        <button onClick={handleCopyImage} disabled={isCopying || activeTab === 'details'} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-3 transition-all shadow-2xl ${copySuccess ? 'bg-emerald-50 text-white' : 'bg-white text-slate-900 hover:bg-slate-50'} ${activeTab === 'details' ? 'opacity-30 pointer-events-none' : ''}`}>
-          {isCopying ? <Loader2 className="w-4 h-4 animate-spin" /> : copySuccess ? <Check className="w-4 h-4" /> : <Camera className="w-4 h-4 text-orange-500" />}
-          {isCopying ? 'Capturando...' : copySuccess ? 'Copiado' : 'Capturar Imagen'}
-        </button>
+        <div className="flex gap-4">
+          <button 
+            onClick={handleCopyUnifiedSummary}
+            disabled={isCopyingSummary}
+            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-3 transition-all shadow-2xl text-white bg-orange-600 hover:bg-orange-500 hover:-translate-y-0.5 active:translate-y-0 active:scale-95 duration-200 disabled:opacity-60 disabled:pointer-events-none ${copySummarySuccess ? '!bg-emerald-600 hover:!bg-emerald-500' : ''}`}
+          >
+            {isCopyingSummary ? <Loader2 className="w-4 h-4 animate-spin" /> : copySummarySuccess ? <Check className="w-4 h-4 animate-bounce" /> : <Copy className="w-4 h-4" />}
+            {isCopyingSummary ? 'Generando...' : copySummarySuccess ? '¡Resumen Copiado!' : 'Copiar Resumen Correo'}
+          </button>
+          
+          <button onClick={handleCopyImage} disabled={isCopying || activeTab === 'details'} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-3 transition-all shadow-2xl ${copySuccess ? 'bg-emerald-50 text-white' : 'bg-white text-slate-900 hover:bg-slate-50'} ${activeTab === 'details' ? 'opacity-30 pointer-events-none' : ''}`}>
+            {isCopying ? <Loader2 className="w-4 h-4 animate-spin" /> : copySuccess ? <Check className="w-4 h-4" /> : <Camera className="w-4 h-4 text-orange-500" />}
+            {isCopying ? 'Capturando...' : copySuccess ? 'Copiado' : 'Capturar Imagen'}
+          </button>
+        </div>
       </div>
 
       {activeTab === 'summary' ? (
         <div className="animate-in slide-in-from-bottom-4 duration-700">
           <div ref={summaryRef} className="rounded-3xl overflow-hidden shadow-3xl mb-12 border border-white/20 bg-[#0f172a]">
-            <div className="p-8 pb-6 flex flex-col lg:flex-row justify-between items-start text-white gap-8">
+            <div ref={headerRef} className="p-8 pb-6 flex flex-col lg:flex-row justify-between items-start text-white gap-8">
               <div>
                 <h1 className="text-5xl font-black mb-4 tracking-tighter uppercase leading-none drop-shadow-2xl font-serif">REPORTE</h1>
                 <div className="space-y-2">
@@ -403,8 +600,8 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
               </div>
 
               {audit.vaultCount && (
-                <div className="mt-8 pt-8 border-t border-slate-100">
-                  <div className="bg-slate-50 rounded-[2.5rem] p-10 border border-slate-200 shadow-sm">
+                <div className="mt-6 pt-6 border-t border-slate-100">
+                  <div className="bg-slate-50 rounded-3xl p-6 border border-slate-200 shadow-sm">
                     <div className="flex items-center justify-between mb-8">
                       <div className="flex items-center gap-4">
                         <div className="p-3 bg-slate-900 rounded-2xl text-white shadow-lg">
@@ -421,37 +618,37 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-inner flex flex-col justify-between group hover:border-emerald-200 transition-colors">
-                        <div className="flex justify-between items-center mb-6">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dólares (USD)</p>
-                          <div className={`p-2 rounded-full ${audit.vaultCount.usd.difference === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                            {audit.vaultCount.usd.difference === 0 ? <Check className="w-4 h-4" /> : <AlertOctagon className="w-4 h-4" />}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-inner flex flex-col justify-between group hover:border-emerald-200 transition-colors">
+                        <div className="flex justify-between items-center mb-3">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Dólares (USD)</p>
+                          <div className={`p-1.5 rounded-full ${audit.vaultCount.usd.difference === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                            {audit.vaultCount.usd.difference === 0 ? <Check className="w-3.5 h-3.5" /> : <AlertOctagon className="w-3.5 h-3.5" />}
                           </div>
                         </div>
                         <div className="flex justify-between items-end">
-                          <p className="text-4xl font-black text-slate-800 tracking-tighter">{audit.vaultCount.usd.physical.toFixed(2)} $</p>
+                          <p className="text-2xl font-black text-slate-800 tracking-tighter">{audit.vaultCount.usd.physical.toFixed(2)} $</p>
                           <div className="text-right">
-                            <p className="text-[9px] font-bold text-slate-300 uppercase">Diferencia</p>
-                            <p className={`text-lg font-black ${audit.vaultCount.usd.difference === 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                            <p className="text-[8px] font-bold text-slate-300 uppercase">Diferencia</p>
+                            <p className={`text-sm font-black ${audit.vaultCount.usd.difference === 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                               {audit.vaultCount.usd.difference >= 0 ? '+' : ''}{audit.vaultCount.usd.difference.toFixed(2)}
                             </p>
                           </div>
                         </div>
                       </div>
 
-                      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-inner flex flex-col justify-between group hover:border-blue-200 transition-colors">
-                        <div className="flex justify-between items-center mb-6">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bolívares (VES)</p>
-                          <div className={`p-2 rounded-full ${audit.vaultCount.ves.difference === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                            {audit.vaultCount.ves.difference === 0 ? <Check className="w-4 h-4" /> : <AlertOctagon className="w-4 h-4" />}
+                      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-inner flex flex-col justify-between group hover:border-blue-200 transition-colors">
+                        <div className="flex justify-between items-center mb-3">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Bolívares (VES)</p>
+                          <div className={`p-1.5 rounded-full ${audit.vaultCount.ves.difference === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                            {audit.vaultCount.ves.difference === 0 ? <Check className="w-3.5 h-3.5" /> : <AlertOctagon className="w-3.5 h-3.5" />}
                           </div>
                         </div>
                         <div className="flex justify-between items-end">
-                          <p className="text-4xl font-black text-slate-800 tracking-tighter">{audit.vaultCount.ves.physical.toFixed(2)} Bs.</p>
+                          <p className="text-2xl font-black text-slate-800 tracking-tighter">{audit.vaultCount.ves.physical.toFixed(2)} Bs.</p>
                           <div className="text-right">
-                            <p className="text-[9px] font-bold text-slate-300 uppercase">Diferencia</p>
-                            <p className={`text-lg font-black ${audit.vaultCount.ves.difference === 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                            <p className="text-[8px] font-bold text-slate-300 uppercase">Diferencia</p>
+                            <p className={`text-sm font-black ${audit.vaultCount.ves.difference === 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                               {audit.vaultCount.ves.difference >= 0 ? '+' : ''}{audit.vaultCount.ves.difference.toFixed(2)}
                             </p>
                           </div>
@@ -459,20 +656,20 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                       </div>
                     </div>
 
-                    <div className="mt-10 flex flex-col md:flex-row md:items-center justify-between gap-8 pt-8 border-t border-slate-200/60">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center text-orange-600">
-                          <UserCheck className="w-6 h-6" />
+                    <div className="mt-5 flex flex-col md:flex-row md:items-center justify-between gap-4 pt-5 border-t border-slate-200/60">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center text-orange-600">
+                          <UserCheck className="w-4 h-4" />
                         </div>
                         <div>
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Validado en presencia de</p>
-                          <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{audit.vaultCount.responsiblePerson}</p>
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Validado en presencia de</p>
+                          <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{audit.vaultCount.responsiblePerson}</p>
                         </div>
                       </div>
                       {audit.vaultCount.notes && (
-                        <div className="flex-1 max-w-lg bg-white px-6 py-4 rounded-2xl border border-slate-100 shadow-sm">
-                          <p className="text-[9px] font-black text-orange-500 uppercase mb-1 tracking-widest flex items-center gap-2"><PenTool className="w-3 h-3" /> Justificación del Arqueo</p>
-                          <p className="text-[11px] text-slate-500 italic font-medium leading-relaxed">"{audit.vaultCount.notes}"</p>
+                        <div className="flex-1 max-w-lg bg-orange-50 px-4 py-3 rounded-xl border border-orange-100 shadow-sm">
+                          <p className="text-[8px] font-black text-orange-600 uppercase mb-1 tracking-widest flex items-center gap-1.5"><PenTool className="w-3 h-3" /> <strong>Justificación del Arqueo</strong></p>
+                          <p className="text-[11px] text-slate-600 italic font-semibold leading-relaxed">"{audit.vaultCount.notes}"</p>
                         </div>
                       )}
                     </div>
@@ -495,41 +692,41 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-inner flex flex-col justify-between group hover:border-blue-200 transition-colors">
-                        <div className="flex justify-between items-center mb-6">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bolívares (VES)</p>
-                          <div className={`p-2 rounded-full ${(workingFund.ves?.difference || 0) === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                            {(workingFund.ves?.difference || 0) === 0 ? <Check className="w-4 h-4" /> : <AlertOctagon className="w-4 h-4" />}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-inner flex flex-col justify-between group hover:border-blue-200 transition-colors">
+                        <div className="flex justify-between items-center mb-3">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Bolívares (VES)</p>
+                          <div className={`p-1.5 rounded-full ${(workingFund.ves?.difference || 0) === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                            {(workingFund.ves?.difference || 0) === 0 ? <Check className="w-3.5 h-3.5" /> : <AlertOctagon className="w-3.5 h-3.5" />}
                           </div>
                         </div>
                         <div className="flex justify-between items-end">
-                          <p className="text-4xl font-black text-slate-800 tracking-tighter">{Number(workingFund.ves?.physical || 0).toFixed(2)} Bs.</p>
+                          <p className="text-2xl font-black text-slate-800 tracking-tighter">{Number(workingFund.ves?.physical || 0).toFixed(2)} Bs.</p>
                           <div className="text-right">
-                            <p className="text-[9px] font-bold text-slate-300 uppercase">
+                            <p className="text-[8px] font-bold text-slate-300 uppercase">
                               {(workingFund.ves?.difference || 0) > 0 ? 'Sobrante' : (workingFund.ves?.difference || 0) < 0 ? 'Faltante' : 'Conforme'}
                             </p>
-                            <p className={`text-lg font-black ${(workingFund.ves?.difference || 0) === 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                            <p className={`text-sm font-black ${(workingFund.ves?.difference || 0) === 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                               {(workingFund.ves?.difference || 0) > 0 ? '+' : ''}{Number(workingFund.ves?.difference || 0).toFixed(2)}
                             </p>
                           </div>
                         </div>
                       </div>
 
-                      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-inner flex flex-col justify-between group hover:border-emerald-200 transition-colors">
-                        <div className="flex justify-between items-center mb-6">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dólares (USD)</p>
-                          <div className={`p-2 rounded-full ${(workingFund.usd?.difference || 0) === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                            {(workingFund.usd?.difference || 0) === 0 ? <Check className="w-4 h-4" /> : <AlertOctagon className="w-4 h-4" />}
+                      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-inner flex flex-col justify-between group hover:border-emerald-200 transition-colors">
+                        <div className="flex justify-between items-center mb-3">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Dólares (USD)</p>
+                          <div className={`p-1.5 rounded-full ${(workingFund.usd?.difference || 0) === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                            {(workingFund.usd?.difference || 0) === 0 ? <Check className="w-3.5 h-3.5" /> : <AlertOctagon className="w-3.5 h-3.5" />}
                           </div>
                         </div>
                         <div className="flex justify-between items-end">
-                          <p className="text-4xl font-black text-slate-800 tracking-tighter">{Number(workingFund.usd?.physical || 0).toFixed(2)} $</p>
+                          <p className="text-2xl font-black text-slate-800 tracking-tighter">{Number(workingFund.usd?.physical || 0).toFixed(2)} $</p>
                           <div className="text-right">
-                            <p className="text-[9px] font-bold text-slate-300 uppercase">
+                            <p className="text-[8px] font-bold text-slate-300 uppercase">
                               {(workingFund.usd?.difference || 0) > 0 ? 'Sobrante' : (workingFund.usd?.difference || 0) < 0 ? 'Faltante' : 'Conforme'}
                             </p>
-                            <p className={`text-lg font-black ${(workingFund.usd?.difference || 0) === 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                            <p className={`text-sm font-black ${(workingFund.usd?.difference || 0) === 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                               {(workingFund.usd?.difference || 0) > 0 ? '+' : ''}{Number(workingFund.usd?.difference || 0).toFixed(2)}
                             </p>
                           </div>
@@ -566,11 +763,11 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, onBack, onSaveReport
                       )}
 
                       {workingFund.notes && (
-                        <div className="flex-1 max-w-lg bg-white px-6 py-4 rounded-2xl border border-slate-100 shadow-sm">
-                          <p className="text-[9px] font-black text-orange-500 uppercase mb-1 tracking-widest flex items-center gap-2">
-                            <PenTool className="w-3 h-3" /> Observación
+                        <div className="flex-1 max-w-lg bg-orange-50 px-4 py-3 rounded-xl border border-orange-100 shadow-sm">
+                          <p className="text-[8px] font-black text-orange-600 uppercase mb-1 tracking-widest flex items-center gap-1.5">
+                            <PenTool className="w-3 h-3" /> <strong>Observación</strong>
                           </p>
-                          <p className="text-[11px] text-slate-500 italic font-medium leading-relaxed">
+                          <p className="text-[11px] text-slate-600 italic font-semibold leading-relaxed">
                             "{workingFund.notes}"
                           </p>
                         </div>
