@@ -191,7 +191,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
       const riskDesc = riskContext[calculatedData.riskLevel] || 'requiriendo atención por parte del equipo responsable';
 
       const executiveSummary = `
-        En el marco del plan de visitas de campo, se realizó una inspección integral de seguridad el día <strong>${date}</strong> a la sede <strong>${pharmacyName}</strong>, siendo ejecutada por el auditor responsable <strong>${auditor}</strong>. La evaluación abarca los sistemas de protección física, el cumplimiento de los protocolos operativos internos y la verificación de la integridad financiera en sitío.
+        En el marco del plan de visitas de campo, se realizó una inspección integral de seguridad el día <strong>${date}</strong> a la sede <strong>${pharmacyName}</strong>, siendo ejecutada por el Coordinador de Seguridad <strong>${auditor}</strong>. La evaluación abarca los sistemas de protección física, el cumplimiento de los protocolos operativos internos y la verificación de la integridad financiera en sitío.
         <br/><br/>
         Como resultado de la inspección, la sede obtuvo un <strong style="color:#ea580c">nivel de cumplimiento global de ${finalScoreStr}%</strong>, posicionándola en un nivel de riesgo <strong>${riskLevelStr}</strong>, ${riskDesc}.
         <br/><br/>
