@@ -72,13 +72,13 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
 
   useEffect(() => {
     if (initialAudit) {
-      const pharm = pharmacies.find(p => p.id === initialAudit.pharmacyId);
+      const pharm = pharmacies.find(p => p.id === initialAudit.pharmacy?.id);
       if (pharm) setSelectedPharmacy(pharm);
       else if (initialAudit.pharmacy) setSelectedPharmacy(initialAudit.pharmacy);
 
       setInCharge(initialAudit.inCharge || { nombre: '', apellido: '' });
-      setHardwareAnswers(initialAudit.hardwareAnswers || {});
-      setProcessAnswers(initialAudit.processAnswers || {});
+      setHardwareAnswers((initialAudit.hardwareAnswers || {}) as any);
+      setProcessAnswers((initialAudit.processAnswers || {}) as any);
 
       if (initialAudit.vaultCount) setVaultCount(initialAudit.vaultCount);
 

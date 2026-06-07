@@ -510,7 +510,7 @@ const App: React.FC = () => {
       return { ...prev, audits: newAudits, pharmacies: newPharmacies };
     });
 
-    if (updatedPharmacy) {
+    if (updatedPharmacy && sb) {
       await sb.from('pharmacies').upsert({
         id: updatedPharmacy.id,
         name: updatedPharmacy.name,
@@ -639,7 +639,7 @@ const App: React.FC = () => {
               if (currentUser) {
                 await fullSync(currentUser);
               }
-              const fresh = await fetchFreshAudit(a.id);
+              const fresh = await fetchFreshAudit(a.id || "");
               const auditToShow = fresh || a;
               setSelectedAudit(auditToShow);
               if (fresh) {
@@ -859,6 +859,12 @@ const App: React.FC = () => {
               const ln = updated.find(x => x.id === id);
               if (ln) await saveToCloud('loans', id, ln);
             }}
+            onUpdateLoan={async (l) => {
+              if (!checkPermission()) return;
+              const updated = userData.loans.map(x => x.id === l.id ? l : x);
+              setUserData(prev => ({ ...prev, loans: updated }));
+              await saveToCloud('loans', l.id, l);
+            }}
           />
         )}
 
@@ -1030,7 +1036,6 @@ const App: React.FC = () => {
           <StaffDirectory
             pharmacies={visiblePharmacies}
             staffRecords={userData.staffRecords}
-            readOnly={isReadOnly}
             onAddStaff={async (s) => {
               if (!checkPermission()) return;
               setUserData(prev => ({ ...prev, staffRecords: [s, ...prev.staffRecords] }));
@@ -1069,7 +1074,13 @@ const App: React.FC = () => {
             onDelete={async (email) => {
               if (!checkPermission()) return;
               setUserData(prev => ({ ...prev, users: prev.users.filter(u => u.email !== email) }));
-              await sb.from('users').delete().eq('email', email);
+              if (sb) await sb.from('users').delete().eq('email', email);
+            }}
+            onUpdateZone={async (email, zone) => {
+              if (!checkPermission()) return;
+              const updated = userData.users.map(u => u.email === email ? { ...u, zone } : u);
+              setUserData(prev => ({ ...prev, users: updated }));
+              if (sb) await sb.from('users').update({ zone }).eq('email', email);
             }}
           />
         )}

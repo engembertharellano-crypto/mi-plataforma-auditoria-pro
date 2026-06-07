@@ -51,6 +51,7 @@ export interface VaultCount {
 
 export interface AuditState {
   id?: string;
+  pharmacyId?: string;
   step: number;
   pharmacy: Pharmacy | null;
   inCharge: {
@@ -74,6 +75,7 @@ export interface AuditState {
   reportText?: string;
   createdBy?: string;
   reportLocked?: boolean;
+  photos?: string[];
 }
 
 export interface CCTVInventoryRecord {
@@ -331,7 +333,7 @@ export interface TechnicalInventoryItem {
   originType: InventoryOrigin;
   originReference?: string;
   entryDate: string;
-  currentLocationType?: 'Almacen' | 'Farmacia' | 'Corporativo' | 'Otro';
+  currentLocationType?: string;
   currentLocationId?: string;
   currentLocationName?: string;
   assignedTo?: string;
