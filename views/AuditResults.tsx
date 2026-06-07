@@ -1,26 +1,26 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { 
-  ArrowLeft, 
-  MapPin, 
-  Calendar, 
-  User, 
-  ShieldCheck, 
-  Copy, 
-  Save, 
-  Camera, 
-  Loader2, 
-  Check, 
-  List, 
-  CheckCircle2, 
-  XCircle, 
-  Minus, 
-  Award, 
-  ShieldAlert, 
-  ClipboardCheck, 
-  BrainCircuit, 
-  Banknote, 
-  AlertOctagon, 
-  UserCheck, 
+import {
+  ArrowLeft,
+  MapPin,
+  Calendar,
+  User,
+  ShieldCheck,
+  Copy,
+  Save,
+  Camera,
+  Loader2,
+  Check,
+  List,
+  CheckCircle2,
+  XCircle,
+  Minus,
+  Award,
+  ShieldAlert,
+  ClipboardCheck,
+  BrainCircuit,
+  Banknote,
+  AlertOctagon,
+  UserCheck,
   PenTool,
   RefreshCw,
   Lock
@@ -60,6 +60,30 @@ const WEIGHTS = {
   }
 };
 
+const parseRecordTimestamp = (id: string): number => {
+  const parts = id.split('-');
+  if (parts.length >= 2) {
+    const num = parseInt(parts[1], 10);
+    if (!isNaN(num)) return num;
+  }
+  return 0;
+};
+
+const parseDateString = (dateStr?: string): number => {
+  if (!dateStr) return 0;
+  if (dateStr.includes('/')) {
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const year = parseInt(parts[2], 10);
+      return new Date(year, month, day).getTime();
+    }
+  }
+  const ts = Date.parse(dateStr);
+  return isNaN(ts) ? 0 : ts;
+};
+
 const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physicalRecords, onBack, onSaveReport, isLoadingFresh = false }) => {
   const sessionUser = useMemo(() => {
     try {
@@ -82,7 +106,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
   const [isCopyingSummary, setIsCopyingSummary] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState<'summary' | 'details'>('summary');
-  
+
   const hasGenerated = useRef(false);
   const summaryRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -91,18 +115,42 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
     if (!cctvRecords || !audit.pharmacy) return null;
     const pharmCctvs = cctvRecords.filter(r => r.pharmacyId === audit.pharmacy!.id);
     if (pharmCctvs.length === 0) return null;
-    const exactMatch = pharmCctvs.find(r => r.date === audit.date);
+
+    const sortedCctv = [...pharmCctvs].sort((a, b) => {
+      const dateA = parseDateString(a.date);
+      const dateB = parseDateString(b.date);
+      if (dateA !== dateB) {
+        return dateB - dateA; // Newest date first
+      }
+      const tsA = parseRecordTimestamp(a.id);
+      const tsB = parseRecordTimestamp(b.id);
+      return tsB - tsA; // Newest timestamp in id first
+    });
+
+    const exactMatch = sortedCctv.find(r => r.date === audit.date);
     if (exactMatch) return exactMatch;
-    return pharmCctvs[pharmCctvs.length - 1];
+    return sortedCctv[0] || null;
   }, [cctvRecords, audit]);
 
   const matchedPhysical = useMemo(() => {
     if (!physicalRecords || !audit.pharmacy) return null;
     const pharmPhys = physicalRecords.filter(r => r.pharmacyId === audit.pharmacy!.id);
     if (pharmPhys.length === 0) return null;
-    const exactMatch = pharmPhys.find(r => r.date === audit.date);
+
+    const sortedPhys = [...pharmPhys].sort((a, b) => {
+      const dateA = parseDateString(a.date);
+      const dateB = parseDateString(b.date);
+      if (dateA !== dateB) {
+        return dateB - dateA; // Newest date first
+      }
+      const tsA = parseRecordTimestamp(a.id);
+      const tsB = parseRecordTimestamp(b.id);
+      return tsB - tsA; // Newest timestamp in id first
+    });
+
+    const exactMatch = sortedPhys.find(r => r.date === audit.date);
     if (exactMatch) return exactMatch;
-    return pharmPhys[pharmPhys.length - 1];
+    return sortedPhys[0] || null;
   }, [physicalRecords, audit]);
 
   const handleCopyUnifiedSummary = async () => {
@@ -138,11 +186,11 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
           </td></tr>
           <tr>
             <td style="padding:6px 10px;font-size:11px;color:#64748b"><b>USD Físico:</b></td>
-            <td style="padding:6px 10px;font-size:11px;font-weight:700;color:#1e293b">${audit.vaultCount.usd.physical.toFixed(2)} $&nbsp;&nbsp;<span style="color:${audit.vaultCount.usd.difference===0?'#16a34a':'#dc2626'}">Dif: ${audit.vaultCount.usd.difference>=0?'+':''}${audit.vaultCount.usd.difference.toFixed(2)}</span></td>
+            <td style="padding:6px 10px;font-size:11px;font-weight:700;color:#1e293b">${audit.vaultCount.usd.physical.toFixed(2)} $&nbsp;&nbsp;<span style="color:${audit.vaultCount.usd.difference === 0 ? '#16a34a' : '#dc2626'}">Dif: ${audit.vaultCount.usd.difference >= 0 ? '+' : ''}${audit.vaultCount.usd.difference.toFixed(2)}</span></td>
           </tr>
           <tr>
             <td style="padding:6px 10px;font-size:11px;color:#64748b"><b>VES Físico:</b></td>
-            <td style="padding:6px 10px;font-size:11px;font-weight:700;color:#1e293b">${audit.vaultCount.ves.physical.toFixed(2)} Bs.&nbsp;&nbsp;<span style="color:${audit.vaultCount.ves.difference===0?'#16a34a':'#dc2626'}">Dif: ${audit.vaultCount.ves.difference>=0?'+':''}${audit.vaultCount.ves.difference.toFixed(2)}</span></td>
+            <td style="padding:6px 10px;font-size:11px;font-weight:700;color:#1e293b">${audit.vaultCount.ves.physical.toFixed(2)} Bs.&nbsp;&nbsp;<span style="color:${audit.vaultCount.ves.difference === 0 ? '#16a34a' : '#dc2626'}">Dif: ${audit.vaultCount.ves.difference >= 0 ? '+' : ''}${audit.vaultCount.ves.difference.toFixed(2)}</span></td>
           </tr>
           ${audit.vaultCount.notes ? `<tr><td colspan="2" style="padding:6px 10px;font-size:11px"><b style="color:#ea580c">Observación Bóveda:</b> <em>${audit.vaultCount.notes}</em></td></tr>` : ''}
         `;
@@ -150,15 +198,15 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
       // Build CCTV observations only
       const cctvObsHtml = matchedCctv
         ? (matchedCctv.notes
-            ? `<em>"${matchedCctv.notes}"</em>`
-            : '<span style="color:#64748b">Sin observaciones registradas.</span>')
+          ? `<em>"${matchedCctv.notes}"</em>`
+          : '<span style="color:#64748b">Sin observaciones registradas.</span>')
         : '<span style="color:#64748b">Sin registro de levantamiento CCTV reciente.</span>';
 
       // Build Physical observations only
       const physObsHtml = matchedPhysical
         ? (matchedPhysical.notes
-            ? `<em>"${matchedPhysical.notes}"</em>`
-            : '<span style="color:#64748b">Sin observaciones registradas.</span>')
+          ? `<em>"${matchedPhysical.notes}"</em>`
+          : '<span style="color:#64748b">Sin observaciones registradas.</span>')
         : '<span style="color:#64748b">Sin registro de levantamiento de Infraestructura reciente.</span>';
 
       // Build process failures for section 1 summary
@@ -343,7 +391,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
 
     let finalScore = (totalHwScore * 100 * WEIGHTS.hardware.globalWeight) + (totalProcScore * 100 * WEIGHTS.process.globalWeight);
     finalScore = Math.max(0, Math.min(100, Number(finalScore.toFixed(2))));
-    
+
     const vaultDiff = (auditData.vaultCount?.ves.difference || 0) !== 0 || (auditData.vaultCount?.usd.difference || 0) !== 0;
     const riskPercentage = Number((100 - finalScore).toFixed(2));
 
@@ -353,13 +401,13 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
     else if (finalScore >= 75) riskLevel = 'Medio';
     else if (finalScore >= 65) riskLevel = 'Alto';
 
-    return { 
-      hwResults, 
-      procResults, 
-      globalHw: totalHwScore * 100, 
-      globalProc: totalProcScore * 100, 
-      finalScore, 
-      riskPercentage, 
+    return {
+      hwResults,
+      procResults,
+      globalHw: totalHwScore * 100,
+      globalProc: totalProcScore * 100,
+      finalScore,
+      riskPercentage,
       riskLevel,
       hasVaultIncident: vaultDiff
     };
@@ -370,13 +418,13 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
 
     setIsGenerating(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
-      
+      const ai = new GoogleGenAI({ apiKey: (import.meta as any).env.VITE_API_KEY });
+
       const managerName = `${auditData.inCharge.nombre} ${auditData.inCharge.apellido}`.toUpperCase();
       const pharmacyName = (auditData.pharmacy?.name || 'LA SEDE').toUpperCase();
       const auditorName = (JSON.parse(sessionStorage.getItem('xana_active_user') || '{}').fullName || 'AUDITOR XANA').toUpperCase();
       const currentWorkingFund = (auditData as any)?.workingFund;
-      
+
       const failures: string[] = [];
       Object.entries(auditData.processAnswers).forEach(([id, ans]) => {
         if ((ans as any).status === 'NO') {
@@ -385,8 +433,8 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
         }
       });
 
-      const vaultIncidentText = stats.hasVaultIncident 
-        ? `INCIDENCIA EN BÓVEDA: Se detectó descuadre de efectivo (USD: ${auditData.vaultCount?.usd.difference}, VES: ${auditData.vaultCount?.ves.difference}).` 
+      const vaultIncidentText = stats.hasVaultIncident
+        ? `INCIDENCIA EN BÓVEDA: Se detectó descuadre de efectivo (USD: ${auditData.vaultCount?.usd.difference}, VES: ${auditData.vaultCount?.ves.difference}).`
         : "Integridad financiera en bóveda: CONFORME.";
 
       const workingFundText = currentWorkingFund
@@ -416,7 +464,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
       TONO: Estrictamente profesional, corporativo, objetivo y directo. Sin saludos, sin despedidas, sin frases de relleno. Enfócate en la seguridad física y patrimonial.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview', 
+        model: 'gemini-3-flash-preview',
         contents: prompt,
         config: {
           safetySettings: [
@@ -491,10 +539,10 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
             });
           }
         });
-      } catch (err) { 
-        console.error(err); 
-      } finally { 
-        setIsCopying(false); 
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsCopying(false);
       }
     }
   };
@@ -514,12 +562,12 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
         <div className="flex gap-4 items-center">
           <button onClick={onBack} className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-5 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center gap-2 hover:bg-white/20 transition-all shadow-xl"><ArrowLeft className="w-4 h-4" /> Volver</button>
           <div className="bg-white/10 backdrop-blur-md p-1 rounded-xl border border-white/20 flex shadow-2xl">
-             <button onClick={() => setActiveTab('summary')} className={`px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'summary' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/60 hover:text-white'}`}>Resumen</button>
-             <button onClick={() => setActiveTab('details')} className={`px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'details' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/60 hover:text-white'}`}>Evidencia</button>
+            <button onClick={() => setActiveTab('summary')} className={`px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'summary' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/60 hover:text-white'}`}>Resumen</button>
+            <button onClick={() => setActiveTab('details')} className={`px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'details' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/60 hover:text-white'}`}>Evidencia</button>
           </div>
         </div>
         <div className="flex gap-4">
-          <button 
+          <button
             onClick={handleCopyUnifiedSummary}
             disabled={isCopyingSummary}
             className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-3 transition-all shadow-2xl text-white bg-orange-600 hover:bg-orange-500 hover:-translate-y-0.5 active:translate-y-0 active:scale-95 duration-200 disabled:opacity-60 disabled:pointer-events-none ${copySummarySuccess ? '!bg-emerald-600 hover:!bg-emerald-500' : ''}`}
@@ -527,7 +575,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
             {isCopyingSummary ? <Loader2 className="w-4 h-4 animate-spin" /> : copySummarySuccess ? <Check className="w-4 h-4 animate-bounce" /> : <Copy className="w-4 h-4" />}
             {isCopyingSummary ? 'Generando...' : copySummarySuccess ? '¡Resumen Copiado!' : 'Copiar Resumen Correo'}
           </button>
-          
+
           <button onClick={handleCopyImage} disabled={isCopying || activeTab === 'details'} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-3 transition-all shadow-2xl ${copySuccess ? 'bg-emerald-50 text-white' : 'bg-white text-slate-900 hover:bg-slate-50'} ${activeTab === 'details' ? 'opacity-30 pointer-events-none' : ''}`}>
             {isCopying ? <Loader2 className="w-4 h-4 animate-spin" /> : copySuccess ? <Check className="w-4 h-4" /> : <Camera className="w-4 h-4 text-orange-500" />}
             {isCopying ? 'Capturando...' : copySuccess ? 'Copiado' : 'Capturar Imagen'}
@@ -551,20 +599,19 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
               </div>
               <div className="flex gap-4 w-full lg:w-auto">
                 <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-5 rounded-2xl text-center flex-1 lg:min-w-[140px] shadow-3xl"><p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">CUMPLIMIENTO</p><p className="text-5xl font-black text-orange-500 tracking-tighter">{calculatedData.finalScore.toFixed(2)}%</p></div>
-                <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-5 rounded-2xl text-center flex-1 lg:min-w-[140px] shadow-3xl"><p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">RIESGO</p><p className={`text-4xl font-black tracking-tighter ${
-                  calculatedData.riskLevel === 'Bajo'
-                    ? 'text-emerald-400'
-                    : calculatedData.riskLevel === 'Moderado'
+                <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-5 rounded-2xl text-center flex-1 lg:min-w-[140px] shadow-3xl"><p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">RIESGO</p><p className={`text-4xl font-black tracking-tighter ${calculatedData.riskLevel === 'Bajo'
+                  ? 'text-emerald-400'
+                  : calculatedData.riskLevel === 'Moderado'
                     ? 'text-yellow-400'
                     : calculatedData.riskLevel === 'Medio'
-                    ? 'text-orange-400'
-                    : calculatedData.riskLevel === 'Alto'
-                    ? 'text-red-400'
-                    : 'text-red-600'
-                }`}>{calculatedData.riskLevel}</p></div>
+                      ? 'text-orange-400'
+                      : calculatedData.riskLevel === 'Alto'
+                        ? 'text-red-400'
+                        : 'text-red-600'
+                  }`}>{calculatedData.riskLevel}</p></div>
               </div>
             </div>
-            
+
             <div className="bg-white p-8">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                 <div>
@@ -792,12 +839,12 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
               <div className="flex gap-2">
                 {canEditReport && (
                   <>
-                    <button 
+                    <button
                       onClick={handleRegenerate}
                       className="px-4 py-2 bg-orange-50 text-orange-700 rounded-lg font-black uppercase tracking-widest text-[9px] flex items-center gap-2 border border-orange-100 hover:bg-orange-100 transition-all"
                       title="Reintentar generación con IA"
                     >
-                      <RefreshCw className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} /> 
+                      <RefreshCw className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} />
                       {isGenerating ? 'Generando...' : 'Regenerar IA'}
                     </button>
 
@@ -834,14 +881,14 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
             <div className="bg-slate-50/50 rounded-2xl p-6 border border-slate-100 relative">
               {isGenerating && (
                 <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-2xl">
-                   <Loader2 className="w-8 h-8 animate-spin text-orange-600 mb-2" />
-                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">IA Generando Informe...</p>
+                  <Loader2 className="w-8 h-8 animate-spin text-orange-600 mb-2" />
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">IA Generando Informe...</p>
                 </div>
               )}
               {reportText.includes('CUOTA EXCEDIDA') && (
                 <div className="mb-4 p-4 bg-orange-100 border-l-4 border-orange-500 text-orange-800 rounded-lg flex items-start gap-3">
-                   <BrainCircuit className="w-5 h-5 shrink-0 mt-1" />
-                   <div className="text-[10px] font-bold uppercase tracking-wide">La IA de Google ha pausado el servicio por exceso de cuota. Puede editar este texto manualmente para finalizar su reporte.</div>
+                  <BrainCircuit className="w-5 h-5 shrink-0 mt-1" />
+                  <div className="text-[10px] font-bold uppercase tracking-wide">La IA de Google ha pausado el servicio por exceso de cuota. Puede editar este texto manualmente para finalizar su reporte.</div>
                 </div>
               )}
               <textarea
@@ -856,162 +903,162 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
         </div>
       ) : (
         <div className="bg-white rounded-3xl shadow-3xl border border-white overflow-hidden animate-in zoom-in-95 duration-300">
-           <div className="bg-slate-900 p-8 flex justify-between items-center text-white">
-             <div><h2 className="text-2xl font-black tracking-tighter flex items-center gap-4"><List className="w-8 h-8 text-orange-500" />Evidencia Detallada</h2></div>
-           </div>
-           <div className="p-8 space-y-12">
-             {audit.vaultCount && (
-               <div>
-                  <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-6 flex items-center gap-4"><Banknote className="w-4 h-4" /> Desglose de Efectivo</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                     <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
-                        <div className="px-4 py-2 bg-blue-600 text-white font-black text-[9px] uppercase tracking-widest">Bolívares (VES)</div>
-                        <div className="p-6 space-y-3">
-                            <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Sistema:</span><span className="text-slate-700">{audit.vaultCount.ves.system.toFixed(2)} Bs.</span></div>
-                            <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Físico:</span><span className="text-slate-900">{audit.vaultCount.ves.physical.toFixed(2)} Bs.</span></div>
-                            <div className={`pt-3 border-t flex justify-between font-black ${audit.vaultCount.ves.difference === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                              <span>Diferencia:</span><span>{audit.vaultCount.ves.difference.toFixed(2)} Bs.</span>
-                            </div>
-                        </div>
-                     </div>
-                     <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
-                        <div className="px-4 py-2 bg-emerald-600 text-white font-black text-[9px] uppercase tracking-widest">Dólares (USD)</div>
-                        <div className="p-6 space-y-3">
-                            <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Sistema:</span><span className="text-slate-700">{audit.vaultCount.usd.system.toFixed(2)} $</span></div>
-                            <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Físico:</span><span className="text-slate-900">{audit.vaultCount.usd.physical.toFixed(2)} $</span></div>
-                            <div className={`pt-3 border-t flex justify-between font-black ${audit.vaultCount.usd.difference === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                              <span>Diferencia:</span><span>{audit.vaultCount.usd.difference.toFixed(2)} $</span>
-                            </div>
-                        </div>
-                     </div>
+          <div className="bg-slate-900 p-8 flex justify-between items-center text-white">
+            <div><h2 className="text-2xl font-black tracking-tighter flex items-center gap-4"><List className="w-8 h-8 text-orange-500" />Evidencia Detallada</h2></div>
+          </div>
+          <div className="p-8 space-y-12">
+            {audit.vaultCount && (
+              <div>
+                <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-6 flex items-center gap-4"><Banknote className="w-4 h-4" /> Desglose de Efectivo</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
+                    <div className="px-4 py-2 bg-blue-600 text-white font-black text-[9px] uppercase tracking-widest">Bolívares (VES)</div>
+                    <div className="p-6 space-y-3">
+                      <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Sistema:</span><span className="text-slate-700">{audit.vaultCount.ves.system.toFixed(2)} Bs.</span></div>
+                      <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Físico:</span><span className="text-slate-900">{audit.vaultCount.ves.physical.toFixed(2)} Bs.</span></div>
+                      <div className={`pt-3 border-t flex justify-between font-black ${audit.vaultCount.ves.difference === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        <span>Diferencia:</span><span>{audit.vaultCount.ves.difference.toFixed(2)} Bs.</span>
+                      </div>
+                    </div>
                   </div>
-                  {audit.vaultCount.notes && (
-                     <div className="mt-6 p-6 bg-orange-50 border-l-4 border-orange-500 rounded-xl">
-                        <p className="text-[9px] font-black text-orange-600 uppercase mb-2 tracking-widest">Justificación de Bóveda:</p>
-                        <p className="text-sm font-medium italic text-slate-700">"{audit.vaultCount.notes}"</p>
-                     </div>
-                  )}
-               </div>
-             )}
+                  <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
+                    <div className="px-4 py-2 bg-emerald-600 text-white font-black text-[9px] uppercase tracking-widest">Dólares (USD)</div>
+                    <div className="p-6 space-y-3">
+                      <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Sistema:</span><span className="text-slate-700">{audit.vaultCount.usd.system.toFixed(2)} $</span></div>
+                      <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Físico:</span><span className="text-slate-900">{audit.vaultCount.usd.physical.toFixed(2)} $</span></div>
+                      <div className={`pt-3 border-t flex justify-between font-black ${audit.vaultCount.usd.difference === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        <span>Diferencia:</span><span>{audit.vaultCount.usd.difference.toFixed(2)} $</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {audit.vaultCount.notes && (
+                  <div className="mt-6 p-6 bg-orange-50 border-l-4 border-orange-500 rounded-xl">
+                    <p className="text-[9px] font-black text-orange-600 uppercase mb-2 tracking-widest">Justificación de Bóveda:</p>
+                    <p className="text-sm font-medium italic text-slate-700">"{audit.vaultCount.notes}"</p>
+                  </div>
+                )}
+              </div>
+            )}
 
-             {workingFund && (
-               <div>
-                 <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-6 flex items-center gap-4"><Banknote className="w-4 h-4" /> Fondo de Trabajo Consolidado</h3>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                   <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
-                     <div className="px-4 py-2 bg-blue-600 text-white font-black text-[9px] uppercase tracking-widest">Bolívares (VES)</div>
-                     <div className="p-6 space-y-3">
-                       <div className="flex justify-between text-xs font-bold">
-                         <span className="text-slate-400">Asignado:</span>
-                         <span className="text-slate-700">{Number(workingFund.ves?.assigned || 0).toFixed(2)} Bs.</span>
-                       </div>
-                       <div className="flex justify-between text-xs font-bold">
-                         <span className="text-slate-400">Físico:</span>
-                         <span className="text-slate-900">{Number(workingFund.ves?.physical || 0).toFixed(2)} Bs.</span>
-                       </div>
-                       <div className={`pt-3 border-t flex justify-between font-black ${(workingFund.ves?.difference || 0) === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                         <span>Diferencia:</span>
-                         <span>{Number(workingFund.ves?.difference || 0).toFixed(2)} Bs.</span>
-                       </div>
-                     </div>
-                   </div>
+            {workingFund && (
+              <div>
+                <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-6 flex items-center gap-4"><Banknote className="w-4 h-4" /> Fondo de Trabajo Consolidado</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
+                    <div className="px-4 py-2 bg-blue-600 text-white font-black text-[9px] uppercase tracking-widest">Bolívares (VES)</div>
+                    <div className="p-6 space-y-3">
+                      <div className="flex justify-between text-xs font-bold">
+                        <span className="text-slate-400">Asignado:</span>
+                        <span className="text-slate-700">{Number(workingFund.ves?.assigned || 0).toFixed(2)} Bs.</span>
+                      </div>
+                      <div className="flex justify-between text-xs font-bold">
+                        <span className="text-slate-400">Físico:</span>
+                        <span className="text-slate-900">{Number(workingFund.ves?.physical || 0).toFixed(2)} Bs.</span>
+                      </div>
+                      <div className={`pt-3 border-t flex justify-between font-black ${(workingFund.ves?.difference || 0) === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        <span>Diferencia:</span>
+                        <span>{Number(workingFund.ves?.difference || 0).toFixed(2)} Bs.</span>
+                      </div>
+                    </div>
+                  </div>
 
-                   <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
-                     <div className="px-4 py-2 bg-emerald-600 text-white font-black text-[9px] uppercase tracking-widest">Dólares (USD)</div>
-                     <div className="p-6 space-y-3">
-                       <div className="flex justify-between text-xs font-bold">
-                         <span className="text-slate-400">Asignado:</span>
-                         <span className="text-slate-700">{Number(workingFund.usd?.assigned || 0).toFixed(2)} $</span>
-                       </div>
-                       <div className="flex justify-between text-xs font-bold">
-                         <span className="text-slate-400">Físico:</span>
-                         <span className="text-slate-900">{Number(workingFund.usd?.physical || 0).toFixed(2)} $</span>
-                       </div>
-                       <div className={`pt-3 border-t flex justify-between font-black ${(workingFund.usd?.difference || 0) === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                         <span>Diferencia:</span>
-                         <span>{Number(workingFund.usd?.difference || 0).toFixed(2)} $</span>
-                       </div>
-                     </div>
-                   </div>
-                 </div>
+                  <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
+                    <div className="px-4 py-2 bg-emerald-600 text-white font-black text-[9px] uppercase tracking-widest">Dólares (USD)</div>
+                    <div className="p-6 space-y-3">
+                      <div className="flex justify-between text-xs font-bold">
+                        <span className="text-slate-400">Asignado:</span>
+                        <span className="text-slate-700">{Number(workingFund.usd?.assigned || 0).toFixed(2)} $</span>
+                      </div>
+                      <div className="flex justify-between text-xs font-bold">
+                        <span className="text-slate-400">Físico:</span>
+                        <span className="text-slate-900">{Number(workingFund.usd?.physical || 0).toFixed(2)} $</span>
+                      </div>
+                      <div className={`pt-3 border-t flex justify-between font-black ${(workingFund.usd?.difference || 0) === 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        <span>Diferencia:</span>
+                        <span>{Number(workingFund.usd?.difference || 0).toFixed(2)} $</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-                 <div className="mt-6 bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
-                   <div className="px-4 py-2 bg-slate-100/70 text-slate-600 font-black text-[9px] uppercase tracking-widest">Cantidad de Cajas</div>
-                   <div className="p-6">
-                     <div className="flex justify-between text-xs font-bold">
-                       <span className="text-slate-400">Cajas activas:</span>
-                       <span className="text-slate-900">{Number(workingFund.boxCount || 0)}</span>
-                     </div>
-                   </div>
-                 </div>
+                <div className="mt-6 bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
+                  <div className="px-4 py-2 bg-slate-100/70 text-slate-600 font-black text-[9px] uppercase tracking-widest">Cantidad de Cajas</div>
+                  <div className="p-6">
+                    <div className="flex justify-between text-xs font-bold">
+                      <span className="text-slate-400">Cajas activas:</span>
+                      <span className="text-slate-900">{Number(workingFund.boxCount || 0)}</span>
+                    </div>
+                  </div>
+                </div>
 
-                 {workingFund.responsiblePerson && (
-                   <div className="mt-6 p-6 bg-blue-50 border-l-4 border-blue-500 rounded-xl">
-                     <p className="text-[9px] font-black text-blue-600 uppercase mb-2 tracking-widest">Validado por:</p>
-                     <p className="text-sm font-black text-slate-800 uppercase">{workingFund.responsiblePerson}</p>
-                   </div>
-                 )}
+                {workingFund.responsiblePerson && (
+                  <div className="mt-6 p-6 bg-blue-50 border-l-4 border-blue-500 rounded-xl">
+                    <p className="text-[9px] font-black text-blue-600 uppercase mb-2 tracking-widest">Validado por:</p>
+                    <p className="text-sm font-black text-slate-800 uppercase">{workingFund.responsiblePerson}</p>
+                  </div>
+                )}
 
-                 {workingFund.notes && (
-                   <div className="mt-6 p-6 bg-orange-50 border-l-4 border-orange-500 rounded-xl">
-                     <p className="text-[9px] font-black text-orange-600 uppercase mb-2 tracking-widest">Observación:</p>
-                     <p className="text-sm font-medium italic text-slate-700">"{workingFund.notes}"</p>
-                   </div>
-                 )}
-               </div>
-             )}
+                {workingFund.notes && (
+                  <div className="mt-6 p-6 bg-orange-50 border-l-4 border-orange-500 rounded-xl">
+                    <p className="text-[9px] font-black text-orange-600 uppercase mb-2 tracking-widest">Observación:</p>
+                    <p className="text-sm font-medium italic text-slate-700">"{workingFund.notes}"</p>
+                  </div>
+                )}
+              </div>
+            )}
 
-             <div>
-                 <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-6 flex items-center gap-4"><ShieldAlert className="w-4 h-4" /> Sistemas de Seguridad</h3>
-                 <div className="grid grid-cols-1 gap-4">
-                    {Object.keys(WEIGHTS.hardware.categories).map(cat => {
-                       const items = HARDWARE_CHECKLIST.filter(i => i.category === cat);
-                       if (items.length === 0) return null;
-                       return (
-                         <div key={cat} className="bg-slate-50/50 rounded-2xl border border-slate-100 overflow-hidden">
-                            <div className="px-4 py-2 bg-slate-100/50 font-black text-[9px] text-slate-500 uppercase tracking-widest border-b border-slate-100">{cat}</div>
-                            <div className="divide-y divide-slate-100">
-                               {items.map(item => {
-                                  const ans = audit.hardwareAnswers[item.id] || { status: 'N/A', notes: '' };
-                                  return (
-                                    <div key={item.id} className="p-4 flex items-start gap-4 hover:bg-white transition-all">
-                                        <div className="mt-1">{ans.status === 'Operativo' ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : ans.status === 'Inactivo' ? <XCircle className="w-5 h-5 text-red-500" /> : <Minus className="w-5 h-5 text-slate-300" />}</div>
-                                        <div className="flex-1"><p className="font-black text-slate-800 text-xs uppercase tracking-tight">{item.name}</p>{ans.notes && <div className="mt-2 text-[10px] bg-orange-50 border-l-2 border-orange-500 p-2 text-slate-700 italic">"{ans.notes}"</div>}</div>
-                                    </div>
-                                  );
-                               })}
+            <div>
+              <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-6 flex items-center gap-4"><ShieldAlert className="w-4 h-4" /> Sistemas de Seguridad</h3>
+              <div className="grid grid-cols-1 gap-4">
+                {Object.keys(WEIGHTS.hardware.categories).map(cat => {
+                  const items = HARDWARE_CHECKLIST.filter(i => i.category === cat);
+                  if (items.length === 0) return null;
+                  return (
+                    <div key={cat} className="bg-slate-50/50 rounded-2xl border border-slate-100 overflow-hidden">
+                      <div className="px-4 py-2 bg-slate-100/50 font-black text-[9px] text-slate-500 uppercase tracking-widest border-b border-slate-100">{cat}</div>
+                      <div className="divide-y divide-slate-100">
+                        {items.map(item => {
+                          const ans = audit.hardwareAnswers[item.id] || { status: 'N/A', notes: '' };
+                          return (
+                            <div key={item.id} className="p-4 flex items-start gap-4 hover:bg-white transition-all">
+                              <div className="mt-1">{ans.status === 'Operativo' ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : ans.status === 'Inactivo' ? <XCircle className="w-5 h-5 text-red-500" /> : <Minus className="w-5 h-5 text-slate-300" />}</div>
+                              <div className="flex-1"><p className="font-black text-slate-800 text-xs uppercase tracking-tight">{item.name}</p>{ans.notes && <div className="mt-2 text-[10px] bg-orange-50 border-l-2 border-orange-500 p-2 text-slate-700 italic">"{ans.notes}"</div>}</div>
                             </div>
-                         </div>
-                       );
-                    })}
-                 </div>
-             </div>
-             <div>
-                 <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-6 flex items-center gap-4"><ClipboardCheck className="w-4 h-4" /> Protocolos y Procesos</h3>
-                 <div className="grid grid-cols-1 gap-4">
-                    {Object.keys(WEIGHTS.process.categories).map(cat => {
-                       const items = PROCESS_CHECKLIST.filter(i => i.category === cat);
-                       if (items.length === 0) return null;
-                       return (
-                         <div key={cat} className="bg-blue-50/30 rounded-2xl border border-blue-100 overflow-hidden">
-                            <div className="px-4 py-2 bg-blue-50/50 font-black text-[9px] text-blue-600 uppercase tracking-widest border-b border-blue-100">{cat}</div>
-                            <div className="divide-y divide-blue-50">
-                               {items.map(item => {
-                                  const ans = audit.processAnswers[item.id] || { status: 'N/A', notes: '' };
-                                  return (
-                                    <div key={item.id} className="p-4 flex items-start gap-4 hover:bg-white transition-all">
-                                        <div className="mt-1">{ans.status === 'SI' ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : ans.status === 'NO' ? <XCircle className="w-5 h-5 text-red-500" /> : <Minus className="w-5 h-5 text-slate-300" />}</div>
-                                        <div className="flex-1"><p className="font-black text-slate-800 text-xs uppercase tracking-tight">{item.text}</p>{ans.notes && <div className="mt-2 text-[10px] bg-blue-50 border-l-2 border-blue-500 p-2 text-slate-700 italic">"{ans.notes}"</div>}</div>
-                                    </div>
-                                  );
-                               })}
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-6 flex items-center gap-4"><ClipboardCheck className="w-4 h-4" /> Protocolos y Procesos</h3>
+              <div className="grid grid-cols-1 gap-4">
+                {Object.keys(WEIGHTS.process.categories).map(cat => {
+                  const items = PROCESS_CHECKLIST.filter(i => i.category === cat);
+                  if (items.length === 0) return null;
+                  return (
+                    <div key={cat} className="bg-blue-50/30 rounded-2xl border border-blue-100 overflow-hidden">
+                      <div className="px-4 py-2 bg-blue-50/50 font-black text-[9px] text-blue-600 uppercase tracking-widest border-b border-blue-100">{cat}</div>
+                      <div className="divide-y divide-blue-50">
+                        {items.map(item => {
+                          const ans = audit.processAnswers[item.id] || { status: 'N/A', notes: '' };
+                          return (
+                            <div key={item.id} className="p-4 flex items-start gap-4 hover:bg-white transition-all">
+                              <div className="mt-1">{ans.status === 'SI' ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : ans.status === 'NO' ? <XCircle className="w-5 h-5 text-red-500" /> : <Minus className="w-5 h-5 text-slate-300" />}</div>
+                              <div className="flex-1"><p className="font-black text-slate-800 text-xs uppercase tracking-tight">{item.text}</p>{ans.notes && <div className="mt-2 text-[10px] bg-blue-50 border-l-2 border-blue-500 p-2 text-slate-700 italic">"{ans.notes}"</div>}</div>
                             </div>
-                         </div>
-                       );
-                    })}
-                 </div>
-             </div>
-           </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
