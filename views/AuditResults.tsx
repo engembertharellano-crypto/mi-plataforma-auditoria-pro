@@ -127,8 +127,6 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
       return tsB - tsA; // Newest timestamp in id first
     });
 
-    const exactMatch = sortedCctv.find(r => r.date === audit.date);
-    if (exactMatch) return exactMatch;
     return sortedCctv[0] || null;
   }, [cctvRecords, audit]);
 
@@ -148,8 +146,6 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
       return tsB - tsA; // Newest timestamp in id first
     });
 
-    const exactMatch = sortedPhys.find(r => r.date === audit.date);
-    if (exactMatch) return exactMatch;
     return sortedPhys[0] || null;
   }, [physicalRecords, audit]);
 
