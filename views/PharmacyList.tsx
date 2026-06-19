@@ -893,7 +893,7 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
                         </div>
                         {manager ? (
                           <>
-                            <p className="text-slate-800 font-black text-xs uppercase truncate mb-1">{manager.role} {manager.fullName}</p>
+                            <p className="text-slate-800 font-black text-xs uppercase leading-snug break-words mb-1">{manager.role} {manager.fullName}</p>
                             <p className="text-orange-600 font-mono text-[10px] font-bold">{manager.phone || 'Sin teléfono'}</p>
                           </>
                         ) : (
