@@ -782,7 +782,15 @@ const PharmacyList: React.FC<PharmacyListProps> = ({
       {/* MODAL: VIEW DETAILS (igual, solo lectura OK) */}
       {viewingPharmacy && (() => {
         const pharmacyStaff = staffRecords.filter(s => s.pharmacyId === viewingPharmacy.id);
-        const manager = pharmacyStaff.find(s => s.role === 'Gerente') || pharmacyStaff.find(s => s.role === 'Gerente/Regente');
+        
+        // Prioridad: Gerente -> Gerente Regente / Gerente/Regente -> Regente -> Senior
+        const manager = 
+          pharmacyStaff.find(s => s.role === 'Gerente') || 
+          pharmacyStaff.find(s => s.role === 'Gerente Regente') || 
+          pharmacyStaff.find(s => s.role === 'Gerente/Regente') || 
+          pharmacyStaff.find(s => s.role === 'Regente') || 
+          pharmacyStaff.find(s => s.role === 'Senior');
+
         const staffCount = pharmacyStaff.length;
 
         return (
