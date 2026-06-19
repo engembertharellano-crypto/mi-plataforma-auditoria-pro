@@ -324,6 +324,7 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
     const hwCategories = Object.keys(WEIGHTS.hardware.categories);
     const hwResults: any = {};
     let totalHwScore = 0;
+    let totalHwWeight = 0;
 
     hwCategories.forEach(cat => {
       const items = HARDWARE_CHECKLIST.filter(i => i.category === cat);
@@ -347,15 +348,20 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
       hwResults[cat] = {
         compliance: compliance * 100,
         weight: weight * 100,
-        result: result * 100
+        result: result * 100,
+        isNA: validItems === 0
       };
 
-      totalHwScore += result;
+      if (validItems > 0) {
+        totalHwScore += result;
+        totalHwWeight += weight;
+      }
     });
 
     const procCategories = Object.keys(WEIGHTS.process.categories);
     const procResults: any = {};
     let totalProcScore = 0;
+    let totalProcWeight = 0;
 
     procCategories.forEach(cat => {
       const items = PROCESS_CHECKLIST.filter(i => i.category === cat);
@@ -379,13 +385,29 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
       procResults[cat] = {
         compliance: compliance * 100,
         weight: weight * 100,
-        result: result * 100
+        result: result * 100,
+        isNA: validItems === 0
       };
 
-      totalProcScore += result;
+      if (validItems > 0) {
+        totalProcScore += result;
+        totalProcWeight += weight;
+      }
     });
 
-    let finalScore = (totalHwScore * 100 * WEIGHTS.hardware.globalWeight) + (totalProcScore * 100 * WEIGHTS.process.globalWeight);
+    const globalHw = totalHwWeight > 0 ? (totalHwScore / totalHwWeight) * 100 : 100;
+    const globalProc = totalProcWeight > 0 ? (totalProcScore / totalProcWeight) * 100 : 100;
+
+    let finalScore = 0;
+    if (totalHwWeight > 0 && totalProcWeight > 0) {
+      finalScore = (globalHw * WEIGHTS.hardware.globalWeight) + (globalProc * WEIGHTS.process.globalWeight);
+    } else if (totalHwWeight > 0) {
+      finalScore = globalHw;
+    } else if (totalProcWeight > 0) {
+      finalScore = globalProc;
+    } else {
+      finalScore = 100;
+    }
     finalScore = Math.max(0, Math.min(100, Number(finalScore.toFixed(2))));
 
     const vaultDiff = (auditData.vaultCount?.ves.difference || 0) !== 0 || (auditData.vaultCount?.usd.difference || 0) !== 0;
@@ -400,8 +422,8 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
     return {
       hwResults,
       procResults,
-      globalHw: totalHwScore * 100,
-      globalProc: totalProcScore * 100,
+      globalHw,
+      globalProc,
       finalScore,
       riskPercentage,
       riskLevel,
@@ -616,7 +638,11 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
                     <thead><tr className="text-slate-300 border-b border-slate-100"><th className="text-left pb-2 font-black">CATEGORÍA</th><th className="text-right pb-2 pr-4 font-black">POND.</th><th className="text-right pb-2 font-black">RES.</th></tr></thead>
                     <tbody className="divide-y divide-slate-50">
                       {Object.entries(calculatedData.hwResults).map(([cat, val]: [string, any]) => (
-                        <tr key={cat}><td className="py-2.5 text-slate-600 font-black">{cat.split('. ')[1] || cat}</td><td className="py-2.5 text-right pr-4 text-slate-400">{val.weight.toFixed(0)}%</td><td className="py-2.5 text-right text-slate-900 font-black">{val.result.toFixed(1)}%</td></tr>
+                        <tr key={cat}>
+                          <td className="py-2.5 text-slate-600 font-black">{cat.split('. ')[1] || cat}</td>
+                          <td className="py-2.5 text-right pr-4 text-slate-400">{val.isNA ? 'N/A' : `${val.weight.toFixed(0)}%`}</td>
+                          <td className="py-2.5 text-right text-slate-900 font-black">{val.isNA ? 'N/A' : `${val.result.toFixed(1)}%`}</td>
+                        </tr>
                       ))}
                     </tbody>
                     <tfoot><tr className="bg-orange-50/50"><td className="py-2.5 pl-3 text-slate-900 font-black rounded-l-xl uppercase">Total Sistemas</td><td></td><td className="py-2.5 pr-3 text-right text-orange-600 font-black rounded-r-xl text-xs">{calculatedData.globalHw.toFixed(2)}%</td></tr></tfoot>
@@ -628,7 +654,11 @@ const AuditResults: React.FC<AuditResultsProps> = ({ audit, cctvRecords, physica
                     <thead><tr className="text-slate-300 border-b border-slate-100"><th className="text-left pb-2 font-black">CATEGORÍA</th><th className="text-right pb-2 pr-4 font-black">POND.</th><th className="text-right pb-2 font-black">RES.</th></tr></thead>
                     <tbody className="divide-y divide-slate-50">
                       {Object.entries(calculatedData.procResults).map(([cat, val]: [string, any]) => (
-                        <tr key={cat}><td className="py-2.5 text-slate-600 font-black">{cat.split(' (')[0].split('. ')[1] || cat}</td><td className="py-2.5 text-right pr-4 text-slate-400">{val.weight.toFixed(0)}%</td><td className="py-2.5 text-right text-slate-900 font-black">{val.result.toFixed(1)}%</td></tr>
+                        <tr key={cat}>
+                          <td className="py-2.5 text-slate-600 font-black">{cat.split(' (')[0].split('. ')[1] || cat}</td>
+                          <td className="py-2.5 text-right pr-4 text-slate-400">{val.isNA ? 'N/A' : `${val.weight.toFixed(0)}%`}</td>
+                          <td className="py-2.5 text-right text-slate-900 font-black">{val.isNA ? 'N/A' : `${val.result.toFixed(1)}%`}</td>
+                        </tr>
                       ))}
                     </tbody>
                     <tfoot><tr className="bg-blue-50/50"><td className="py-2.5 pl-3 text-slate-900 font-black rounded-l-xl uppercase">Total Procesos</td><td></td><td className="py-2.5 pr-3 text-right text-blue-600 font-black rounded-r-xl text-xs">{calculatedData.globalProc.toFixed(2)}%</td></tr></tfoot>

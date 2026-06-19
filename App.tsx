@@ -421,6 +421,7 @@ const App: React.FC = () => {
     };
 
     let totalHwScore = 0;
+    let totalHwWeight = 0;
     Object.keys(hardwareWeights).forEach(cat => {
       const items = HARDWARE_CHECKLIST.filter(i => i.category === cat);
       if (items.length === 0) return;
@@ -436,12 +437,18 @@ const App: React.FC = () => {
         }
       });
 
-      const compliance = validItems > 0 ? (scoreSum / validItems) : 0;
-      const weight = hardwareWeights[cat as keyof typeof hardwareWeights];
-      totalHwScore += compliance * weight;
+      if (validItems > 0) {
+        const compliance = scoreSum / validItems;
+        const weight = hardwareWeights[cat as keyof typeof hardwareWeights];
+        totalHwScore += compliance * weight;
+        totalHwWeight += weight;
+      }
     });
 
+    const finalHwCompliance = totalHwWeight > 0 ? (totalHwScore / totalHwWeight) : 1;
+
     let totalProcScore = 0;
+    let totalProcWeight = 0;
     Object.keys(processWeights).forEach(cat => {
       const items = PROCESS_CHECKLIST.filter(i => i.category === cat);
       if (items.length === 0) return;
@@ -457,12 +464,27 @@ const App: React.FC = () => {
         }
       });
 
-      const compliance = validItems > 0 ? (scoreSum / validItems) : 0;
-      const weight = processWeights[cat as keyof typeof processWeights];
-      totalProcScore += compliance * weight;
+      if (validItems > 0) {
+        const compliance = scoreSum / validItems;
+        const weight = processWeights[cat as keyof typeof processWeights];
+        totalProcScore += compliance * weight;
+        totalProcWeight += weight;
+      }
     });
 
-    const rawScore = (totalHwScore * 100 * 0.40) + (totalProcScore * 100 * 0.60);
+    const finalProcCompliance = totalProcWeight > 0 ? (totalProcScore / totalProcWeight) : 1;
+
+    let rawScore = 0;
+    if (totalHwWeight > 0 && totalProcWeight > 0) {
+      rawScore = (finalHwCompliance * 100 * 0.40) + (finalProcCompliance * 100 * 0.60);
+    } else if (totalHwWeight > 0) {
+      rawScore = finalHwCompliance * 100;
+    } else if (totalProcWeight > 0) {
+      rawScore = finalProcCompliance * 100;
+    } else {
+      rawScore = 100;
+    }
+
     const finalScore = Math.max(0, Math.min(100, Number(rawScore.toFixed(2))));
     return finalScore;
   };
