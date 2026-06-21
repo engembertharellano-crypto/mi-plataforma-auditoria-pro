@@ -7,7 +7,8 @@ import {
   CalendarDays,
   Trash2,
   AlertTriangle,
-  X
+  X,
+  Banknote
 } from 'lucide-react';
 import { AuditState, CCTVInventoryRecord, PhysicalInventoryRecord, ManagementVisitRecord, Pharmacy } from '../types';
 
@@ -274,6 +275,53 @@ const VisitLog: React.FC<VisitLogProps> = ({
                 </p>
               </div>
             </div>
+
+            {data.vaultCount && (
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Detalles del Arqueo de Bóveda
+                </p>
+                <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-emerald-50/50 p-3 rounded-lg border border-emerald-100/50">
+                      <p className="text-[10px] font-black text-emerald-700 uppercase mb-2">Dólares (USD)</p>
+                      <div className="text-xs space-y-1 font-bold text-slate-705">
+                        <div className="flex justify-between"><span>Sistema:</span><span>{data.vaultCount.usd.system.toFixed(2)} $</span></div>
+                        <div className="flex justify-between"><span>Físico:</span><span>{data.vaultCount.usd.physical.toFixed(2)} $</span></div>
+                        <div className={`flex justify-between pt-1 border-t ${data.vaultCount.usd.difference === 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                          <span>Diferencia:</span><span>{data.vaultCount.usd.difference.toFixed(2)} $</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-blue-50/50 p-3 rounded-lg border border-blue-100/50">
+                      <p className="text-[10px] font-black text-blue-700 uppercase mb-2">Bolívares (VES)</p>
+                      <div className="text-xs space-y-1 font-bold text-slate-705">
+                        <div className="flex justify-between"><span>Sistema:</span><span>{data.vaultCount.ves.system.toFixed(2)} Bs.</span></div>
+                        <div className="flex justify-between"><span>Físico:</span><span>{data.vaultCount.ves.physical.toFixed(2)} Bs.</span></div>
+                        <div className={`flex justify-between pt-1 border-t ${data.vaultCount.ves.difference === 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                          <span>Diferencia:</span><span>{data.vaultCount.ves.difference.toFixed(2)} Bs.</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {data.vaultCount.responsiblePerson && (
+                    <div className="text-xs font-bold text-slate-600">
+                      <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Testigo / Responsable:</span>
+                      <span className="bg-slate-100 px-2 py-1 rounded-md text-slate-700">{data.vaultCount.responsiblePerson}</span>
+                    </div>
+                  )}
+
+                  {data.vaultCount.notes && (
+                    <div className="text-xs italic text-slate-500 bg-orange-50/50 p-2.5 rounded-lg border border-orange-100/50">
+                      <span className="text-[9px] font-black text-orange-600 uppercase block not-italic mb-1">Justificación de Diferencias:</span>
+                      "{data.vaultCount.notes}"
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">

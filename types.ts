@@ -140,6 +140,7 @@ export interface ManagementVisitRecord {
   type: 'Gestión' | 'Reunión' | 'Incidente' | 'Investigación' | 'Otra';
   notes: string;
   createdBy?: string;
+  vaultCount?: VaultCount;
 }
 
 export interface PendingRecord {

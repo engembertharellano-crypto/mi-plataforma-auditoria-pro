@@ -6,9 +6,12 @@ import {
   Save, 
   X, 
   Briefcase, 
-  Navigation
+  Navigation,
+  Banknote,
+  Check,
+  AlertOctagon
 } from 'lucide-react';
-import { Pharmacy, ManagementVisitRecord } from '../types';
+import { Pharmacy, ManagementVisitRecord, VaultCount } from '../types';
 
 interface NewVisitProps {
   pharmacies: Pharmacy[];
@@ -26,9 +29,17 @@ const NewVisit: React.FC<NewVisitProps> = ({ pharmacies, onCancel, onSave }) => 
     notes: ''
   });
 
+  const [vaultCount, setVaultCount] = useState<VaultCount>({
+    usd: { system: 0, physical: 0, difference: 0 },
+    ves: { system: 0, physical: 0, difference: 0 },
+    notes: '',
+    responsiblePerson: ''
+  });
+
   const REASONS = [
     'Supervisión Operativa',
     'Revisión de Bóveda',
+    'Arqueo de Bóveda',
     'Auditoría de Procesos',
     'Incidencia de Seguridad',
     'Capacitación de Personal',
@@ -59,7 +70,8 @@ const NewVisit: React.FC<NewVisitProps> = ({ pharmacies, onCancel, onSave }) => 
       pharmacy: finalPharmacyData, // Guardamos el nombre manual aquí si aplica
       date: formData.date, // Formato YYYY-MM-DD para compatibilidad
       reason: isCustomReason ? formData.customReason.toUpperCase() : formData.reason,
-      notes: formData.notes
+      notes: formData.notes,
+      vaultCount: formData.reason === 'Arqueo de Bóveda' ? vaultCount : undefined
     };
 
     onSave(visitRecord);
@@ -165,6 +177,93 @@ const NewVisit: React.FC<NewVisitProps> = ({ pharmacies, onCancel, onSave }) => 
                   onChange={(e) => setFormData({...formData, customReason: e.target.value})}
                   autoFocus
                 />
+              </div>
+            )}
+
+            {/* CONTEO DE BÓVEDA CONDICIONAL */}
+            {formData.reason === 'Arqueo de Bóveda' && (
+              <div className="mt-6 p-6 bg-slate-50 border border-slate-100 rounded-2xl space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
+                <h3 className="text-sm font-black text-slate-800 uppercase flex items-center gap-2">
+                  <Banknote className="w-5 h-5 text-emerald-500" /> Arqueo de Bóveda en Visita
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-100/50">
+                    <p className="text-emerald-700 font-bold text-xs uppercase tracking-wider mb-3">Dólares (USD)</p>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-400 uppercase">Saldo Sistema</label>
+                        <input 
+                          type="number" 
+                          className="w-full p-2 bg-white rounded-lg font-bold text-slate-850 outline-none border border-slate-100 focus:border-emerald-500 text-sm" 
+                          value={vaultCount.usd.system} 
+                          onChange={e => { const val = parseFloat(e.target.value) || 0; setVaultCount(prev => ({...prev, usd: {...prev.usd, system: val, difference: prev.usd.physical - val}})) }} 
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-400 uppercase">Conteo Físico</label>
+                        <input 
+                          type="number" 
+                          className="w-full p-2 bg-white rounded-lg font-bold text-slate-855 outline-none border border-slate-100 focus:border-emerald-500 text-sm" 
+                          value={vaultCount.usd.physical} 
+                          onChange={e => { const val = parseFloat(e.target.value) || 0; setVaultCount(prev => ({...prev, usd: {...prev.usd, physical: val, difference: val - prev.usd.system}})) }} 
+                        />
+                      </div>
+                      <div className={`p-2 rounded-lg text-center font-bold text-xs ${vaultCount.usd.difference === 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                        Dif: {vaultCount.usd.difference.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100/50">
+                    <p className="text-blue-700 font-bold text-xs uppercase tracking-wider mb-3">Bolívares (VES)</p>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-400 uppercase">Saldo Sistema</label>
+                        <input 
+                          type="number" 
+                          className="w-full p-2 bg-white rounded-lg font-bold text-slate-850 outline-none border border-slate-100 focus:border-blue-500 text-sm" 
+                          value={vaultCount.ves.system} 
+                          onChange={e => { const val = parseFloat(e.target.value) || 0; setVaultCount(prev => ({...prev, ves: {...prev.ves, system: val, difference: prev.ves.physical - val}})) }} 
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-400 uppercase">Conteo Físico</label>
+                        <input 
+                          type="number" 
+                          className="w-full p-2 bg-white rounded-lg font-bold text-slate-855 outline-none border border-slate-100 focus:border-blue-500 text-sm" 
+                          value={vaultCount.ves.physical} 
+                          onChange={e => { const val = parseFloat(e.target.value) || 0; setVaultCount(prev => ({...prev, ves: {...prev.ves, physical: val, difference: val - prev.ves.system}})) }} 
+                        />
+                      </div>
+                      <div className={`p-2 rounded-lg text-center font-bold text-xs ${vaultCount.ves.difference === 0 ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}`}>
+                        Dif: {vaultCount.ves.difference.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[9px] font-bold text-slate-400 uppercase">Responsable / Testigo</label>
+                    <input 
+                      type="text" 
+                      placeholder="Nombre del testigo..." 
+                      className="w-full p-3 bg-white rounded-xl font-bold text-slate-850 outline-none border border-slate-100 focus:border-orange-500 text-sm" 
+                      value={vaultCount.responsiblePerson} 
+                      onChange={e => setVaultCount({...vaultCount, responsiblePerson: e.target.value})} 
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-bold text-slate-400 uppercase">Justificación de Diferencias</label>
+                    <textarea 
+                      placeholder="Justificación o notas del arqueo..." 
+                      className="w-full p-3 bg-white rounded-xl text-slate-700 outline-none border border-slate-100 focus:border-orange-500 text-sm h-20 resize-none" 
+                      value={vaultCount.notes} 
+                      onChange={e => setVaultCount({...vaultCount, notes: e.target.value})} 
+                    />
+                  </div>
+                </div>
               </div>
             )}
           </div>
