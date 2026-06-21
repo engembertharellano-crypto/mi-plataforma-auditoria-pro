@@ -34,6 +34,33 @@ interface WorkingFund {
   notes: string;
 }
 
+const toDDMMYYYY = (dateStr: string): string => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dateStr;
+};
+
+const toYYYYMMDD = (dateStr: string): string => {
+  if (!dateStr) return '';
+  if (dateStr.includes('/')) {
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      const day = parts[0].padStart(2, '0');
+      const month = parts[1].padStart(2, '0');
+      const year = parts[2];
+      return `${year}-${month}-${day}`;
+    }
+  }
+  const d = new Date(dateStr);
+  if (!isNaN(d.getTime())) {
+    return d.toISOString().split('T')[0];
+  }
+  return '';
+};
+
 const AuditWizard: React.FC<AuditWizardProps> = ({ 
   onCancel, 
   onFinish, 
@@ -49,6 +76,13 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
   const [newPharmacyData, setNewPharmacyData] = useState<Partial<Pharmacy>>({});
 
   const [inCharge, setInCharge] = useState({ nombre: '', apellido: '' });
+  const [date, setDate] = useState<string>(() => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  });
   
   const [hardwareAnswers, setHardwareAnswers] = useState<Record<string, { quantity?: number, status: string, notes: string }>>({});
   const [processAnswers, setProcessAnswers] = useState<Record<string, { status: string, notes: string }>>({});
@@ -77,6 +111,7 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
       else if (initialAudit.pharmacy) setSelectedPharmacy(initialAudit.pharmacy);
 
       setInCharge(initialAudit.inCharge || { nombre: '', apellido: '' });
+      if (initialAudit.date) setDate(toYYYYMMDD(initialAudit.date));
       setHardwareAnswers((initialAudit.hardwareAnswers || {}) as any);
       setProcessAnswers((initialAudit.processAnswers || {}) as any);
 
@@ -167,7 +202,7 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
     try {
       const auditData: any = {
         id: initialAudit?.id || '',
-        date: initialAudit?.date || new Date().toLocaleDateString('es-ES'),
+        date: toDDMMYYYY(date),
         pharmacyId: selectedPharmacy.id,
         pharmacy: selectedPharmacy,
         inCharge,
@@ -256,6 +291,11 @@ const AuditWizard: React.FC<AuditWizardProps> = ({
                  <input type="text" placeholder="Nombre" className="w-full p-3 bg-slate-50 rounded-xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-orange-500" value={inCharge.nombre} onChange={e => setInCharge({...inCharge, nombre: e.target.value})} disabled={isSubmitting} />
                  <input type="text" placeholder="Apellido" className="w-full p-3 bg-slate-50 rounded-xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-orange-500" value={inCharge.apellido} onChange={e => setInCharge({...inCharge, apellido: e.target.value})} disabled={isSubmitting} />
                </div>
+            </div>
+
+            <div className="pt-6 border-t border-slate-100">
+               <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Fecha de la Inspección</label>
+               <input type="date" className="w-full p-3 bg-slate-50 rounded-xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-orange-500" value={date} onChange={e => setDate(e.target.value)} disabled={isSubmitting} />
             </div>
           </div>
         )}

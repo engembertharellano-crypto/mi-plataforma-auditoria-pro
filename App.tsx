@@ -504,7 +504,7 @@ const App: React.FC = () => {
     const auditId = isEditing && auditToEdit?.id ? auditToEdit.id : `audit-${Date.now()}`;
     const score = calculateAuditScore(audit);
     const risk = getRiskLevel(score);
-    const date = isEditing && auditToEdit?.date ? auditToEdit.date : new Date().toLocaleDateString('es-ES');
+    const date = audit.date || (isEditing && auditToEdit?.date ? auditToEdit.date : new Date().toLocaleDateString('es-ES'));
 
     const updatedPharmacy = audit.pharmacy
       ? { ...audit.pharmacy, risk }
