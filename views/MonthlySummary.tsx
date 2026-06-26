@@ -221,19 +221,23 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
    ? Math.round(auditScores.reduce((a, b) => a + b, 0) / auditScores.length) 
    : 0;
 
- const totalPharmaciesCount = currentPharmacies.length;
+  const visitedPharmaciesSet = new Set([
+    ...monthlyAudits.map(a => String(a.pharmacy?.id || a.pharmacyId)).filter(id => id && id !== 'undefined' && id !== 'null'),
+    ...currentManagement
+      .filter(r => isCurrentMonth(r.date))
+      .map(r => String(r.pharmacyId))
+      .filter(id => id && id !== 'undefined' && id !== 'null')
+  ]);
 
- const visitedPharmaciesSet = new Set([
-   ...monthlyAudits.map(a => String(a.pharmacy?.id || a.pharmacyId)).filter(id => id && id !== 'undefined' && id !== 'null'),
-   ...currentManagement
-     .filter(r => isCurrentMonth(r.date))
-     .map(r => String(r.pharmacyId))
-     .filter(id => id && id !== 'undefined' && id !== 'null')
- ]);
+  // ✅ CORRECCIÓN MODO VIAJE: Contar visitas a CUALQUIER farmacia operativa (no solo las de la zona),
+  // así las visitas registradas en modo viaje contribuyen al total de farmacias visitadas.
+  const allOperativePharmacies = pharmacies.filter(p => p.operativa !== false);
+  const visitedPharmacies = Array.from(visitedPharmaciesSet).filter(id => 
+    allOperativePharmacies.some(p => String(p.id) === id)
+  ).length;
 
- const visitedPharmacies = Array.from(visitedPharmaciesSet).filter(id => 
-   currentPharmacies.some(p => String(p.id) === id)
- ).length;
+  // Total de farmacias del denominador: solo las de la zona seleccionada (para la cobertura de zona)
+  const totalPharmaciesCount = currentPharmacies.length;
 
  const coverage = totalPharmaciesCount > 0 ? Math.round((visitedPharmacies / totalPharmaciesCount) * 100) : 0;
 

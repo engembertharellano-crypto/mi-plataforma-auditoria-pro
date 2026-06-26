@@ -107,6 +107,9 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const inSelectedZone = (item: any) => {
     if (selectedZone === 'Todas') return true;
+    // ✅ CORRECCIÓN MODO VIAJE: Siempre incluir registros creados por el usuario actual
+    // independientemente de la zona. Así las visitas en modo viaje se cuentan siempre.
+    if (currentUser && item.createdBy && item.createdBy === currentUser.fullName) return true;
     return getZoneForRecord(item) === selectedZone;
   };
 

@@ -47,14 +47,9 @@ const VisitLog: React.FC<VisitLogProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('Todos');
 
-  // ✅ CAMBIO REALIZADO: Ahora la Bitácora inicia con la zona del usuario por defecto
-  const [filterZone, setFilterZone] = useState(() => {
-    const userZone = currentUser?.zone;
-    if (!userZone || userZone.toUpperCase() === 'GLOBAL' || userZone === '') {
-      return 'Todas';
-    }
-    return userZone;
-  });
+  // ✅ CORRECCIÓN MODO VIAJE: La Bitácora inicia mostrando Todas las zonas para
+  // que las visitas registradas en modo viaje (otras zonas) siempre sean visibles.
+  const [filterZone, setFilterZone] = useState('Todas');
 
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [recordToDelete, setRecordToDelete] = useState<any | null>(null);
@@ -182,8 +177,11 @@ const VisitLog: React.FC<VisitLogProps> = ({
     const matchesSearch = rec.pharmacy.toLowerCase().includes(searchTerm.toLowerCase()) || rec.type.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'Todos' || rec.type === filterType;
     
-    // ✅ FILTRADO POR ZONA GEOGRÁFICA (Permite ver lo de otros en tu zona)
-    const matchesZone = filterZone === 'Todas' || rec.pharmacyZone === filterZone;
+    // ✅ CORRECCIÓN MODO VIAJE: Siempre mostrar registros creados por el usuario actual,
+    // independientemente de la zona. Esto garantiza que las visitas registradas en modo
+    // viaje (en farmacias de otras zonas) sean siempre visibles en la bitácora.
+    const isOwnRecord = rec.original?.createdBy === currentUser?.fullName;
+    const matchesZone = filterZone === 'Todas' || rec.pharmacyZone === filterZone || isOwnRecord;
 
     let matchesMonth = true;
     if (selectedMonth !== 'Todos') {
