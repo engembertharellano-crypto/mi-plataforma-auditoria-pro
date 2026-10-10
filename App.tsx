@@ -165,6 +165,7 @@ const App: React.FC = () => {
 
   const READ_ONLY_ROLES = [
     'directiva', 
+    'operador cecom',
     'auditoria', 
     'finanzas', 
     'mantenimiento', 
@@ -1054,7 +1055,7 @@ const App: React.FC = () => {
           />
         )}
 
-        {currentView === 'staff-directory' && !isReadOnly && (
+        {currentView === 'staff-directory' && (
           <StaffDirectory
             pharmacies={visiblePharmacies}
             staffRecords={userData.staffRecords}
@@ -1071,7 +1072,7 @@ const App: React.FC = () => {
           />
         )}
 
-        {currentView === 'support-directory' && !isReadOnly && (
+        {currentView === 'support-directory' && (
           <SupportDirectory
             pharmacies={visiblePharmacies}
             supportRecords={userData.supportRecords}

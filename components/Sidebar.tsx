@@ -73,6 +73,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const role = (user?.role || '').trim().toLowerCase();
   const READ_ONLY_ROLES = [
     'directiva', 
+    'operador cecom',
     'auditoria', 
     'finanzas', 
     'mantenimiento', 
@@ -95,12 +96,26 @@ const Sidebar: React.FC<SidebarProps> = ({
     'case-management'
   ];
 
+  // ✅ Lo que Operador CECOM SÍ debe ver (mismos accesos de Directiva + Personal y Soporte)
+  const OPERADOR_CECOM_ALLOWED: ViewName[] = [
+    'dashboard',
+    'visit-log',
+    'monthly-summary',
+    'pharmacy-list',
+    'case-management',
+    'staff-directory',
+    'support-directory'
+  ];
+
   const visibleMenuItems = menuItems.filter(item => {
     // adminOnly solo para super usuario
     if (item.adminOnly && !isAdmin) return false;
 
-    // Directiva: menú reducido (solo lectura + info relevante)
+    // Solo lectura: menú reducido (solo lectura + info relevante)
     if (isReadOnlyView) {
+      if (role === 'operador cecom') {
+        return OPERADOR_CECOM_ALLOWED.includes(item.id);
+      }
       return DIRECTIVA_ALLOWED.includes(item.id);
     }
 

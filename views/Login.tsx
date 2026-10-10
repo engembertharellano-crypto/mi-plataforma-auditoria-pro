@@ -103,7 +103,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       const emailLower = formData.email.toLowerCase();
       const isSuperUser = emailLower === 'engemberth.arellano@gmail.com';
       const isCorpManager = emailLower === 'gustavo.fernandez@dronena.com';
-      const readOnlyRoles = ['Directiva', 'Auditoria', 'Finanzas', 'Mantenimiento', 'Tecnologia', 'Operaciones', 'Seguridad (Lectura)', 'Recursos Humanos'];
+      const readOnlyRoles = ['Directiva', 'Operador CECOM', 'Auditoria', 'Finanzas', 'Mantenimiento', 'Tecnologia', 'Operaciones', 'Seguridad (Lectura)', 'Recursos Humanos'];
       const isGlobalRole = formData.role === 'Gerente de seguridad' || formData.role === 'Lider de investigaciones' || readOnlyRoles.includes(formData.role) || isCorpManager;
       
       const newUser = {
@@ -195,6 +195,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         <option value="Gerente de seguridad">Gerente de Seguridad</option>
                         <option value="Lider de investigaciones">Líder de Investigaciones</option>
                         <option value="Directiva">Directiva (Dueños)</option>
+                        <option value="Operador CECOM">Operador CECOM (Solo Lectura)</option>
                         <option value="Auditoria">Auditoría (Solo Lectura)</option>
                         <option value="Finanzas">Finanzas (Solo Lectura)</option>
                         <option value="Mantenimiento">Mantenimiento (Solo Lectura)</option>
@@ -204,7 +205,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         <option value="Recursos Humanos">Recursos Humanos (Solo Lectura)</option>
                       </select>
                     </div>
-                    {!(formData.role === 'Gerente de seguridad' || formData.role === 'Lider de investigaciones' || ['Directiva', 'Auditoria', 'Finanzas', 'Mantenimiento', 'Tecnologia', 'Operaciones', 'Seguridad (Lectura)', 'Recursos Humanos'].includes(formData.role)) && (
+                    {!(formData.role === 'Gerente de seguridad' || formData.role === 'Lider de investigaciones' || ['Directiva', 'Operador CECOM', 'Auditoria', 'Finanzas', 'Mantenimiento', 'Tecnologia', 'Operaciones', 'Seguridad (Lectura)', 'Recursos Humanos'].includes(formData.role)) && (
                       <div>
                         <label className="block text-[10px] font-black text-slate-400 uppercase mb-1.5 pl-1 tracking-[0.1em]">Zona Asignada</label>
                         <select 
