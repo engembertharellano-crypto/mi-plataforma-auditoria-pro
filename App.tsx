@@ -773,7 +773,7 @@ const App: React.FC = () => {
           />
         )}
 
-        {currentView === 'cctv-inventory' && !isReadOnly && (
+        {currentView === 'cctv-inventory' && (!isReadOnly || (currentUser?.role || '').toLowerCase() === 'operador cecom') && (
           <CCTVInventory
             pharmacies={visiblePharmacies}
             records={userData.cctvRecords}
@@ -785,6 +785,7 @@ const App: React.FC = () => {
               await saveToCloud('cctv_records', rec.id, rec);
             }}
             onAddPharmacy={() => {}}
+            readOnly={isReadOnly}
           />
         )}
 

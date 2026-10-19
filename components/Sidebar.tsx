@@ -96,7 +96,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     'case-management'
   ];
 
-  // ✅ Lo que Operador CECOM SÍ debe ver (mismos accesos de Directiva + Personal y Soporte)
+  // ✅ Lo que Operador CECOM SÍ debe ver (mismos accesos de Directiva + Personal, Soporte y Protección CCTV)
   const OPERADOR_CECOM_ALLOWED: ViewName[] = [
     'dashboard',
     'visit-log',
@@ -104,7 +104,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     'pharmacy-list',
     'case-management',
     'staff-directory',
-    'support-directory'
+    'support-directory',
+    'cctv-inventory'
   ];
 
   const visibleMenuItems = menuItems.filter(item => {

@@ -30,9 +30,10 @@ interface CCTVInventoryProps {
   onBack: () => void;
   onSave: (record: CCTVInventoryRecord) => void;
   onAddPharmacy: (pharmacy: Pharmacy) => void;
+  readOnly?: boolean;
 }
 
-const CCTVInventory: React.FC<CCTVInventoryProps> = ({ pharmacies, records, onBack, onSave, onAddPharmacy }) => {
+const CCTVInventory: React.FC<CCTVInventoryProps> = ({ pharmacies, records, onBack, onSave, onAddPharmacy, readOnly = false }) => {
   const [selectedPharmacy, setSelectedPharmacy] = useState<Pharmacy | null>(null);
   const [showConsolidated, setShowConsolidated] = useState(false);
   
@@ -207,9 +208,11 @@ const CCTVInventory: React.FC<CCTVInventoryProps> = ({ pharmacies, records, onBa
                       <Video className="w-6 h-6 text-orange-600" />
                       <h3 className="font-black text-slate-800 text-2xl tracking-tighter uppercase">{p.name}</h3>
                     </div>
-                    <div className="bg-slate-50 p-2 rounded-lg text-slate-300 group-hover:text-orange-500 transition-colors">
-                      <Pencil className="w-4 h-4" />
-                    </div>
+                    {!readOnly && (
+                      <div className="bg-slate-50 p-2 rounded-lg text-slate-300 group-hover:text-orange-500 transition-colors">
+                        <Pencil className="w-4 h-4" />
+                      </div>
+                    )}
                   </div>
 
                   {record ? (
@@ -529,10 +532,17 @@ const CCTVInventory: React.FC<CCTVInventoryProps> = ({ pharmacies, records, onBa
       </div>
 
       <div className="mt-12 flex justify-end items-center gap-8">
-        <button onClick={() => setSelectedPharmacy(null)} className="text-slate-400 font-black uppercase tracking-widest text-xs hover:text-slate-600 transition-colors">Cancelar</button>
-        <button onClick={handleSaveInventory} className="bg-orange-600 text-white px-10 py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-xl shadow-orange-600/20 flex items-center gap-3 hover:bg-orange-500 transition-all transform active:scale-95">
-          <Save className="w-5 h-5" /> Guardar Inventario
-        </button>
+        <button onClick={() => setSelectedPharmacy(null)} className="text-slate-400 font-black uppercase tracking-widest text-xs hover:text-slate-600 transition-colors">Volver</button>
+        {!readOnly && (
+          <button onClick={handleSaveInventory} className="bg-orange-600 text-white px-10 py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-xl shadow-orange-600/20 flex items-center gap-3 hover:bg-orange-500 transition-all transform active:scale-95">
+            <Save className="w-5 h-5" /> Guardar Inventario
+          </button>
+        )}
+        {readOnly && (
+          <span className="text-xs font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-6 py-3 rounded-2xl border border-slate-200">
+            🔒 Modo Solo Lectura
+          </span>
+        )}
       </div>
     </div>
   );
