@@ -42,7 +42,9 @@ const PhysicalInventory: React.FC<PhysicalInventoryProps> = ({ pharmacies, recor
   const [showConsolidated, setShowConsolidated] = useState(false);
 
   const [formData, setFormData] = useState({
-    smReq: 1, smGood: 1, cdReq: 2, cdGood: 2, espReq: 2, espGood: 2, iluReq: 4, iluGood: 4, notes: ''
+    smReq: 1, smGood: 1, cdReq: 2, cdGood: 2, espReq: 2, espGood: 2, iluReq: 4, iluGood: 4,
+    needsMirrors: false, mirrorsNeeded: 1, mirrorsPriority: 2 as 1 | 2 | 3,
+    notes: ''
   });
 
   useEffect(() => {
@@ -50,9 +52,18 @@ const PhysicalInventory: React.FC<PhysicalInventoryProps> = ({ pharmacies, recor
       const pharmRecords = records.filter(r => r.pharmacyId === selectedPharmacy.id);
       const record = pharmRecords.length > 0 ? pharmRecords[pharmRecords.length - 1] : undefined;
       if (record) {
-        setFormData({ smReq: record.santamarias.required, smGood: record.santamarias.good, cdReq: record.candados.required, cdGood: record.candados.good, espReq: record.espejos.required, espGood: record.espejos.good, iluReq: record.iluminacion.required, iluGood: record.iluminacion.good, notes: record.notes });
+        setFormData({
+          smReq: record.santamarias.required, smGood: record.santamarias.good,
+          cdReq: record.candados.required, cdGood: record.candados.good,
+          espReq: record.espejos.required, espGood: record.espejos.good,
+          iluReq: record.iluminacion.required, iluGood: record.iluminacion.good,
+          needsMirrors: (record as any).needsMirrors ?? false,
+          mirrorsNeeded: (record as any).mirrorsNeeded ?? 1,
+          mirrorsPriority: (record as any).mirrorsPriority ?? 2,
+          notes: record.notes
+        });
       } else {
-        setFormData({ smReq: 1, smGood: 1, cdReq: 2, cdGood: 2, espReq: 2, espGood: 2, iluReq: 4, iluGood: 4, notes: '' });
+        setFormData({ smReq: 1, smGood: 1, cdReq: 2, cdGood: 2, espReq: 2, espGood: 2, iluReq: 4, iluGood: 4, needsMirrors: false, mirrorsNeeded: 1, mirrorsPriority: 2, notes: '' });
       }
     }
   }, [selectedPharmacy, records]);
@@ -66,27 +77,30 @@ const PhysicalInventory: React.FC<PhysicalInventoryProps> = ({ pharmacies, recor
       santamarias: { required: formData.smReq, good: formData.smGood }, 
       candados: { required: formData.cdReq, good: formData.cdGood }, 
       espejos: { required: formData.espReq, good: formData.espGood }, 
-      iluminacion: { required: formData.iluReq, good: formData.iluGood }, 
+      iluminacion: { required: formData.iluReq, good: formData.iluGood },
+      needsMirrors: formData.needsMirrors,
+      mirrorsNeeded: formData.needsMirrors ? formData.mirrorsNeeded : 0,
+      mirrorsPriority: formData.needsMirrors ? formData.mirrorsPriority : undefined,
       notes: formData.notes 
-    }); 
+    } as any); 
     alert("Inventario técnico guardado exitosamente"); 
     setSelectedPharmacy(null); 
   };
 
   const downloadCSV = () => {
     const headers = [
-      'FARMACIA', 'ACTUALIZACION', 'SANTAMARIAS', 'CANDADOS', 'ESPEJOS', 'ILUMINACION', 'EFICIENCIA (%)'
+      'FARMACIA', 'ACTUALIZACION', 'SANTAMARIAS', 'CANDADOS', 'ESPEJOS', 'ILUMINACION', 'ESPEJOS REQUERIDOS', 'EFICIENCIA (%)'
     ];
     
     const rows = pharmacies.map(p => {
       const r = records.filter(x => x.pharmacyId === p.id).pop();
-      if (!r) return [p.name, 'Sin registro', '', '', '', '', '0%'];
+      if (!r) return [p.name, 'Sin registro', '', '', '', '', '', '0%'];
       
       const totalReq = r.santamarias.required + r.candados.required + r.espejos.required + r.iluminacion.required;
       const totalGood = r.santamarias.good + r.candados.good + r.espejos.good + r.iluminacion.good;
       const health = totalReq > 0 ? (totalGood / totalReq) * 100 : 0;
+      const mirrorsInfo = (r as any).needsMirrors ? `${(r as any).mirrorsNeeded} (P${(r as any).mirrorsPriority})` : 'No';
       
-      // Se utiliza el formato "X de Y" para evitar que Excel autoformatee como fecha
       return [
         p.name,
         r.date,
@@ -94,6 +108,7 @@ const PhysicalInventory: React.FC<PhysicalInventoryProps> = ({ pharmacies, recor
         `${r.candados.good} de ${r.candados.required}`,
         `${r.espejos.good} de ${r.espejos.required}`,
         `${r.iluminacion.good} de ${r.iluminacion.required}`,
+        mirrorsInfo,
         `${health.toFixed(1)}%`
       ];
     });
@@ -204,6 +219,7 @@ const PhysicalInventory: React.FC<PhysicalInventoryProps> = ({ pharmacies, recor
                         <th className="p-4 text-center">CANDADOS</th>
                         <th className="p-4 text-center">ESPEJOS</th>
                         <th className="p-4 text-center">LUZ EXT.</th>
+                        <th className="p-4 text-center text-violet-500">🔵 ESP. REQUERIDOS</th>
                         <th className="p-4 text-center">EFICIENCIA</th>
                         <th className="p-4 pr-8 text-center">ESTATUS</th>
                       </tr>
@@ -220,6 +236,9 @@ const PhysicalInventory: React.FC<PhysicalInventoryProps> = ({ pharmacies, recor
                         const totalReq = r.santamarias.required + r.candados.required + r.espejos.required + r.iluminacion.required;
                         const totalGood = r.santamarias.good + r.candados.good + r.espejos.good + r.iluminacion.good;
                         const health = totalReq > 0 ? (totalGood / totalReq) * 100 : 0;
+                        const needsMirrors = (r as any).needsMirrors;
+                        const mirrorsNeeded = (r as any).mirrorsNeeded ?? 0;
+                        const mirrorsPriority = (r as any).mirrorsPriority;
                         return (
                           <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                             <td className="p-4 pl-8 font-black text-slate-900 text-sm uppercase">{p.name}</td>
@@ -228,6 +247,16 @@ const PhysicalInventory: React.FC<PhysicalInventoryProps> = ({ pharmacies, recor
                             <td className="p-4 text-center">{r.candados.good} / {r.candados.required}</td>
                             <td className="p-4 text-center">{r.espejos.good} / {r.espejos.required}</td>
                             <td className="p-4 text-center">{r.iluminacion.good} / {r.iluminacion.required}</td>
+                            <td className="p-4 text-center">
+                              {needsMirrors
+                                ? <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase border ${
+                                    mirrorsPriority === 1 ? 'bg-red-50 text-red-600 border-red-200' :
+                                    mirrorsPriority === 2 ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                                    'bg-slate-50 text-slate-500 border-slate-200'
+                                  }`}>P{mirrorsPriority} &mdash; {mirrorsNeeded} esp.</span>
+                                : <span className="text-slate-300 font-black">—</span>
+                              }
+                            </td>
                             <td className="p-4 text-center">
                               <span className={`px-2 py-1 rounded-lg border font-black ${health >= 90 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
                                 {health.toFixed(1)}%
@@ -268,6 +297,74 @@ const PhysicalInventory: React.FC<PhysicalInventoryProps> = ({ pharmacies, recor
          {renderItemRow("Candados", <Lock className="w-8 h-8" />, formData.cdReq, (v) => setFormData({...formData, cdReq: v}), formData.cdGood, (v) => setFormData({...formData, cdGood: v}))}
          {renderItemRow("Espejos Convexos", <Eye className="w-8 h-8" />, formData.espReq, (v) => setFormData({...formData, espReq: v}), formData.espGood, (v) => setFormData({...formData, espGood: v}))}
          {renderItemRow("Iluminación", <Lightbulb className="w-8 h-8" />, formData.iluReq, (v) => setFormData({...formData, iluReq: v}), formData.iluGood, (v) => setFormData({...formData, iluGood: v}))}
+
+         {/* Requerimiento de instalacion de espejos */}
+         <div className="bg-white rounded-[2.5rem] shadow-xl border-2 border-violet-100 p-8">
+           <div className="flex items-center gap-4 mb-6">
+             <div className="p-4 bg-violet-50 rounded-[1.5rem] border border-violet-100">
+               <Eye className="w-7 h-7 text-violet-600" />
+             </div>
+             <div>
+               <h3 className="text-xl font-black text-slate-800 tracking-tight uppercase">Espejos por Instalar</h3>
+               <p className="text-[10px] font-bold text-violet-500 uppercase tracking-widest">Requerimiento de asignación</p>
+             </div>
+           </div>
+
+           <div className="flex items-center gap-4 mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+             <label className="flex items-center gap-3 cursor-pointer select-none">
+               <div
+                 onClick={() => setFormData({...formData, needsMirrors: !formData.needsMirrors})}
+                 className={`w-12 h-6 rounded-full relative transition-colors cursor-pointer ${
+                   formData.needsMirrors ? 'bg-violet-600' : 'bg-slate-300'
+                 }`}
+               >
+                 <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${
+                   formData.needsMirrors ? 'left-7' : 'left-1'
+                 }`} />
+               </div>
+               <span className="font-black text-slate-700 text-sm">
+                 {formData.needsMirrors ? 'Sí se requiere instalar espejos' : 'No se requieren espejos adicionales'}
+               </span>
+             </label>
+           </div>
+
+           {formData.needsMirrors && (
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+               <div>
+                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Cantidad a Instalar</label>
+                 <input
+                   type="number" min="1"
+                   className="w-full p-4 bg-violet-50 border-2 border-violet-100 rounded-2xl font-black text-violet-800 text-center text-2xl outline-none focus:border-violet-500"
+                   value={formData.mirrorsNeeded}
+                   onChange={e => setFormData({...formData, mirrorsNeeded: Math.max(1, parseInt(e.target.value) || 1)})}
+                 />
+               </div>
+               <div>
+                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Prioridad (1 = más urgente)</label>
+                 <div className="grid grid-cols-3 gap-3">
+                   {([1, 2, 3] as const).map(p => (
+                     <button
+                       key={p}
+                       onClick={() => setFormData({...formData, mirrorsPriority: p})}
+                       className={`py-4 rounded-2xl font-black text-lg border-2 transition-all ${
+                         formData.mirrorsPriority === p
+                           ? p === 1 ? 'bg-red-500 text-white border-red-500 shadow-lg shadow-red-200'
+                             : p === 2 ? 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-200'
+                             : 'bg-slate-500 text-white border-slate-500 shadow-lg shadow-slate-200'
+                           : 'bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-300'
+                       }`}
+                     >
+                       P{p}
+                       <span className="block text-[9px] font-bold mt-0.5 opacity-80">
+                         {p === 1 ? 'URGENTE' : p === 2 ? 'NORMAL' : 'BAJA'}
+                       </span>
+                     </button>
+                   ))}
+                 </div>
+               </div>
+             </div>
+           )}
+         </div>
       </div>
       
       <div className="bg-white p-10 rounded-[3.5rem] shadow-xl border border-white mb-12">
