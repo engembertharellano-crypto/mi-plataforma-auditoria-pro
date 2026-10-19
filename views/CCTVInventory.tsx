@@ -59,10 +59,14 @@ const CCTVInventory: React.FC<CCTVInventoryProps> = ({ pharmacies, records, onBa
     notes: ''
   });
 
+  // Obtiene el registro más reciente (los IDs contienen timestamp: cctv-${Date.now()})
+  const latestRecord = (recs: typeof records) =>
+    recs.length > 0 ? [...recs].sort((a, b) => b.id.localeCompare(a.id))[0] : undefined;
+
   useEffect(() => {
     if (selectedPharmacy) {
       const pharmRecords = records.filter(r => r.pharmacyId === selectedPharmacy.id);
-      const record = pharmRecords.length > 0 ? pharmRecords[pharmRecords.length - 1] : undefined;
+      const record = latestRecord(pharmRecords);
       if (record) {
         setFormData({
           recorderType: record.equipment.recorderType,
@@ -140,7 +144,7 @@ const CCTVInventory: React.FC<CCTVInventoryProps> = ({ pharmacies, records, onBa
     ];
     
     const rows = pharmacies.map(p => {
-      const r = records.filter(x => x.pharmacyId === p.id).pop();
+      const r = latestRecord(records.filter(x => x.pharmacyId === p.id));
       if (!r) return [p.name, 'Sin inventario', '', '', '', '', '', '', '', '', '', '', ''];
       
       const totalCams = r.cameras.analogTotal + r.cameras.ipTotal;
@@ -195,7 +199,7 @@ const CCTVInventory: React.FC<CCTVInventoryProps> = ({ pharmacies, records, onBa
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {pharmacies.map(p => {
             const pharmRecords = records.filter(r => r.pharmacyId === p.id);
-            const record = pharmRecords.length > 0 ? pharmRecords[pharmRecords.length - 1] : undefined;
+            const record = latestRecord(pharmRecords);
 
             return (
               <div 
@@ -298,7 +302,7 @@ const CCTVInventory: React.FC<CCTVInventoryProps> = ({ pharmacies, records, onBa
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
                     {pharmacies.map(p => {
-                      const r = records.filter(x => x.pharmacyId === p.id).pop();
+                      const r = latestRecord(records.filter(x => x.pharmacyId === p.id));
                       
                       if (!r) return (
                         <tr key={p.id} className="hover:bg-slate-50">
