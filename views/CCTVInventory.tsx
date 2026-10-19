@@ -48,8 +48,10 @@ const CCTVInventory: React.FC<CCTVInventoryProps> = ({ pharmacies, records, onBa
     rackStatus: 'Ordenado' as 'Ordenado' | 'Desordenado' | 'No Posee',
     analogTotal: 0,
     analogOperative: 0,
+    analogToUpdate: 0,
     ipTotal: 0,
     ipOperative: 0,
+    ipToUpdate: 0,
     hasAlarm: true,
     alarmStatus: 'Operativa',
     monitorStatus: 'OK',
@@ -73,8 +75,10 @@ const CCTVInventory: React.FC<CCTVInventoryProps> = ({ pharmacies, records, onBa
           rackStatus: record.equipment.rackStatus,
           analogTotal: record.cameras.analogTotal,
           analogOperative: record.cameras.analogOperative,
+          analogToUpdate: record.cameras.analogToUpdate ?? 0,
           ipTotal: record.cameras.ipTotal,
           ipOperative: record.cameras.ipOperative,
+          ipToUpdate: record.cameras.ipToUpdate ?? 0,
           hasAlarm: record.alarm.hasAlarm,
           alarmStatus: record.alarm.status,
           monitorStatus: record.equipment.monitorStatus,
@@ -85,8 +89,8 @@ const CCTVInventory: React.FC<CCTVInventoryProps> = ({ pharmacies, records, onBa
         setFormData({
           recorderType: 'DVR', dvrQuantity: 1, dvrStatus: 'Operativo', hddStatus: 'Operativo', 
           daysRecording: 0, remoteStatus: 'Conectado', upsStatus: 'Operativo', rackStatus: 'Ordenado',
-          analogTotal: 0, analogOperative: 0, ipTotal: 0, ipOperative: 0, hasAlarm: true, 
-          alarmStatus: 'Operativa', monitorStatus: 'OK', mouseStatus: 'OK', notes: ''
+          analogTotal: 0, analogOperative: 0, analogToUpdate: 0, ipTotal: 0, ipOperative: 0,
+          ipToUpdate: 0, hasAlarm: true, alarmStatus: 'Operativa', monitorStatus: 'OK', mouseStatus: 'OK', notes: ''
         });
       }
     }
@@ -114,8 +118,10 @@ const CCTVInventory: React.FC<CCTVInventoryProps> = ({ pharmacies, records, onBa
         analogTotal: formData.analogTotal,
         analogOperative: formData.analogOperative,
         analogDamaged: Math.max(0, formData.analogTotal - formData.analogOperative),
+        analogToUpdate: Math.min(formData.analogToUpdate, formData.analogOperative),
         ipTotal: formData.ipTotal,
-        ipOperative: formData.ipOperative
+        ipOperative: formData.ipOperative,
+        ipToUpdate: Math.min(formData.ipToUpdate, formData.ipOperative),
       },
       alarm: {
         hasAlarm: formData.hasAlarm,
@@ -130,16 +136,17 @@ const CCTVInventory: React.FC<CCTVInventoryProps> = ({ pharmacies, records, onBa
   const downloadCSV = () => {
     const headers = [
       'FARMACIA', 'ACTUALIZACION', 'DVR (CANT)', 'REMOTO', 'UPS', 
-      'RACK', 'DISCO DURO', 'DIAS GRAB', 'CAMARAS', 'OK', 'MALAS', 'ALARMA'
+      'RACK', 'DISCO DURO', 'DIAS GRAB', 'CAMARAS', 'OK', 'SUSTITUIR', 'ACTUALIZAR (OBS)', 'ALARMA'
     ];
     
     const rows = pharmacies.map(p => {
       const r = records.filter(x => x.pharmacyId === p.id).pop();
-      if (!r) return [p.name, 'Sin inventario', '', '', '', '', '', '', '', '', '', ''];
+      if (!r) return [p.name, 'Sin inventario', '', '', '', '', '', '', '', '', '', '', ''];
       
       const totalCams = r.cameras.analogTotal + r.cameras.ipTotal;
       const okCams = r.cameras.analogOperative + r.cameras.ipOperative;
       const badCams = totalCams - okCams;
+      const toUpdate = (r.cameras.analogToUpdate ?? 0) + (r.cameras.ipToUpdate ?? 0);
       
       return [
         p.name,
@@ -153,6 +160,7 @@ const CCTVInventory: React.FC<CCTVInventoryProps> = ({ pharmacies, records, onBa
         totalCams.toString(),
         okCams.toString(),
         badCams.toString(),
+        toUpdate.toString(),
         r.alarm.hasAlarm ? r.alarm.status : 'No Posee'
       ];
     });
@@ -283,7 +291,8 @@ const CCTVInventory: React.FC<CCTVInventoryProps> = ({ pharmacies, records, onBa
                       <th className="p-4 text-center">DÍAS GRAB.</th>
                       <th className="p-4 text-center">CÁMARAS</th>
                       <th className="p-4 text-center">OK</th>
-                      <th className="p-4 text-center">MALAS</th>
+                      <th className="p-4 text-center text-red-500">🔴 SUSTITUIR</th>
+                      <th className="p-4 text-center text-amber-500">🟡 ACTUALIZAR</th>
                       <th className="p-4 text-center">ALARMA</th>
                     </tr>
                   </thead>
@@ -294,13 +303,14 @@ const CCTVInventory: React.FC<CCTVInventoryProps> = ({ pharmacies, records, onBa
                       if (!r) return (
                         <tr key={p.id} className="hover:bg-slate-50">
                           <td className="p-4 pl-8 font-black text-slate-900 text-sm">{p.name}</td>
-                          <td colSpan={11} className="p-4 text-center text-slate-300 italic font-medium">Sin inventario</td>
+                          <td colSpan={12} className="p-4 text-center text-slate-300 italic font-medium">Sin inventario</td>
                         </tr>
                       );
 
                       const totalCams = r.cameras.analogTotal + r.cameras.ipTotal;
                       const opCams = r.cameras.analogOperative + r.cameras.ipOperative;
                       const badCams = totalCams - opCams;
+                      const toUpdate = (r.cameras.analogToUpdate ?? 0) + (r.cameras.ipToUpdate ?? 0);
 
                       return (
                         <tr key={p.id} className="hover:bg-slate-50 transition-colors">
@@ -326,7 +336,18 @@ const CCTVInventory: React.FC<CCTVInventoryProps> = ({ pharmacies, records, onBa
                           <td className="p-4 text-center font-black text-slate-700">{r.equipment.daysRecording}</td>
                           <td className="p-4 text-center font-black text-slate-900 text-sm">{totalCams}</td>
                           <td className="p-4 text-center font-black text-emerald-600 text-sm">{opCams}</td>
-                          <td className="p-4 text-center font-black text-red-600 text-sm">{badCams}</td>
+                          <td className="p-4 text-center">
+                            {badCams > 0
+                              ? <span className="px-3 py-1 rounded-lg text-[9px] font-black uppercase bg-red-50 text-red-600 border border-red-100">{badCams}</span>
+                              : <span className="text-slate-300 font-black">—</span>
+                            }
+                          </td>
+                          <td className="p-4 text-center">
+                            {toUpdate > 0
+                              ? <span className="px-3 py-1 rounded-lg text-[9px] font-black uppercase bg-amber-50 text-amber-600 border border-amber-200">{toUpdate}</span>
+                              : <span className="text-slate-300 font-black">—</span>
+                            }
+                          </td>
                           <td className="p-4 text-center pr-8">
                              <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase ${r.alarm.hasAlarm && r.alarm.status === 'Operativa' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-50 text-slate-400 border border-slate-100'}`}>
                                 {r.alarm.hasAlarm ? r.alarm.status : 'Sin Alarma'}
@@ -444,33 +465,67 @@ const CCTVInventory: React.FC<CCTVInventoryProps> = ({ pharmacies, records, onBa
             <div className="space-y-8">
               <div>
                 <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-4">CÁMARAS ANÁLOGAS</p>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-4 gap-3">
                   <div className="bg-slate-50 p-4 rounded-2xl text-center border border-slate-100">
                     <p className="text-[9px] font-bold text-slate-400 uppercase">TOTAL</p>
-                    <input type="number" className="w-full bg-transparent text-center font-black text-xl outline-none" value={formData.analogTotal} onChange={e => setFormData({...formData, analogTotal: parseInt(e.target.value) || 0})} />
+                    <input type="number" min="0" className="w-full bg-transparent text-center font-black text-xl outline-none" value={formData.analogTotal} onChange={e => setFormData({...formData, analogTotal: parseInt(e.target.value) || 0})} />
                   </div>
                   <div className="bg-emerald-50 p-4 rounded-2xl text-center border border-emerald-100">
                     <p className="text-[9px] font-bold text-emerald-600 uppercase">OK</p>
-                    <input type="number" className="w-full bg-transparent text-center font-black text-xl text-emerald-700 outline-none" value={formData.analogOperative} onChange={e => setFormData({...formData, analogOperative: parseInt(e.target.value) || 0})} />
+                    <input type="number" min="0" className="w-full bg-transparent text-center font-black text-xl text-emerald-700 outline-none" value={formData.analogOperative} onChange={e => setFormData({...formData, analogOperative: parseInt(e.target.value) || 0})} />
                   </div>
                   <div className="bg-red-50 p-4 rounded-2xl text-center border border-red-100">
-                    <p className="text-[9px] font-bold text-red-600 uppercase">DAÑADAS</p>
-                    <p className="font-black text-xl text-red-700">{Math.max(0, formData.analogTotal - formData.analogOperative)}</p>
+                    <p className="text-[9px] font-bold text-red-600 uppercase">SUSTITUIR</p>
+                    <p className="font-black text-xl text-red-700 pt-1">{Math.max(0, formData.analogTotal - formData.analogOperative)}</p>
+                  </div>
+                  <div className="bg-amber-50 p-4 rounded-2xl text-center border border-amber-200">
+                    <p className="text-[9px] font-bold text-amber-600 uppercase">ACTUALIZAR</p>
+                    <input
+                      type="number" min="0"
+                      max={formData.analogOperative}
+                      className={`w-full bg-transparent text-center font-black text-xl outline-none text-amber-700 ${formData.analogToUpdate > formData.analogOperative ? 'text-red-500' : ''}`}
+                      value={formData.analogToUpdate}
+                      onChange={e => setFormData({...formData, analogToUpdate: parseInt(e.target.value) || 0})}
+                    />
                   </div>
                 </div>
+                {formData.analogToUpdate > formData.analogOperative && (
+                  <p className="text-[10px] text-red-500 font-bold mt-2">⚠ No puede haber más cámaras a actualizar que operativas ({formData.analogOperative})</p>
+                )}
+                {formData.analogToUpdate > 0 && formData.analogToUpdate <= formData.analogOperative && (
+                  <p className="text-[10px] text-amber-600 font-bold mt-2">ℹ {formData.analogToUpdate} de {formData.analogOperative} cámaras OK están marcadas como obsoletas (siguen operativas)</p>
+                )}
               </div>
               <div>
                 <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-4">CÁMARAS IP / ADICIONALES</p>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-slate-50 p-4 rounded-2xl flex justify-between items-center border border-slate-100">
                     <span className="text-[9px] font-bold text-slate-400">TOTAL IP</span>
-                    <input type="number" className="w-16 bg-transparent text-right font-black text-xl outline-none" value={formData.ipTotal} onChange={e => setFormData({...formData, ipTotal: parseInt(e.target.value) || 0})} />
+                    <input type="number" min="0" className="w-16 bg-transparent text-right font-black text-xl outline-none" value={formData.ipTotal} onChange={e => setFormData({...formData, ipTotal: parseInt(e.target.value) || 0})} />
                   </div>
                   <div className="bg-slate-50 p-4 rounded-2xl flex justify-between items-center border border-slate-100">
                     <span className="text-[9px] font-bold text-slate-400">OK IP</span>
-                    <input type="number" className="w-16 bg-transparent text-right font-black text-xl outline-none" value={formData.ipOperative} onChange={e => setFormData({...formData, ipOperative: parseInt(e.target.value) || 0})} />
+                    <input type="number" min="0" className="w-16 bg-transparent text-right font-black text-xl outline-none" value={formData.ipOperative} onChange={e => setFormData({...formData, ipOperative: parseInt(e.target.value) || 0})} />
                   </div>
                 </div>
+                {formData.ipTotal > 0 && (
+                  <div className="grid grid-cols-2 gap-4 mt-3">
+                    <div className="bg-red-50 p-3 rounded-2xl flex justify-between items-center border border-red-100">
+                      <span className="text-[9px] font-bold text-red-500">SUSTITUIR IP</span>
+                      <span className="font-black text-lg text-red-700">{Math.max(0, formData.ipTotal - formData.ipOperative)}</span>
+                    </div>
+                    <div className="bg-amber-50 p-3 rounded-2xl flex justify-between items-center border border-amber-200">
+                      <span className="text-[9px] font-bold text-amber-600">ACTUALIZAR IP</span>
+                      <input
+                        type="number" min="0"
+                        max={formData.ipOperative}
+                        className="w-14 bg-transparent text-right font-black text-lg text-amber-700 outline-none"
+                        value={formData.ipToUpdate}
+                        onChange={e => setFormData({...formData, ipToUpdate: parseInt(e.target.value) || 0})}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

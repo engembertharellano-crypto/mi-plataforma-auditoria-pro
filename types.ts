@@ -98,8 +98,10 @@ export interface CCTVInventoryRecord {
     analogTotal: number;
     analogOperative: number;
     analogDamaged: number;
+    analogToUpdate?: number;
     ipTotal: number;
     ipOperative: number;
+    ipToUpdate?: number;
   };
   alarm: {
     hasAlarm: boolean;
