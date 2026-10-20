@@ -1070,6 +1070,11 @@ const App: React.FC = () => {
               setUserData(prev => ({ ...prev, staffRecords: prev.staffRecords.filter(x => x.id !== id) }));
               await deleteFromCloud('staff', id);
             }}
+            onEditStaff={async (s) => {
+              if (!checkPermission()) return;
+              setUserData(prev => ({ ...prev, staffRecords: prev.staffRecords.map(x => x.id === s.id ? s : x) }));
+              await saveToCloud('staff', s.id, s);
+            }}
           />
         )}
 

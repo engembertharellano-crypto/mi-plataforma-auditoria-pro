@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState } from 'react';
 import { 
   Users, 
@@ -17,7 +17,8 @@ import {
   Download,
   FileSpreadsheet,
   CheckCircle2,
-  ChevronDown
+  ChevronDown,
+  Pencil
 } from 'lucide-react';
 import { Pharmacy, StaffRecord } from '../types';
 
@@ -26,9 +27,10 @@ interface StaffDirectoryProps {
   staffRecords: StaffRecord[];
   onAddStaff: (record: StaffRecord) => void;
   onDeleteStaff: (id: string) => void;
+  onEditStaff: (record: StaffRecord) => void;
 }
 
-// Configuración de Jerarquía para el ordenamiento automático
+// ConfiguraciÃ³n de JerarquÃ­a para el ordenamiento automÃ¡tico
 const ROLE_HIERARCHY: Record<string, number> = {
   'Gerente': 1,
   'Gerente/Regente': 2,
@@ -41,14 +43,16 @@ const ROLE_HIERARCHY: Record<string, number> = {
 const StaffDirectory: React.FC<StaffDirectoryProps> = ({ 
   pharmacies, 
   staffRecords, 
-  onAddStaff, 
-  onDeleteStaff 
+  onAddStaff,
+  onDeleteStaff,
+  onEditStaff
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [showModal, setShowModal] = useState(false);
   const [showConsolidated, setShowConsolidated] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ id: string; name: string } | null>(null);
+  const [editingStaff, setEditingStaff] = useState<StaffRecord | null>(null);
   
   // Form State
   const [formData, setFormData] = useState({
@@ -71,16 +75,45 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
       return;
     }
 
-    const newStaff: StaffRecord = {
-      id: `staff-${Date.now()}`,
-      pharmacyId: formData.pharmacyId,
-      fullName: formData.fullName,
-      role: formData.role,
-      phone: formData.phone
-    };
+    if (editingStaff) {
+      // MODO EDICION: conserva el mismo ID
+      const updated: StaffRecord = {
+        ...editingStaff,
+        pharmacyId: formData.pharmacyId,
+        fullName: formData.fullName,
+        role: formData.role,
+        phone: formData.phone
+      };
+      onEditStaff(updated);
+    } else {
+      // MODO CREACION: nuevo ID
+      const newStaff: StaffRecord = {
+        id: `staff-${Date.now()}`,
+        pharmacyId: formData.pharmacyId,
+        fullName: formData.fullName,
+        role: formData.role,
+        phone: formData.phone
+      };
+      onAddStaff(newStaff);
+    }
 
-    onAddStaff(newStaff);
+    closeModal();
+  };
+
+  const openEditModal = (staff: StaffRecord) => {
+    setEditingStaff(staff);
+    setFormData({
+      pharmacyId: staff.pharmacyId,
+      fullName: staff.fullName,
+      role: staff.role,
+      phone: staff.phone || ''
+    });
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
     setShowModal(false);
+    setEditingStaff(null);
     setFormData({ pharmacyId: '', fullName: '', role: 'Gerente', phone: '' });
   };
 
@@ -100,14 +133,14 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
     )
   );
 
-  // --- CSV EXPORT LOGIC (Con Jerarquía) ---
+  // --- CSV EXPORT LOGIC (Con JerarquÃ­a) ---
   const downloadConsolidatedCSV = () => {
     const headers = [
       'Sede / Farmacia',
       'Nombre Completo',
       'Cargo / Rol',
-      'Teléfono de Contacto',
-      'Teléfono Corporativo Sede'
+      'TelÃ©fono de Contacto',
+      'TelÃ©fono Corporativo Sede'
     ];
 
     const escapeCsvCell = (cellData: any): string => {
@@ -170,7 +203,7 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                  <FileSpreadsheet className="w-6 h-6" />
               </div>
               <div>
-                 <h3 className="text-xl font-bold text-slate-800">Consolidado Jerárquico de Personal</h3>
+                 <h3 className="text-xl font-bold text-slate-800">Consolidado JerÃ¡rquico de Personal</h3>
                  <p className="text-xs text-slate-500 font-medium">Listado maestro clasificado por nivel de cargo</p>
               </div>
            </div>
@@ -196,8 +229,8 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                  <tr>
                     <th className="p-4 border-b border-r border-slate-200 min-w-[200px]">Sede / Farmacia</th>
                     <th className="p-4 border-b border-r border-slate-200">Nombre del Colaborador</th>
-                    <th className="p-4 border-b border-r border-slate-200">Cargo / Posición</th>
-                    <th className="p-4 border-b border-r border-slate-200 text-center">Teléfono Personal</th>
+                    <th className="p-4 border-b border-r border-slate-200">Cargo / PosiciÃ³n</th>
+                    <th className="p-4 border-b border-r border-slate-200 text-center">TelÃ©fono Personal</th>
                     <th className="p-4 border-b border-slate-200 text-center">Tel. Corporativo Sede</th>
                  </tr>
               </thead>
@@ -275,7 +308,7 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
       <div className="flex justify-between items-center mb-8">
         <div>
           <h2 className="text-3xl font-black text-white tracking-tight drop-shadow-md">Directorio de Personal</h2>
-          <p className="text-slate-300 mt-1 font-medium">Gestión operativa y jerárquica</p>
+          <p className="text-slate-300 mt-1 font-medium">GestiÃ³n operativa y jerÃ¡rquica</p>
         </div>
         <div className="flex gap-3">
           <button 
@@ -345,7 +378,7 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                       <Phone className="w-4 h-4 text-orange-500" />
                       <span className="font-bold text-slate-700 text-sm">{pharmacy.corporatePhone || 'Sin corporativo'}</span>
                    </div>
-                   <span className="bg-white/60 px-2 py-0.5 rounded-lg text-[9px] font-black text-slate-400 border border-slate-100">TELÉFONO SEDE</span>
+                   <span className="bg-white/60 px-2 py-0.5 rounded-lg text-[9px] font-black text-slate-400 border border-slate-100">TELÃ‰FONO SEDE</span>
                 </div>
                 
                 <div className="p-6 flex-1 bg-white/40">
@@ -377,13 +410,22 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                               )}
                             </div>
                           </div>
-                          <button 
-                            onClick={() => setDeleteConfirmation({ id: staff.id, name: staff.fullName })}
-                            className="text-slate-300 hover:text-red-500 opacity-0 group-hover/item:opacity-100 transition-opacity p-2 hover:bg-red-50 rounded-xl"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
+                          <div className="flex gap-1">
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); openEditModal(staff); }}
+                              className="text-slate-300 hover:text-orange-500 opacity-0 group-hover/item:opacity-100 transition-opacity p-2 hover:bg-orange-50 rounded-xl"
+                              title="Editar"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); setDeleteConfirmation({ id: staff.id, name: staff.fullName }); }}
+                              className="text-slate-300 hover:text-red-500 opacity-0 group-hover/item:opacity-100 transition-opacity p-2 hover:bg-red-50 rounded-xl"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -416,9 +458,9 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
              <thead>
                <tr className="bg-slate-50/80 border-b border-slate-200 backdrop-blur-sm">
                  <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest pl-8">Colaborador</th>
-                 <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest">Cargo / Posición</th>
+                 <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest">Cargo / PosiciÃ³n</th>
                  <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest">Sede (Farmacia)</th>
-                 <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Teléfono</th>
+                 <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest text-center">TelÃ©fono</th>
                  <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Acciones</th>
                </tr>
              </thead>
@@ -466,7 +508,7 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                    <td colSpan={5} className="p-20 text-center text-slate-300">
                      <div className="flex flex-col items-center gap-4">
                         <Users className="w-12 h-12 opacity-10" />
-                        <p className="font-bold text-lg">No se encontró personal registrado.</p>
+                        <p className="font-bold text-lg">No se encontrÃ³ personal registrado.</p>
                      </div>
                    </td>
                  </tr>
@@ -484,8 +526,8 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                 <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mb-4 text-red-600">
                    <Trash2 className="w-7 h-7" />
                 </div>
-                <h3 className="text-xl font-black text-slate-800 mb-2">¿Eliminar {deleteConfirmation.name}?</h3>
-                <p className="text-slate-500 mb-6">Esta persona será eliminada permanentemente del directorio de personal.</p>
+                <h3 className="text-xl font-black text-slate-800 mb-2">Â¿Eliminar {deleteConfirmation.name}?</h3>
+                <p className="text-slate-500 mb-6">Esta persona serÃ¡ eliminada permanentemente del directorio de personal.</p>
                 
                 <div className="flex gap-3 w-full">
                    <button 
@@ -498,7 +540,7 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                      onClick={confirmDelete}
                      className="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 shadow-lg shadow-red-500/30"
                    >
-                     Sí, Eliminar
+                     SÃ­, Eliminar
                    </button>
                 </div>
              </div>
@@ -512,10 +554,10 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
           <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl animate-in fade-in zoom-in duration-200 overflow-hidden border border-white/20">
             <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
-                <UserCircle className="w-7 h-7 text-orange-600" />
-                Registrar Personal
+                {editingStaff ? <Pencil className="w-7 h-7 text-orange-600" /> : <UserCircle className="w-7 h-7 text-orange-600" />}
+                {editingStaff ? 'Editar Personal' : 'Registrar Personal'}
               </h3>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-full transition-colors">
+              <button onClick={closeModal} className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-full transition-colors">
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -539,7 +581,7 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Nombre Completo</label>
                 <input 
                   type="text"
-                  placeholder="Ej. María González"
+                  placeholder="Ej. MarÃ­a GonzÃ¡lez"
                   className="w-full p-4 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 font-bold text-slate-800 transition-all placeholder:text-slate-300"
                   value={formData.fullName}
                   onChange={(e) => setFormData({...formData, fullName: e.target.value})}
@@ -563,7 +605,7 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Teléfono</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">TelÃ©fono</label>
                   <input 
                     type="tel"
                     placeholder="0414-0000000"
@@ -577,7 +619,7 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
 
             <div className="p-8 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 rounded-b-3xl">
               <button 
-                onClick={() => setShowModal(false)}
+                onClick={closeModal}
                 className="px-8 py-3 rounded-2xl text-slate-600 font-black uppercase tracking-widest text-xs hover:bg-slate-200 transition-colors"
               >
                 Cancelar
@@ -586,7 +628,7 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                 onClick={handleSave}
                 className="px-8 py-3 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-orange-500/30 transition-all transform active:scale-95"
               >
-                Guardar Personal
+                {editingStaff ? 'Guardar Cambios' : 'Guardar Personal'}
               </button>
             </div>
           </div>
@@ -600,3 +642,4 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
 };
 
 export default StaffDirectory;
+
