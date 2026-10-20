@@ -38,7 +38,7 @@ export const HARDWARE_CHECKLIST: HardwareItem[] = [
 export const PROCESS_CHECKLIST: ProcessItem[] = [
   // 1. CAJA
   { id: 'p1.1', category: '1. CAJA (10%)', text: 'Retiro de dinero cajas (solo $) para fondo aprobado.', verification: 'CCTV/Presencial' },
-  { id: 'p1.2', category: '1. CAJA (10%)', text: 'Gerente/Senior verifica cuadre presencia empleado, firma conformidad.', verification: 'Libro/CCTV' },
+  { id: 'p1.2', category: '1. CAJA (10%)', text: 'Gerente/Senior verifica cuadre presencia empleado.', verification: 'Libro/CCTV' },
 
   // 2. ADMINISTRATIVO
   { id: 'p2.1', category: '2. ADMINISTRATIVO (25%)', text: 'Cierre control efectivo y reporte ingresos diario.', verification: 'Validar telefonicamente' },
