@@ -30,7 +30,7 @@ interface StaffDirectoryProps {
   onEditStaff: (record: StaffRecord) => void;
 }
 
-// ConfiguraciÃ³n de JerarquÃ­a para el ordenamiento automÃ¡tico
+// Configuración de Jerarquía para el ordenamiento automático
 const ROLE_HIERARCHY: Record<string, number> = {
   'Gerente': 1,
   'Gerente/Regente': 2,
@@ -135,14 +135,14 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
     )
   );
 
-  // --- CSV EXPORT LOGIC (Con JerarquÃ­a) ---
+  // --- CSV EXPORT LOGIC (Con Jerarquía) ---
   const downloadConsolidatedCSV = () => {
     const headers = [
       'Sede / Farmacia',
       'Nombre Completo',
       'Cargo / Rol',
-      'TelÃ©fono de Contacto',
-      'TelÃ©fono Corporativo Sede'
+      'Teléfono de Contacto',
+      'Teléfono Corporativo Sede'
     ];
 
     const escapeCsvCell = (cellData: any): string => {
@@ -205,7 +205,7 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                  <FileSpreadsheet className="w-6 h-6" />
               </div>
               <div>
-                 <h3 className="text-xl font-bold text-slate-800">Consolidado JerÃ¡rquico de Personal</h3>
+                 <h3 className="text-xl font-bold text-slate-800">Consolidado Jerárquico de Personal</h3>
                  <p className="text-xs text-slate-500 font-medium">Listado maestro clasificado por nivel de cargo</p>
               </div>
            </div>
@@ -231,8 +231,8 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                  <tr>
                     <th className="p-4 border-b border-r border-slate-200 min-w-[200px]">Sede / Farmacia</th>
                     <th className="p-4 border-b border-r border-slate-200">Nombre del Colaborador</th>
-                    <th className="p-4 border-b border-r border-slate-200">Cargo / PosiciÃ³n</th>
-                    <th className="p-4 border-b border-r border-slate-200 text-center">TelÃ©fono Personal</th>
+                    <th className="p-4 border-b border-r border-slate-200">Cargo / Posición</th>
+                    <th className="p-4 border-b border-r border-slate-200 text-center">Teléfono Personal</th>
                     <th className="p-4 border-b border-slate-200 text-center">Tel. Corporativo Sede</th>
                  </tr>
               </thead>
@@ -310,7 +310,7 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
       <div className="flex justify-between items-center mb-8">
         <div>
           <h2 className="text-3xl font-black text-white tracking-tight drop-shadow-md">Directorio de Personal</h2>
-          <p className="text-slate-300 mt-1 font-medium">GestiÃ³n operativa y jerÃ¡rquica</p>
+          <p className="text-slate-300 mt-1 font-medium">Gestión operativa y jerárquica</p>
         </div>
         <div className="flex gap-3">
           <button 
@@ -380,7 +380,7 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                       <Phone className="w-4 h-4 text-orange-500" />
                       <span className="font-bold text-slate-700 text-sm">{pharmacy.corporatePhone || 'Sin corporativo'}</span>
                    </div>
-                   <span className="bg-white/60 px-2 py-0.5 rounded-lg text-[9px] font-black text-slate-400 border border-slate-100">TELÃ‰FONO SEDE</span>
+                   <span className="bg-white/60 px-2 py-0.5 rounded-lg text-[9px] font-black text-slate-400 border border-slate-100">TELÉFONO SEDE</span>
                 </div>
                 
                 <div className="p-6 flex-1 bg-white/40">
@@ -460,9 +460,9 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
              <thead>
                <tr className="bg-slate-50/80 border-b border-slate-200 backdrop-blur-sm">
                  <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest pl-8">Colaborador</th>
-                 <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest">Cargo / PosiciÃ³n</th>
+                 <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest">Cargo / Posición</th>
                  <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest">Sede (Farmacia)</th>
-                 <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest text-center">TelÃ©fono</th>
+                 <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Teléfono</th>
                  <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Acciones</th>
                </tr>
              </thead>
@@ -510,7 +510,7 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                    <td colSpan={5} className="p-20 text-center text-slate-300">
                      <div className="flex flex-col items-center gap-4">
                         <Users className="w-12 h-12 opacity-10" />
-                        <p className="font-bold text-lg">No se encontrÃ³ personal registrado.</p>
+                        <p className="font-bold text-lg">No se encontró personal registrado.</p>
                      </div>
                    </td>
                  </tr>
@@ -528,8 +528,8 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                 <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mb-4 text-red-600">
                    <Trash2 className="w-7 h-7" />
                 </div>
-                <h3 className="text-xl font-black text-slate-800 mb-2">Â¿Eliminar {deleteConfirmation.name}?</h3>
-                <p className="text-slate-500 mb-6">Esta persona serÃ¡ eliminada permanentemente del directorio de personal.</p>
+                <h3 className="text-xl font-black text-slate-800 mb-2">¿Eliminar {deleteConfirmation.name}?</h3>
+                <p className="text-slate-500 mb-6">Esta persona será eliminada permanentemente del directorio de personal.</p>
                 
                 <div className="flex gap-3 w-full">
                    <button 
@@ -542,7 +542,7 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                      onClick={confirmDelete}
                      className="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 shadow-lg shadow-red-500/30"
                    >
-                     SÃ­, Eliminar
+                     Sí, Eliminar
                    </button>
                 </div>
              </div>
@@ -583,7 +583,7 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Nombre Completo</label>
                 <input 
                   type="text"
-                  placeholder="Ej. MarÃ­a GonzÃ¡lez"
+                  placeholder="Ej. María González"
                   className="w-full p-4 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 font-bold text-slate-800 transition-all placeholder:text-slate-300"
                   value={formData.fullName}
                   onChange={(e) => setFormData({...formData, fullName: e.target.value})}
@@ -607,7 +607,7 @@ const StaffDirectory: React.FC<StaffDirectoryProps> = ({
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">TelÃ©fono</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Teléfono</label>
                   <input 
                     type="tel"
                     placeholder="0414-0000000"
