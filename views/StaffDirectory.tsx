@@ -36,8 +36,10 @@ const ROLE_HIERARCHY: Record<string, number> = {
   'Gerente/Regente': 2,
   'Regente': 3,
   'Senior': 4,
-  'Aprendiz de Farmacia': 5,
-  'APV': 6
+'Aprendiz de Farmacia': 5,
+'Auxiliar de Farmacia': 6,
+'APV': 7
+
 };
 
 const StaffDirectory: React.FC<StaffDirectoryProps> = ({ 
