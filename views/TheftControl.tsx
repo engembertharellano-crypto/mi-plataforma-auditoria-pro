@@ -335,30 +335,26 @@ export const TheftControl: React.FC<TheftControlProps> = ({
   // ==========================================
   if (view === 'list') {
     return (
-      <div className="space-y-8 animate-in fade-in duration-300 pb-16">
-        {/* Cabecera con título y acción */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
+      <div className="max-w-[1600px] mx-auto p-2 md:p-6 space-y-8 animate-in fade-in duration-500 pb-20">
+        {/* Cabecera con título y acción alineada al diseño global */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-2">
           <div>
-            <div className="flex items-center gap-3 mb-1">
-              <div className="p-2.5 bg-rose-500/10 text-rose-600 rounded-xl">
-                <PackageX className="w-6 h-6" />
-              </div>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-                Control de Hurtos y Mermas
-              </h1>
-            </div>
-            <p className="text-sm font-medium text-slate-500">
-              Registro forense de pérdidas, modus operandi, enlace a evidencias en Google Drive y soporte de ajustes en USD.
+            <h1 className="text-3xl md:text-4xl font-black text-white tracking-normal uppercase mb-2 flex items-center gap-3">
+              <PackageX className="w-8 h-8 text-rose-500" />
+              Control de Hurtos y Mermas
+            </h1>
+            <p className="text-slate-300 font-bold text-xs md:text-sm uppercase tracking-[0.18em]">
+              Registro forense de pérdidas, modus operandi y enlaces a Google Drive
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             <button
               onClick={handleOpenNew}
-              className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-bold px-5 py-2.5 rounded-xl shadow-lg shadow-rose-600/20 hover:shadow-rose-600/30 transition-all text-sm active:scale-95"
+              className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-xl flex items-center gap-2 border border-white/10 active:scale-95"
             >
-              <Plus className="w-4 h-4" />
-              Nuevo Reporte de Hurto
+              <Plus className="w-5 h-5 text-rose-500" />
+              <span>Nuevo Reporte de Hurto</span>
             </button>
           </div>
         </div>
@@ -695,19 +691,19 @@ export const TheftControl: React.FC<TheftControlProps> = ({
   if (view === 'form') {
     return (
       <div className="space-y-6 max-w-5xl mx-auto pb-20 animate-in fade-in duration-300">
-        <div className="flex items-center justify-between border-b border-slate-200/80 pb-4">
+        <div className="flex items-center justify-between border-b border-white/10 pb-4">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setView('list')}
-              className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500"
+              className="p-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h2 className="text-xl font-black text-slate-900">
+              <h2 className="text-xl md:text-2xl font-black text-white uppercase tracking-tight">
                 {editingId ? `Editar Reporte: ${formData.incidentNumber}` : 'Nuevo Reporte de Hurto / Merma'}
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs font-bold text-slate-300 uppercase tracking-wider">
                 Ingresado por {formData.createdByName} • Rol: {formData.createdByRole}
               </p>
             </div>
@@ -1237,19 +1233,19 @@ export const TheftControl: React.FC<TheftControlProps> = ({
   if (view === 'detail' && selectedRecord) {
     return (
       <div className="space-y-6 max-w-4xl mx-auto pb-20 animate-in fade-in duration-300">
-        <div className="flex items-center justify-between border-b border-slate-200/80 pb-4">
+        <div className="flex items-center justify-between border-b border-white/10 pb-4">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setView('list')}
-              className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500"
+              className="p-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <span className="text-[10px] font-mono font-black text-rose-600 uppercase bg-rose-50 px-2 py-0.5 rounded">
+              <span className="text-[10px] font-mono font-black text-rose-400 uppercase bg-slate-900/80 px-2 py-0.5 rounded border border-white/10">
                 {selectedRecord.incidentNumber}
               </span>
-              <h2 className="text-xl font-black text-slate-900 mt-1">
+              <h2 className="text-xl md:text-2xl font-black text-white mt-1 uppercase tracking-tight">
                 Expediente de Hurto: {selectedRecord.pharmacyName}
               </h2>
             </div>
