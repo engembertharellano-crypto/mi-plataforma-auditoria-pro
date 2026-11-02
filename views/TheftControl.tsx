@@ -28,8 +28,12 @@ import {
   FolderOpen,
   Users,
   Link,
-  UserCheck
+  UserCheck,
+  Upload,
+  ClipboardPaste,
+  FileCheck
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { 
   Pharmacy, 
   TheftRecord, 
@@ -160,6 +164,26 @@ export const TheftControl: React.FC<TheftControlProps> = ({
   // Modal para confirmar eliminación
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
+  // Estados para importador de ajuste (Excel / Portapapeles)
+  const [showPasteModal, setShowPasteModal] = useState(false);
+  const [pasteText, setPasteText] = useState('');
+  const [showExcelPreviewModal, setShowExcelPreviewModal] = useState(false);
+  const [excelRows, setExcelRows] = useState<any[]>([]);
+  const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
+  const [colMapping, setColMapping] = useState<{
+    codeCol: string;
+    descCol: string;
+    qtyCol: string;
+    priceCol: string;
+    totalCol: string;
+  }>({
+    codeCol: '',
+    descCol: '',
+    qtyCol: '',
+    priceCol: '',
+    totalCol: ''
+  });
+
   // ==========================================
   // CÁLCULOS Y KPIs
   // ==========================================
@@ -276,6 +300,170 @@ export const TheftControl: React.FC<TheftControlProps> = ({
       totalLossUSD: loss,
       totalRecoveredUSD: rec
     }));
+  };
+
+  // ==========================================
+  // IMPORTADOR DE EXCEL (XLSX / CSV)
+  // ==========================================
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+        if (data.length === 0) {
+          alert('El archivo no contiene filas con datos');
+          return;
+        }
+
+        const headers = Object.keys(data[0] || {});
+        setExcelHeaders(headers);
+        setExcelRows(data);
+
+        // Auto-detección inteligente de nombres de columnas
+        const findCol = (keywords: string[]) => {
+          return headers.find(h => keywords.some(k => h.toLowerCase().includes(k.toLowerCase()))) || '';
+        };
+
+        setColMapping({
+          codeCol: findCol(['codigo', 'código', 'sku', 'barra', 'artículo', 'articulo', 'cod']),
+          descCol: findCol(['descripcion', 'descripción', 'producto', 'nombre', 'detalle', 'item']),
+          qtyCol: findCol(['cantidad', 'cant', 'unidades', 'und', 'qty']),
+          priceCol: findCol(['precio', 'costo', 'unit', 'usd', 'valor']),
+          totalCol: findCol(['total', 'monto', 'subtotal', 'importe'])
+        });
+
+        setShowExcelPreviewModal(true);
+      } catch (err) {
+        console.error(err);
+        alert('Error al leer el archivo Excel. Asegúrese de que sea formato .xlsx, .xls o .csv');
+      }
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = '';
+  };
+
+  const handleConfirmExcelImport = () => {
+    if (!colMapping.descCol) {
+      alert('Debe seleccionar al menos la columna correspondiente a la Descripción del producto');
+      return;
+    }
+
+    const importedProducts: TheftProductItem[] = [];
+
+    excelRows.forEach(row => {
+      const desc = String(row[colMapping.descCol] || '').trim();
+      if (!desc) return; // Saltear filas vacías o de totales
+
+      const code = colMapping.codeCol ? String(row[colMapping.codeCol] || '').trim() : '';
+      let qty = 1;
+      if (colMapping.qtyCol && row[colMapping.qtyCol] !== undefined) {
+        const rawQty = Math.abs(parseFloat(String(row[colMapping.qtyCol]).replace(/,/g, '.'))) || 1;
+        qty = Math.max(1, Math.round(rawQty));
+      }
+
+      let unitPrice = 0;
+      if (colMapping.priceCol && row[colMapping.priceCol] !== undefined) {
+        unitPrice = Math.abs(parseFloat(String(row[colMapping.priceCol]).replace(/[^0-9.-]+/g, ''))) || 0;
+      } else if (colMapping.totalCol && row[colMapping.totalCol] !== undefined) {
+        const total = Math.abs(parseFloat(String(row[colMapping.totalCol]).replace(/[^0-9.-]+/g, ''))) || 0;
+        unitPrice = qty > 0 ? total / qty : total;
+      }
+
+      const totalUSD = qty * unitPrice;
+
+      importedProducts.push({
+        id: Math.random().toString(36).substring(2, 9),
+        code,
+        description: desc,
+        quantity: qty,
+        unitPriceUSD: unitPrice,
+        totalUSD: totalUSD,
+        recovered: false
+      });
+    });
+
+    if (importedProducts.length === 0) {
+      alert('No se pudieron extraer productos con la configuración seleccionada');
+      return;
+    }
+
+    const updated = [...formData.products, ...importedProducts];
+    recalculateTotals(updated);
+    setShowExcelPreviewModal(false);
+    alert(`Se importaron ${importedProducts.length} productos con éxito.`);
+  };
+
+  // ==========================================
+  // IMPORTADOR POR PORTAPAPELES (COPIAR/PEGAR DE EXCEL O SHEETS)
+  // ==========================================
+  const handleConfirmPasteImport = () => {
+    if (!pasteText.trim()) return;
+
+    const lines = pasteText.trim().split(/\r?\n/);
+    const importedProducts: TheftProductItem[] = [];
+
+    lines.forEach(line => {
+      if (!line.trim()) return;
+      // Dividir por tabuladores (común al copiar de Excel) o punto y coma
+      const parts = line.includes('\t') ? line.split('\t') : line.split(';');
+      if (parts.length === 0) return;
+
+      let code = '';
+      let desc = '';
+      let qty = 1;
+      let price = 0;
+
+      if (parts.length === 1) {
+        desc = parts[0].trim();
+      } else if (parts.length === 2) {
+        // [Desc, Cant] o [Desc, Precio]
+        desc = parts[0].trim();
+        const num = parseFloat(parts[1].replace(/,/g, '.').trim()) || 0;
+        qty = Math.max(1, Math.round(num));
+      } else if (parts.length === 3) {
+        // [Codigo, Desc, Cant]
+        code = parts[0].trim();
+        desc = parts[1].trim();
+        qty = Math.max(1, Math.round(parseFloat(parts[2].replace(/,/g, '.').trim()) || 1));
+      } else {
+        // 4 o más columnas: [Codigo, Desc, Cant, PrecioUSD, ...]
+        code = parts[0].trim();
+        desc = parts[1].trim();
+        qty = Math.max(1, Math.round(parseFloat(parts[2].replace(/,/g, '.').trim()) || 1));
+        price = Math.abs(parseFloat(parts[3].replace(/[^0-9.-]+/g, '').trim()) || 0);
+      }
+
+      if (desc) {
+        importedProducts.push({
+          id: Math.random().toString(36).substring(2, 9),
+          code,
+          description: desc,
+          quantity: qty,
+          unitPriceUSD: price,
+          totalUSD: qty * price,
+          recovered: false
+        });
+      }
+    });
+
+    if (importedProducts.length === 0) {
+      alert('No se detectaron datos válidos');
+      return;
+    }
+
+    const updated = [...formData.products, ...importedProducts];
+    recalculateTotals(updated);
+    setPasteText('');
+    setShowPasteModal(false);
+    alert(`Se cargaron ${importedProducts.length} productos desde el portapapeles.`);
   };
 
   // ==========================================
@@ -1010,7 +1198,37 @@ export const TheftControl: React.FC<TheftControlProps> = ({
               </div>
             </div>
 
-            {/* Formulario rápido para agregar ítem */}
+            {/* BOTONES DE IMPORTACIÓN INTELIGENTE (EXCEL / PORTAPAPELES) */}
+            <div className="flex flex-wrap items-center gap-2.5 p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl">
+              <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5 mr-auto">
+                <FileCheck className="w-4 h-4 text-emerald-600" />
+                ¿Tiene la lista del ajuste de inventario?
+              </span>
+
+              {/* Botón Importar Excel */}
+              <label className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg cursor-pointer transition-colors shadow-sm active:scale-95">
+                <Upload className="w-3.5 h-3.5" />
+                <span>Cargar Excel del Ajuste</span>
+                <input
+                  type="file"
+                  accept=".xlsx, .xls, .csv"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+
+              {/* Botón Pegar desde Excel/Sheets */}
+              <button
+                type="button"
+                onClick={() => setShowPasteModal(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-xs rounded-lg transition-colors shadow-sm active:scale-95"
+              >
+                <ClipboardPaste className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Pegar desde Excel / Sheets</span>
+              </button>
+            </div>
+
+            {/* Formulario rápido para agregar ítem manual */}
             <div className="p-4 bg-slate-50/70 rounded-xl border border-slate-200/80 space-y-3">
               <span className="text-xs font-bold text-slate-700 block">Agregar Producto Sustraído:</span>
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
@@ -1325,6 +1543,210 @@ export const TheftControl: React.FC<TheftControlProps> = ({
             </button>
           </div>
         </form>
+
+        {/* MODAL 1: MAPEADOR INTELIGENTE DE COLUMNAS DE EXCEL */}
+        {showExcelPreviewModal && (
+          <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                    <FileSpreadsheet className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 uppercase">
+                      Asistente de Importación de Excel / Ajuste
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Detectadas {excelRows.length} filas en el archivo. Seleccione qué columna corresponde a cada dato y el sistema ignorará el resto:
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowExcelPreviewModal(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Mapeo de columnas */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Descripción del Producto * (Obligatorio)
+                  </label>
+                  <select
+                    value={colMapping.descCol}
+                    onChange={e => setColMapping(prev => ({ ...prev, descCol: e.target.value }))}
+                    className="w-full py-2 px-3 rounded-lg border border-slate-200 bg-white font-medium"
+                  >
+                    <option value="">Seleccione columna...</option>
+                    {excelHeaders.map(h => (
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Código / SKU / Código de Barra
+                  </label>
+                  <select
+                    value={colMapping.codeCol}
+                    onChange={e => setColMapping(prev => ({ ...prev, codeCol: e.target.value }))}
+                    className="w-full py-2 px-3 rounded-lg border border-slate-200 bg-white font-medium"
+                  >
+                    <option value="">(Opcional / Ninguna)</option>
+                    {excelHeaders.map(h => (
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Cantidad Sustraída
+                  </label>
+                  <select
+                    value={colMapping.qtyCol}
+                    onChange={e => setColMapping(prev => ({ ...prev, qtyCol: e.target.value }))}
+                    className="w-full py-2 px-3 rounded-lg border border-slate-200 bg-white font-medium"
+                  >
+                    <option value="">(Por defecto: 1)</option>
+                    {excelHeaders.map(h => (
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Precio Unitario ($) o Monto Total ($)
+                  </label>
+                  <select
+                    value={colMapping.priceCol || colMapping.totalCol}
+                    onChange={e => setColMapping(prev => ({ ...prev, priceCol: e.target.value, totalCol: '' }))}
+                    className="w-full py-2 px-3 rounded-lg border border-slate-200 bg-white font-medium"
+                  >
+                    <option value="">(0.00 $)</option>
+                    {excelHeaders.map(h => (
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Vista previa de las primeras 3 filas */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Vista Previa (Primeras filas del archivo):
+                </span>
+                <div className="max-h-40 overflow-auto border border-slate-200 rounded-xl text-[11px]">
+                  <table className="w-full text-left bg-white">
+                    <thead className="bg-slate-100 text-slate-600 font-bold sticky top-0">
+                      <tr>
+                        {excelHeaders.slice(0, 5).map(h => (
+                          <th key={h} className="py-1.5 px-2.5 truncate max-w-[120px]">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {excelRows.slice(0, 3).map((r, i) => (
+                        <tr key={i}>
+                          {excelHeaders.slice(0, 5).map(h => (
+                            <td key={h} className="py-1.5 px-2.5 text-slate-600 truncate max-w-[120px]">
+                              {String(r[h] || '')}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Acciones */}
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowExcelPreviewModal(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmExcelImport}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/20 transition-all"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  Importar a la Lista
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL 2: PEGAR DIRECTO DESDE PORTAPAPELES (EXCEL / SHEETS) */}
+        {showPasteModal && (
+          <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                    <ClipboardPaste className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 uppercase">
+                      Pegar Datos desde Excel o Google Sheets
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Copie las celdas en su hoja de cálculo y péguelas aquí directamente:
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowPasteModal(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-1.5">
+                <textarea
+                  rows={8}
+                  placeholder={`Ejemplo de formato admitido (separado por tabulación o punto y coma):\nCOD123   Acetaminofen 500mg   2   1.50\nCOD456   Shampoo Anticaspa    1   4.20`}
+                  value={pasteText}
+                  onChange={e => setPasteText(e.target.value)}
+                  className="w-full text-xs font-mono p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50"
+                />
+                <span className="text-[11px] text-slate-400 block">
+                  El sistema detecta automáticamente columnas de Código, Descripción, Cantidad y Precio en USD.
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPasteModal(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmPasteImport}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/20 transition-all"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  Procesar y Cargar a la Lista
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
