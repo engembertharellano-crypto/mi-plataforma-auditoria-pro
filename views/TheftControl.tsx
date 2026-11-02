@@ -807,30 +807,54 @@ export const TheftControl: React.FC<TheftControlProps> = ({
 
               {activeTabMetric === 'officers' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                  <div className="bg-emerald-950/30 p-4 rounded-xl border border-emerald-500/20">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Shield className="w-5 h-5 text-emerald-400" />
-                      <span className="text-xs font-bold text-emerald-300 uppercase">Farmacias CON Oficial</span>
+                  <div className="bg-emerald-950/40 p-5 rounded-2xl border border-emerald-500/30 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Shield className="w-5 h-5 text-emerald-400" />
+                          <span className="text-xs font-black text-emerald-300 uppercase tracking-wide">
+                            Farmacias CON Oficial
+                          </span>
+                        </div>
+                        <span className="px-2.5 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg text-xs font-black">
+                          {stats.withOfficerCount} {stats.withOfficerCount === 1 ? 'Hecho' : 'Hechos'}
+                        </span>
+                      </div>
+                      <span className="text-3xl font-black text-white block">
+                        ${stats.withOfficerLoss.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
                     </div>
-                    <span className="text-2xl font-black text-white block">
-                      ${stats.withOfficerLoss.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </span>
-                    <span className="text-[11px] text-slate-400 block mt-1">
-                      {stats.withOfficerCount} hechos ocurridos bajo custodia
-                    </span>
+                    <div className="mt-3 pt-3 border-t border-emerald-500/20 flex items-center justify-between text-xs">
+                      <span className="text-slate-300 font-semibold">Total de eventos bajo custodia:</span>
+                      <span className="font-mono font-black text-emerald-400 text-sm bg-emerald-900/60 px-2 py-0.5 rounded">
+                        {stats.withOfficerCount}
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="bg-amber-950/30 p-4 rounded-xl border border-amber-500/20">
-                    <div className="flex items-center gap-2 mb-2">
-                      <ShieldX className="w-5 h-5 text-amber-400" />
-                      <span className="text-xs font-bold text-amber-300 uppercase">Farmacias SIN Oficial</span>
+                  <div className="bg-amber-950/40 p-5 rounded-2xl border border-amber-500/30 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <ShieldX className="w-5 h-5 text-amber-400" />
+                          <span className="text-xs font-black text-amber-300 uppercase tracking-wide">
+                            Farmacias SIN Oficial
+                          </span>
+                        </div>
+                        <span className="px-2.5 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-black">
+                          {stats.withoutOfficerCount} {stats.withoutOfficerCount === 1 ? 'Hecho' : 'Hechos'}
+                        </span>
+                      </div>
+                      <span className="text-3xl font-black text-white block">
+                        ${stats.withoutOfficerLoss.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
                     </div>
-                    <span className="text-2xl font-black text-white block">
-                      ${stats.withoutOfficerLoss.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </span>
-                    <span className="text-[11px] text-slate-400 block mt-1">
-                      {stats.withoutOfficerCount} hechos en farmacias desprotegidas
-                    </span>
+                    <div className="mt-3 pt-3 border-t border-amber-500/20 flex items-center justify-between text-xs">
+                      <span className="text-slate-300 font-semibold">Total de eventos sin custodia:</span>
+                      <span className="font-mono font-black text-amber-400 text-sm bg-amber-900/60 px-2 py-0.5 rounded">
+                        {stats.withoutOfficerCount}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
