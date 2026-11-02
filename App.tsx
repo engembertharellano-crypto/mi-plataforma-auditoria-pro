@@ -21,6 +21,7 @@ import CaseManagement from './views/CaseManagement';
 import Settings from './views/Settings';
 import Login from './views/Login';
 import TechnicalInventory from './views/TechnicalInventory';
+import TheftControl from './views/TheftControl';
 import { Menu, CheckCircle2, XCircle, WifiOff } from 'lucide-react';
 import {
   ViewName,
@@ -40,6 +41,7 @@ import {
   CaseRecord,
   TechnicalInventoryItem,
   TechnicalInventoryMovement,
+  TheftRecord,
 } from './types';
 import { HARDWARE_CHECKLIST, PROCESS_CHECKLIST } from './constants';
 import { supabase } from './lib/supabase';
@@ -63,6 +65,7 @@ interface UserData {
   cases: CaseRecord[];
   technicalInventory: TechnicalInventoryItem[];
   technicalInventoryMovements: TechnicalInventoryMovement[];
+  theftRecords: TheftRecord[];
   users: any[];
   dailyBriefing?: BriefingData;
 }
@@ -111,6 +114,7 @@ const App: React.FC = () => {
           cases: parsed.cases || [],
           technicalInventory: parsed.technicalInventory || [],
           technicalInventoryMovements: parsed.technicalInventoryMovements || [],
+          theftRecords: parsed.theftRecords || [],
           users: parsed.users || [],
           dailyBriefing: parsed.dailyBriefing
         };
@@ -136,6 +140,7 @@ const App: React.FC = () => {
       cases: [],
       technicalInventory: [],
       technicalInventoryMovements: [],
+      theftRecords: [],
       users: [],
       dailyBriefing: undefined
     };
@@ -316,7 +321,8 @@ const App: React.FC = () => {
         casesData,
         dbUsers,
         schs,
-        techInvData
+        techInvData,
+        theftsData
       ] = await Promise.all([
         pharmQuery,
         getTableData('audits'),
@@ -332,7 +338,8 @@ const App: React.FC = () => {
         getTableData('cases'),
         sb.from('users').select('*'),
         getTableData('schedule'),
-        getTableData('technical_inventory')
+        getTableData('technical_inventory'),
+        getTableData('theft_records').catch(() => [])
       ]);
 
       const process = (items: any[]) =>
@@ -377,6 +384,7 @@ const App: React.FC = () => {
           cases: process(casesData),
           schedule: process(schs),
           technicalInventory: process(techInvData),
+          theftRecords: (theftsData && theftsData.length > 0) ? process(theftsData) : prev.theftRecords,
           users: ((dbUsers.data) || []).map((u: any) => ({
             ...u,
             fullName: u.full_name,
@@ -1000,6 +1008,33 @@ const App: React.FC = () => {
               if (!checkPermission()) return;
               setUserData(prev => ({ ...prev, cases: prev.cases.filter(x => x.id !== id) }));
               await deleteFromCloud('cases', id);
+            }}
+            currentUser={currentUser}
+            hasAdminPrivileges={isBoss}
+          />
+        )}
+
+        {currentView === 'theft-control' && (
+          <TheftControl
+            pharmacies={visiblePharmacies}
+            theftRecords={userData.theftRecords}
+            onAddRecord={async (record) => {
+              setUserData(prev => ({ ...prev, theftRecords: [record, ...prev.theftRecords] }));
+              await saveToCloud('theft_records', record.id, record);
+            }}
+            onUpdateRecord={async (record) => {
+              setUserData(prev => ({
+                ...prev,
+                theftRecords: prev.theftRecords.map(x => (x.id === record.id ? record : x))
+              }));
+              await saveToCloud('theft_records', record.id, record);
+            }}
+            onDeleteRecord={async (id) => {
+              setUserData(prev => ({
+                ...prev,
+                theftRecords: prev.theftRecords.filter(x => x.id !== id)
+              }));
+              await deleteFromCloud('theft_records', id);
             }}
             currentUser={currentUser}
             hasAdminPrivileges={isBoss}

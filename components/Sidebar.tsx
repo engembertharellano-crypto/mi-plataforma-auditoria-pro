@@ -19,7 +19,8 @@ import {
   Briefcase,
   ShieldAlert,
   Plane,
-  Map
+  Map,
+  PackageX
 } from 'lucide-react';
 import { ViewName } from '../types';
 
@@ -52,6 +53,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'ai-assistant', label: 'Asistente IA', icon: BrainCircuit, highlight: true },
     { id: 'visit-log', label: 'Bitácora', icon: CalendarDays },
     { id: 'case-management', label: 'Gestión de Casos', icon: ShieldAlert },
+    { id: 'theft-control', label: 'Control de Hurtos', icon: PackageX },
     { id: 'audit-wizard', label: 'Iniciar Inspección', icon: ClipboardCheck },
     { id: 'new-visit', label: 'Registrar Visita', icon: Briefcase },
     { id: 'cctv-inventory', label: 'Protección CCTV', icon: Video },
@@ -93,7 +95,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     'visit-log',
     'monthly-summary',
     'pharmacy-list',
-    'case-management'
+    'case-management',
+    'theft-control'
   ];
 
   // ✅ Lo que Operador CECOM SÍ debe ver (mismos accesos de Directiva + Personal, Soporte y Protección CCTV)
@@ -103,6 +106,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     'monthly-summary',
     'pharmacy-list',
     'case-management',
+    'theft-control',
     'staff-directory',
     'support-directory',
     'cctv-inventory'

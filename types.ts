@@ -1,4 +1,4 @@
-export type ViewName = 'dashboard' | 'ai-assistant' | 'audit-wizard' | 'new-visit' | 'audit-results' | 'cctv-inventory' | 'physical-inventory' | 'pending-tasks' | 'pharmacy-list' | 'visit-log' | 'monthly-summary' | 'management-report' | 'staff-directory' | 'support-directory' | 'delivery-receipts' | 'settings' | 'access-management' | 'asset-control' | 'case-management' | 'technical-inventory';
+export type ViewName = 'dashboard' | 'ai-assistant' | 'audit-wizard' | 'new-visit' | 'audit-results' | 'cctv-inventory' | 'physical-inventory' | 'pending-tasks' | 'pharmacy-list' | 'visit-log' | 'monthly-summary' | 'management-report' | 'staff-directory' | 'support-directory' | 'delivery-receipts' | 'settings' | 'access-management' | 'asset-control' | 'case-management' | 'technical-inventory' | 'theft-control';
 
 export interface Pharmacy {
   id: string;
@@ -372,4 +372,62 @@ export interface TechnicalInventoryMovement {
   reason?: string;
   notes?: string;
   createdBy?: string;
+}
+
+// =====================================
+// CONTROL DE HURTOS Y PÉRDIDAS
+// =====================================
+
+export interface TheftProductItem {
+  id: string;
+  code?: string;
+  description: string;
+  quantity: number;
+  unitPriceUSD: number;
+  totalUSD: number;
+  recovered: boolean;
+}
+
+export type TheftType = 'Externo' | 'Interno' | 'Mixto';
+
+export type TheftStatus = 'Reportado' | 'En Investigación' | 'Ajustado' | 'Recuperado' | 'Cerrado';
+
+export interface TheftRecord {
+  id: string;
+  incidentNumber: string; // Ej: HUR-2026-001
+  pharmacyId: string;
+  pharmacyName: string;
+  date: string;
+  time: string;
+  shift?: 'Mañana' | 'Tarde' | 'Noche';
+  
+  theftType: TheftType;
+  zoneInPharmacy: string;
+  modusOperandi: string;
+  
+  // Productos y Totales en USD
+  products: TheftProductItem[];
+  totalLossUSD: number;
+  totalRecoveredUSD: number;
+  
+  // Enlaces de Google Drive / Nube (Cero peso en DB)
+  evidenceDriveUrl?: string; // Carpeta o archivo con videos/fotos
+  adjustmentDriveUrl?: string; // Link a Excel, PDF o Google Sheets del ajuste
+  
+  // Referencias CCTV
+  cctvCameraReference?: string;
+  cctvTimestamp?: string;
+  suspectDetails?: string;
+  
+  // Estado y Policial
+  status: TheftStatus;
+  policeReportFiled: boolean;
+  policeReportNumber?: string;
+  
+  // Auditoría
+  createdByRole: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt?: string;
+  notes?: string;
 }
