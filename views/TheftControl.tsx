@@ -31,7 +31,11 @@ import {
   UserCheck,
   Upload,
   ClipboardPaste,
-  FileCheck
+  FileCheck,
+  Shield,
+  ShieldX,
+  BarChart3,
+  PieChart
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
@@ -126,6 +130,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
     theftType: 'Hurto Externo',
     zoneInPharmacy: 'Perfumería',
     modusOperandi: '',
+    hasSecurityOfficerAtIncident: false,
     suspectCount: 1,
     suspectDetails: '',
     products: [],
@@ -184,37 +189,92 @@ export const TheftControl: React.FC<TheftControlProps> = ({
     totalCol: ''
   });
 
+  const [filterOfficer, setFilterOfficer] = useState<string>('ALL'); // ALL, WITH_OFFICER, WITHOUT_OFFICER
+  const [activeTabMetric, setActiveTabMetric] = useState<'overview' | 'areas' | 'officers'>('overview');
+
   // ==========================================
-  // CÁLCULOS Y KPIs
+  // CÁLCULOS Y KPIs ENRIQUECIDOS
   // ==========================================
   const stats = useMemo(() => {
     let totalLoss = 0;
     let totalRecovered = 0;
-    const incidentsByPharm: Record<string, number> = {};
+    let withOfficerLoss = 0;
+    let withoutOfficerLoss = 0;
+    let withOfficerCount = 0;
+    let withoutOfficerCount = 0;
+
+    const incidentsByPharm: Record<string, { count: number; loss: number }> = {};
+    const incidentsByArea: Record<string, { count: number; loss: number }> = {};
+    const incidentsByType: Record<string, { count: number; loss: number }> = {};
 
     theftRecords.forEach(r => {
-      totalLoss += Number(r.totalLossUSD || 0);
-      totalRecovered += Number(r.totalRecoveredUSD || 0);
-      if (r.pharmacyName) {
-        incidentsByPharm[r.pharmacyName] = (incidentsByPharm[r.pharmacyName] || 0) + 1;
+      const loss = Number(r.totalLossUSD || 0);
+      const rec = Number(r.totalRecoveredUSD || 0);
+      totalLoss += loss;
+      totalRecovered += rec;
+
+      // Desglose oficial de seguridad
+      if (r.hasSecurityOfficerAtIncident) {
+        withOfficerLoss += loss;
+        withOfficerCount += 1;
+      } else {
+        withoutOfficerLoss += loss;
+        withoutOfficerCount += 1;
       }
+
+      // Por farmacia
+      if (r.pharmacyName) {
+        if (!incidentsByPharm[r.pharmacyName]) {
+          incidentsByPharm[r.pharmacyName] = { count: 0, loss: 0 };
+        }
+        incidentsByPharm[r.pharmacyName].count += 1;
+        incidentsByPharm[r.pharmacyName].loss += loss;
+      }
+
+      // Por área
+      const area = r.zoneInPharmacy || 'Otra';
+      if (!incidentsByArea[area]) {
+        incidentsByArea[area] = { count: 0, loss: 0 };
+      }
+      incidentsByArea[area].count += 1;
+      incidentsByArea[area].loss += loss;
+
+      // Por tipo
+      const type = r.theftType || 'Hurto Externo';
+      if (!incidentsByType[type]) {
+        incidentsByType[type] = { count: 0, loss: 0 };
+      }
+      incidentsByType[type].count += 1;
+      incidentsByType[type].loss += loss;
     });
 
     let topPharm = 'N/A';
     let maxIncidents = 0;
-    Object.entries(incidentsByPharm).forEach(([name, count]) => {
-      if (count > maxIncidents) {
-        maxIncidents = count;
+    Object.entries(incidentsByPharm).forEach(([name, data]) => {
+      if (data.count > maxIncidents) {
+        maxIncidents = data.count;
         topPharm = name;
       }
     });
+
+    // Top áreas críticas ordenadas por pérdida
+    const topAreas = Object.entries(incidentsByArea)
+      .map(([name, d]) => ({ name, ...d }))
+      .sort((a, b) => b.loss - a.loss)
+      .slice(0, 5);
 
     return {
       totalLoss,
       totalRecovered,
       totalIncidents: theftRecords.length,
       topPharm,
-      topPharmCount: maxIncidents
+      topPharmCount: maxIncidents,
+      withOfficerLoss,
+      withoutOfficerLoss,
+      withOfficerCount,
+      withoutOfficerCount,
+      topAreas,
+      incidentsByType
     };
   }, [theftRecords]);
 
@@ -233,10 +293,15 @@ export const TheftControl: React.FC<TheftControlProps> = ({
       const matchPharm = filterPharmacy === 'ALL' || r.pharmacyId === filterPharmacy;
       const matchReporter = filterReporter === 'ALL' || r.reportedBySource === filterReporter;
       const matchType = filterType === 'ALL' || r.theftType === filterType;
+      
+      const matchOfficer = 
+        filterOfficer === 'ALL' || 
+        (filterOfficer === 'WITH_OFFICER' && r.hasSecurityOfficerAtIncident) ||
+        (filterOfficer === 'WITHOUT_OFFICER' && !r.hasSecurityOfficerAtIncident);
 
-      return matchSearch && matchPharm && matchReporter && matchType;
+      return matchSearch && matchPharm && matchReporter && matchType && matchOfficer;
     });
-  }, [theftRecords, searchTerm, filterPharmacy, filterReporter, filterType]);
+  }, [theftRecords, searchTerm, filterPharmacy, filterReporter, filterType, filterOfficer]);
 
   // ==========================================
   // MANEJADORES DE PRODUCTOS
@@ -508,6 +573,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
       theftType: 'Hurto Externo',
       zoneInPharmacy: 'Perfumería',
       modusOperandi: '',
+      hasSecurityOfficerAtIncident: Boolean(pharmacies[0]?.hasSecurityOfficer),
       suspectCount: 1,
       suspectDetails: '',
       products: [],
@@ -538,6 +604,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
       shift: record.shift || 'Mañana',
       reportedBySource: record.reportedBySource || 'Personal de farmacia',
       theftType: record.theftType || 'Hurto Externo',
+      hasSecurityOfficerAtIncident: Boolean(record.hasSecurityOfficerAtIncident),
       suspectCount: record.suspectCount || 1,
       evidenceLinks: initialLinks
     });
@@ -618,85 +685,242 @@ export const TheftControl: React.FC<TheftControlProps> = ({
           </div>
         </div>
 
-        {/* Tarjetas KPI de Resumen en USD */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-                Pérdida Total Neta
-              </p>
-              <h3 className="text-2xl font-black text-rose-600">
-                ${stats.totalLoss.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </h3>
-              <p className="text-[11px] font-semibold text-slate-500 mt-1">
-                Total sustraído en USD
-              </p>
-            </div>
-            <div className="p-3 bg-rose-50 text-rose-600 rounded-xl">
-              <TrendingDown className="w-6 h-6" />
+        {/* DASHBOARD EJECUTIVO INTERACTIVO */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Tarjeta Principal de Pérdidas y Recuperación con Degradado Premium */}
+          <div className="lg:col-span-2 bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] rounded-[2rem] p-8 shadow-2xl relative overflow-hidden group border border-slate-700/50">
+            <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-rose-600/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3"></div>
+            <div className="absolute bottom-0 left-0 w-[350px] h-[350px] bg-blue-600/15 rounded-full blur-[90px] translate-y-1/2 -translate-x-1/3"></div>
+
+            <div className="relative z-10 flex flex-col h-full justify-between space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <span className="text-slate-400 font-bold uppercase tracking-[0.24em] text-xs block mb-1">
+                    Balance Forense Financiero
+                  </span>
+                  <h2 className="text-white text-3xl sm:text-4xl font-black uppercase tracking-tight">
+                    Impacto en Farmacias
+                  </h2>
+                </div>
+
+                {/* Selector interactivo de métricas */}
+                <div className="flex bg-slate-800/80 p-1 rounded-xl border border-white/10 text-xs font-bold">
+                  <button
+                    onClick={() => setActiveTabMetric('overview')}
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      activeTabMetric === 'overview'
+                        ? 'bg-rose-600 text-white shadow-md'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    General
+                  </button>
+                  <button
+                    onClick={() => setActiveTabMetric('areas')}
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      activeTabMetric === 'areas'
+                        ? 'bg-rose-600 text-white shadow-md'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Por Áreas
+                  </button>
+                  <button
+                    onClick={() => setActiveTabMetric('officers')}
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      activeTabMetric === 'officers'
+                        ? 'bg-rose-600 text-white shadow-md'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Oficiales
+                  </button>
+                </div>
+              </div>
+
+              {/* Contenido dinámico según la pestaña activa */}
+              {activeTabMetric === 'overview' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
+                  <div className="bg-slate-900/60 p-5 rounded-2xl border border-white/5 backdrop-blur-md">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      PÉRDIDA TOTAL NETA
+                    </span>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-4xl font-black text-rose-500">
+                        ${stats.totalLoss.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-2">
+                      Sustraído en <strong>{stats.totalIncidents} incidentes</strong> registrados
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-900/60 p-5 rounded-2xl border border-white/5 backdrop-blur-md">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      MONTO RECUPERADO
+                    </span>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-4xl font-black text-emerald-400">
+                        ${stats.totalRecovered.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-2">
+                      Mercancía interceptada en tienda antes de la fuga
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {activeTabMetric === 'areas' && (
+                <div className="space-y-3 pt-2">
+                  <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                    Top Áreas con Mayor Fuga de Mercancía:
+                  </span>
+                  {stats.topAreas.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {stats.topAreas.map((area, idx) => {
+                        const percent = stats.totalLoss > 0 ? Math.round((area.loss / stats.totalLoss) * 100) : 0;
+                        return (
+                          <div key={idx} className="bg-slate-900/60 p-3.5 rounded-xl border border-white/5">
+                            <div className="flex justify-between items-center text-xs mb-1">
+                              <span className="font-bold text-white truncate mr-2">{area.name}</span>
+                              <span className="font-mono text-rose-400 font-bold">${area.loss.toFixed(2)}</span>
+                            </div>
+                            <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                              <div
+                                className="bg-gradient-to-r from-rose-500 to-amber-500 h-full rounded-full"
+                                style={{ width: `${Math.min(100, Math.max(5, percent))}%` }}
+                              />
+                            </div>
+                            <span className="text-[10px] text-slate-400 mt-1 block">
+                              {area.count} caso(s) • {percent}% de las pérdidas totales
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic">No hay suficientes registros para desglosar áreas.</p>
+                  )}
+                </div>
+              )}
+
+              {activeTabMetric === 'officers' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                  <div className="bg-emerald-950/30 p-4 rounded-xl border border-emerald-500/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Shield className="w-5 h-5 text-emerald-400" />
+                      <span className="text-xs font-bold text-emerald-300 uppercase">Farmacias CON Oficial</span>
+                    </div>
+                    <span className="text-2xl font-black text-white block">
+                      ${stats.withOfficerLoss.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </span>
+                    <span className="text-[11px] text-slate-400 block mt-1">
+                      {stats.withOfficerCount} hechos ocurridos bajo custodia
+                    </span>
+                  </div>
+
+                  <div className="bg-amber-950/30 p-4 rounded-xl border border-amber-500/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <ShieldX className="w-5 h-5 text-amber-400" />
+                      <span className="text-xs font-bold text-amber-300 uppercase">Farmacias SIN Oficial</span>
+                    </div>
+                    <span className="text-2xl font-black text-white block">
+                      ${stats.withoutOfficerLoss.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </span>
+                    <span className="text-[11px] text-slate-400 block mt-1">
+                      {stats.withoutOfficerCount} hechos en farmacias desprotegidas
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-                Monto Recuperado
-              </p>
-              <h3 className="text-2xl font-black text-emerald-600">
-                ${stats.totalRecovered.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </h3>
-              <p className="text-[11px] font-semibold text-slate-500 mt-1">
-                Recuperado en el sitio
-              </p>
+          {/* Columna Derecha: Tarjetas de Información Práctica */}
+          <div className="space-y-4 flex flex-col justify-between">
+            {/* Tarjeta Farmacia Crítica */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-black text-rose-600 uppercase tracking-wider block mb-1">
+                  SEDE DE MAYOR ATENCIÓN
+                </span>
+                <h3 className="text-lg font-black text-slate-800 truncate max-w-[200px]" title={stats.topPharm}>
+                  {stats.topPharm}
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  {stats.topPharmCount > 0 ? `${stats.topPharmCount} casos registrados` : 'Sin novedades'}
+                </p>
+              </div>
+              <div className="p-3.5 bg-rose-50 text-rose-600 rounded-2xl">
+                <Building2 className="w-7 h-7" />
+              </div>
             </div>
-            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-          </div>
 
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-                Total Incidentes
-              </p>
-              <h3 className="text-2xl font-black text-slate-800">
-                {stats.totalIncidents}
-              </h3>
-              <p className="text-[11px] font-semibold text-slate-500 mt-1">
-                Casos registrados
+            {/* Tarjeta de Tasa de Recuperación */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
+              <div className="flex justify-between items-center mb-2">
+                <div>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                    EFECTIVIDAD DE RECUPERACIÓN
+                  </span>
+                  <span className="text-2xl font-black text-slate-800">
+                    {stats.totalLoss + stats.totalRecovered > 0
+                      ? `${Math.round((stats.totalRecovered / (stats.totalLoss + stats.totalRecovered)) * 100)}%`
+                      : '0%'}
+                  </span>
+                </div>
+                <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Porcentaje del valor de mercancía rescatada en el acto.
               </p>
             </div>
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-              <Layers className="w-6 h-6" />
-            </div>
-          </div>
 
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-                Farmacia más Afectada
-              </p>
-              <h3 className="text-base font-black text-slate-800 truncate max-w-[170px]" title={stats.topPharm}>
-                {stats.topPharm}
-              </h3>
-              <p className="text-[11px] font-semibold text-slate-500 mt-1">
-                {stats.topPharmCount > 0 ? `${stats.topPharmCount} incidentes reportados` : 'Sin registros'}
-              </p>
-            </div>
-            <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
-              <Building2 className="w-6 h-6" />
+            {/* Accesos rápidos de filtro directo */}
+            <div className="bg-slate-900 text-white rounded-2xl p-4 border border-white/10 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  FILTRO RÁPIDO SEGURIDAD
+                </span>
+                <span className="text-xs font-bold text-white">
+                  {filterOfficer === 'ALL' ? 'Mostrando Todos' : filterOfficer === 'WITH_OFFICER' ? 'Solo Con Oficial' : 'Solo Sin Oficial'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setFilterOfficer(prev => prev === 'WITH_OFFICER' ? 'ALL' : 'WITH_OFFICER')}
+                  className={`p-2 rounded-xl text-xs font-bold transition-colors ${
+                    filterOfficer === 'WITH_OFFICER' ? 'bg-emerald-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                  }`}
+                  title="Filtrar con oficial"
+                >
+                  <Shield className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setFilterOfficer(prev => prev === 'WITHOUT_OFFICER' ? 'ALL' : 'WITHOUT_OFFICER')}
+                  className={`p-2 rounded-xl text-xs font-bold transition-colors ${
+                    filterOfficer === 'WITHOUT_OFFICER' ? 'bg-amber-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                  }`}
+                  title="Filtrar sin oficial"
+                >
+                  <ShieldX className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Barra de Filtros */}
         <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div className="relative md:col-span-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="relative sm:col-span-2 md:col-span-1">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Buscar por caso, farmacia, modus operandi o producto..."
+                placeholder="Buscar caso, farmacia, producto..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 text-xs font-medium rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
@@ -722,7 +946,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
                 onChange={e => setFilterType(e.target.value)}
                 className="w-full py-2 px-3 text-xs font-medium rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
               >
-                <option value="ALL">Todos los Tipos de Hurto / Robo</option>
+                <option value="ALL">Tipos de Hurto / Robo</option>
                 {THEFT_TYPES.map(t => (
                   <option key={t} value={t}>{t}</option>
                 ))}
@@ -741,6 +965,18 @@ export const TheftControl: React.FC<TheftControlProps> = ({
                 ))}
               </select>
             </div>
+
+            <div>
+              <select
+                value={filterOfficer}
+                onChange={e => setFilterOfficer(e.target.value)}
+                className="w-full py-2 px-3 text-xs font-medium rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
+              >
+                <option value="ALL">Oficial de Seguridad (Todos)</option>
+                <option value="WITH_OFFICER">Con Oficial de Seguridad</option>
+                <option value="WITHOUT_OFFICER">Sin Oficial de Seguridad</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -751,7 +987,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
               <PackageX className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <h3 className="text-base font-bold text-slate-700">No se encontraron reportes de hurtos</h3>
               <p className="text-xs text-slate-400 mt-1">
-                {searchTerm || filterPharmacy !== 'ALL' || filterReporter !== 'ALL' || filterType !== 'ALL'
+                {searchTerm || filterPharmacy !== 'ALL' || filterReporter !== 'ALL' || filterType !== 'ALL' || filterOfficer !== 'ALL'
                   ? 'Intente cambiando los filtros de búsqueda'
                   : 'Presione "Nuevo Reporte de Hurto" para ingresar el primer incidente'}
               </p>
@@ -763,6 +999,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
                   <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-black text-slate-500 uppercase tracking-wider">
                     <th className="py-3 px-4">Caso / Fecha</th>
                     <th className="py-3 px-4">Farmacia / Turno</th>
+                    <th className="py-3 px-4">Seguridad</th>
                     <th className="py-3 px-4">Tipo & Reportado por</th>
                     <th className="py-3 px-4">Sospechosos</th>
                     <th className="py-3 px-4">Pérdida (USD)</th>
@@ -792,8 +1029,22 @@ export const TheftControl: React.FC<TheftControlProps> = ({
                             <span className="font-bold">{record.pharmacyName}</span>
                           </div>
                           <div className="text-[11px] text-slate-500 mt-0.5">
-                            Turno: <strong>{record.shift || 'Mañana'}</strong> • Zona: {record.zoneInPharmacy}
+                            Turno: <strong>{record.shift || 'Mañana'}</strong> • Área: {record.zoneInPharmacy}
                           </div>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          {record.hasSecurityOfficerAtIncident ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <Shield className="w-3 h-3 text-emerald-600" />
+                              Con Oficial
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[10px] bg-amber-50 text-amber-700 border border-amber-200">
+                              <ShieldX className="w-3 h-3 text-amber-600" />
+                              Sin Oficial
+                            </span>
+                          )}
                         </td>
 
                         <td className="py-3.5 px-4">
@@ -1002,7 +1253,8 @@ export const TheftControl: React.FC<TheftControlProps> = ({
                     setFormData(prev => ({
                       ...prev,
                       pharmacyId: e.target.value,
-                      pharmacyName: p ? p.name : ''
+                      pharmacyName: p ? p.name : '',
+                      hasSecurityOfficerAtIncident: p ? Boolean(p.hasSecurityOfficer) : prev.hasSecurityOfficerAtIncident
                     }));
                   }}
                   required
@@ -1083,6 +1335,50 @@ export const TheftControl: React.FC<TheftControlProps> = ({
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
+              </div>
+
+              {/* OFICIAL DE SEGURIDAD EN FARMACIA */}
+              <div className="md:col-span-3 pt-2 border-t border-slate-100 flex items-center justify-between bg-slate-50 p-3 rounded-xl">
+                <div className="flex items-center gap-2">
+                  {formData.hasSecurityOfficerAtIncident ? (
+                    <Shield className="w-5 h-5 text-emerald-600" />
+                  ) : (
+                    <ShieldX className="w-5 h-5 text-amber-500" />
+                  )}
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 block">
+                      ¿La farmacia contaba con Oficial de Seguridad presente durante el hecho?
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      Permite analizar estadísticas de efectividad disuasiva y hurtos en sedes desprotegidas.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, hasSecurityOfficerAtIncident: true }))}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
+                      formData.hasSecurityOfficerAtIncident
+                        ? 'bg-emerald-600 text-white shadow-md'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    SÍ (Con Oficial)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, hasSecurityOfficerAtIncident: false }))}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
+                      !formData.hasSecurityOfficerAtIncident
+                        ? 'bg-amber-600 text-white shadow-md'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    NO (Sin Oficial)
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1801,16 +2097,30 @@ export const TheftControl: React.FC<TheftControlProps> = ({
 
         {/* Tarjeta de Resumen General */}
         <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pb-6 border-b border-slate-100">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 pb-6 border-b border-slate-100">
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">FECHA & TURNO</span>
               <span className="text-xs font-black text-slate-800">{selectedRecord.date} {selectedRecord.time}</span>
               <span className="text-[10px] text-slate-500 font-bold block">Turno: {selectedRecord.shift || 'Mañana'}</span>
             </div>
             <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">TIPO & ZONA</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">TIPO & ÁREA</span>
               <span className="text-xs font-black text-slate-800">{selectedRecord.theftType || 'Hurto Externo'}</span>
               <span className="text-[10px] text-slate-500 font-bold block">{selectedRecord.zoneInPharmacy}</span>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">SEGURIDAD</span>
+              {selectedRecord.hasSecurityOfficerAtIncident ? (
+                <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md font-bold text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <Shield className="w-3 h-3 text-emerald-600" />
+                  Con Oficial
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md font-bold text-[10px] bg-amber-50 text-amber-700 border border-amber-200">
+                  <ShieldX className="w-3 h-3 text-amber-600" />
+                  Sin Oficial
+                </span>
+              )}
             </div>
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">REPORTADO POR:</span>

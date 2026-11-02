@@ -422,6 +422,7 @@ export interface TheftRecord {
   theftType: TheftType;
   zoneInPharmacy: string;
   modusOperandi: string;
+  hasSecurityOfficerAtIncident: boolean; // ¿La farmacia contaba con oficial de seguridad en el hecho?
   
   // Sospechosos
   suspectCount?: number; // Número de sospechosos / implicados
