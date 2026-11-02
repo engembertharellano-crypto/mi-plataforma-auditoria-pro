@@ -198,6 +198,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
   const stats = useMemo(() => {
     let totalLoss = 0;
     let totalRecovered = 0;
+    let recoveredCount = 0;
     let withOfficerLoss = 0;
     let withoutOfficerLoss = 0;
     let withOfficerCount = 0;
@@ -212,6 +213,9 @@ export const TheftControl: React.FC<TheftControlProps> = ({
       const rec = Number(r.totalRecoveredUSD || 0);
       totalLoss += loss;
       totalRecovered += rec;
+      if (rec > 0) {
+        recoveredCount += 1;
+      }
 
       // Desglose oficial de seguridad
       if (r.hasSecurityOfficerAtIncident) {
@@ -266,6 +270,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
     return {
       totalLoss,
       totalRecovered,
+      recoveredCount,
       totalIncidents: theftRecords.length,
       topPharm,
       topPharmCount: maxIncidents,
@@ -741,32 +746,52 @@ export const TheftControl: React.FC<TheftControlProps> = ({
               {/* Contenido dinámico según la pestaña activa */}
               {activeTabMetric === 'overview' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
-                  <div className="bg-slate-900/60 p-5 rounded-2xl border border-white/5 backdrop-blur-md">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                      PÉRDIDA TOTAL NETA
-                    </span>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-4xl font-black text-rose-500">
-                        ${stats.totalLoss.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <div className="bg-slate-900/70 p-5 rounded-2xl border border-rose-500/20 backdrop-blur-md flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-black text-rose-300 uppercase tracking-wider block">
+                          PÉRDIDA TOTAL NETA
+                        </span>
+                        <span className="px-2.5 py-1 bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-black">
+                          {stats.totalIncidents} {stats.totalIncidents === 1 ? 'Incidente' : 'Incidentes'}
+                        </span>
+                      </div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-4xl font-black text-rose-500">
+                          ${stats.totalLoss.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-rose-500/20 flex items-center justify-between text-xs">
+                      <span className="text-slate-300 font-semibold">Total de hechos registrados:</span>
+                      <span className="font-mono font-black text-rose-400 text-sm bg-rose-950/80 px-2.5 py-0.5 rounded border border-rose-500/30">
+                        {stats.totalIncidents}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-400 mt-2">
-                      Sustraído en <strong>{stats.totalIncidents} incidentes</strong> registrados
-                    </p>
                   </div>
 
-                  <div className="bg-slate-900/60 p-5 rounded-2xl border border-white/5 backdrop-blur-md">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                      MONTO RECUPERADO
-                    </span>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-4xl font-black text-emerald-400">
-                        ${stats.totalRecovered.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <div className="bg-slate-900/70 p-5 rounded-2xl border border-emerald-500/20 backdrop-blur-md flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-black text-emerald-300 uppercase tracking-wider block">
+                          MONTO RECUPERADO
+                        </span>
+                        <span className="px-2.5 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg text-xs font-black">
+                          {stats.recoveredCount} {stats.recoveredCount === 1 ? 'Rescate' : 'Rescates'}
+                        </span>
+                      </div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-4xl font-black text-emerald-400">
+                          ${stats.totalRecovered.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-emerald-500/20 flex items-center justify-between text-xs">
+                      <span className="text-slate-300 font-semibold">Interceptados en tienda:</span>
+                      <span className="font-mono font-black text-emerald-400 text-sm bg-emerald-950/80 px-2.5 py-0.5 rounded border border-emerald-500/30">
+                        {stats.recoveredCount}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-400 mt-2">
-                      Mercancía interceptada en tienda antes de la fuga
-                    </p>
                   </div>
                 </div>
               )}
