@@ -51,15 +51,18 @@ interface TheftControlProps {
 }
 
 const ZONES_LIST = [
-  'Piso de Venta',
-  'Perfumería y Cuidado Personal',
-  'Medicamentos y Mostrador',
+  'Perfumería',
+  'Cuidado Personal',
+  'Neveras',
+  'RX (Medicamentos / Recetario)',
+  'Cosmético',
+  'Snack',
+  'Piso de Venta / Pasillos',
   'Área de Cajas',
-  'Depósito / Almacén',
-  'Pasillos Centrales',
   'Góndolas Promocionales',
+  'Depósito / Almacén',
   'Entrada / Salida',
-  'Otra'
+  'Otro'
 ];
 
 const REPORTERS_LIST: TheftReporter[] = [
@@ -117,7 +120,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
     shift: 'Mañana',
     reportedBySource: 'Personal de farmacia',
     theftType: 'Hurto Externo',
-    zoneInPharmacy: 'Piso de Venta',
+    zoneInPharmacy: 'Perfumería',
     modusOperandi: '',
     suspectCount: 1,
     suspectDetails: '',
@@ -315,7 +318,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
       shift: 'Mañana',
       reportedBySource: 'Personal de farmacia',
       theftType: 'Hurto Externo',
-      zoneInPharmacy: 'Piso de Venta',
+      zoneInPharmacy: 'Perfumería',
       modusOperandi: '',
       suspectCount: 1,
       suspectDetails: '',
@@ -921,7 +924,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Zona en Farmacia
+                  Área en Farmacia
                 </label>
                 <select
                   value={formData.zoneInPharmacy}
