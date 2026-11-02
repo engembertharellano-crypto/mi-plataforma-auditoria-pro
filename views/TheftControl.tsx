@@ -25,10 +25,20 @@ import {
   TrendingDown, 
   ShieldCheck, 
   FileText,
-  HelpCircle,
-  FolderOpen
+  FolderOpen,
+  Users,
+  Link,
+  UserCheck
 } from 'lucide-react';
-import { Pharmacy, TheftRecord, TheftProductItem, TheftType, TheftStatus } from '../types';
+import { 
+  Pharmacy, 
+  TheftRecord, 
+  TheftProductItem, 
+  TheftType, 
+  TheftShift, 
+  TheftReporter,
+  TheftEvidenceLink 
+} from '../types';
 
 interface TheftControlProps {
   pharmacies: Pharmacy[];
@@ -52,6 +62,27 @@ const ZONES_LIST = [
   'Otra'
 ];
 
+const REPORTERS_LIST: TheftReporter[] = [
+  'Personal de farmacia',
+  'Personal Administrativo',
+  'Coordinador de seguridad',
+  'Otro cliente',
+  'Otro'
+];
+
+const THEFT_TYPES: TheftType[] = [
+  'Hurto Externo',
+  'Hurto Interno',
+  'Robo',
+  'Cómplice Interno y Externo'
+];
+
+const SHIFTS_LIST: TheftShift[] = [
+  'Mañana',
+  'Mixto',
+  'Tarde'
+];
+
 export const TheftControl: React.FC<TheftControlProps> = ({
   pharmacies = [],
   theftRecords = [],
@@ -68,33 +99,33 @@ export const TheftControl: React.FC<TheftControlProps> = ({
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPharmacy, setFilterPharmacy] = useState<string>('ALL');
-  const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  const [filterReporter, setFilterReporter] = useState<string>('ALL');
   const [filterType, setFilterType] = useState<string>('ALL');
 
-  // Estado del formulario
+  // Fechas por defecto
   const now = new Date();
   const defaultDate = now.toLocaleDateString('sv-SE');
   const defaultTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
+  // Estado del formulario
   const [formData, setFormData] = useState<Omit<TheftRecord, 'id' | 'createdAt'> & { id?: string }>({
     incidentNumber: '',
     pharmacyId: '',
     pharmacyName: '',
     date: defaultDate,
     time: defaultTime,
-    shift: 'Tarde',
-    theftType: 'Externo',
+    shift: 'Mañana',
+    reportedBySource: 'Personal de farmacia',
+    theftType: 'Hurto Externo',
     zoneInPharmacy: 'Piso de Venta',
     modusOperandi: '',
+    suspectCount: 1,
+    suspectDetails: '',
     products: [],
     totalLossUSD: 0,
     totalRecoveredUSD: 0,
-    evidenceDriveUrl: '',
+    evidenceLinks: [],
     adjustmentDriveUrl: '',
-    cctvCameraReference: '',
-    cctvTimestamp: '',
-    suspectDetails: '',
-    status: 'Reportado',
     policeReportFiled: false,
     policeReportNumber: '',
     createdByRole: currentUser?.role || 'CECOM',
@@ -117,12 +148,14 @@ export const TheftControl: React.FC<TheftControlProps> = ({
     recovered: false
   });
 
+  // Estado para el link de evidencia a agregar
+  const [tempEvidenceLink, setTempEvidenceLink] = useState<{ name: string; url: string }>({
+    name: '',
+    url: ''
+  });
+
   // Modal para confirmar eliminación
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-
-  // Rol del usuario actual
-  const userRole = (currentUser?.role || '').toLowerCase();
-  const canEditOrAdd = true; // Tanto CECOM como Coordinadores y Admin pueden agregar/editar
 
   // ==========================================
   // CÁLCULOS Y KPIs
@@ -171,12 +204,12 @@ export const TheftControl: React.FC<TheftControlProps> = ({
         (r.products || []).some(p => p.description.toLowerCase().includes(searchTerm.toLowerCase()));
 
       const matchPharm = filterPharmacy === 'ALL' || r.pharmacyId === filterPharmacy;
-      const matchStatus = filterStatus === 'ALL' || r.status === filterStatus;
+      const matchReporter = filterReporter === 'ALL' || r.reportedBySource === filterReporter;
       const matchType = filterType === 'ALL' || r.theftType === filterType;
 
-      return matchSearch && matchPharm && matchStatus && matchType;
+      return matchSearch && matchPharm && matchReporter && matchType;
     });
-  }, [theftRecords, searchTerm, filterPharmacy, filterStatus, filterType]);
+  }, [theftRecords, searchTerm, filterPharmacy, filterReporter, filterType]);
 
   // ==========================================
   // MANEJADORES DE PRODUCTOS
@@ -243,6 +276,32 @@ export const TheftControl: React.FC<TheftControlProps> = ({
   };
 
   // ==========================================
+  // MANEJADORES DE ENLACES DE EVIDENCIA (LINK POR LINK)
+  // ==========================================
+  const handleAddEvidenceLink = () => {
+    if (!tempEvidenceLink.url.trim()) return;
+    const newLink: TheftEvidenceLink = {
+      id: Math.random().toString(36).substring(2, 9),
+      name: tempEvidenceLink.name.trim() || `Evidencia ${(formData.evidenceLinks || []).length + 1}`,
+      url: tempEvidenceLink.url.trim()
+    };
+
+    setFormData(prev => ({
+      ...prev,
+      evidenceLinks: [...(prev.evidenceLinks || []), newLink]
+    }));
+
+    setTempEvidenceLink({ name: '', url: '' });
+  };
+
+  const handleRemoveEvidenceLink = (linkId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      evidenceLinks: (prev.evidenceLinks || []).filter(l => l.id !== linkId)
+    }));
+  };
+
+  // ==========================================
   // INICIAR FORMULARIO
   // ==========================================
   const handleOpenNew = () => {
@@ -253,19 +312,18 @@ export const TheftControl: React.FC<TheftControlProps> = ({
       pharmacyName: pharmacies[0]?.name || '',
       date: defaultDate,
       time: defaultTime,
-      shift: 'Tarde',
-      theftType: 'Externo',
+      shift: 'Mañana',
+      reportedBySource: 'Personal de farmacia',
+      theftType: 'Hurto Externo',
       zoneInPharmacy: 'Piso de Venta',
       modusOperandi: '',
+      suspectCount: 1,
+      suspectDetails: '',
       products: [],
       totalLossUSD: 0,
       totalRecoveredUSD: 0,
-      evidenceDriveUrl: '',
+      evidenceLinks: [],
       adjustmentDriveUrl: '',
-      cctvCameraReference: '',
-      cctvTimestamp: '',
-      suspectDetails: '',
-      status: 'Reportado',
       policeReportFiled: false,
       policeReportNumber: '',
       createdByRole: currentUser?.role || 'CECOM',
@@ -277,8 +335,20 @@ export const TheftControl: React.FC<TheftControlProps> = ({
   };
 
   const handleOpenEdit = (record: TheftRecord) => {
+    // Normalizar enlaces si venía de versión previa con string único
+    const initialLinks: TheftEvidenceLink[] = Array.isArray(record.evidenceLinks) 
+      ? [...record.evidenceLinks] 
+      : record.evidenceDriveUrl 
+      ? [{ id: 'legacy-1', name: 'Carpeta de Evidencia', url: record.evidenceDriveUrl }] 
+      : [];
+
     setFormData({
-      ...record
+      ...record,
+      shift: record.shift || 'Mañana',
+      reportedBySource: record.reportedBySource || 'Personal de farmacia',
+      theftType: record.theftType || 'Hurto Externo',
+      suspectCount: record.suspectCount || 1,
+      evidenceLinks: initialLinks
     });
     setEditingId(record.id);
     setView('form');
@@ -304,7 +374,6 @@ export const TheftControl: React.FC<TheftControlProps> = ({
     const pName = selectedPharm ? selectedPharm.name : formData.pharmacyName;
 
     if (editingId) {
-      // Editar existente
       const updated: TheftRecord = {
         ...(formData as TheftRecord),
         id: editingId,
@@ -315,7 +384,6 @@ export const TheftControl: React.FC<TheftControlProps> = ({
       setSelectedRecord(updated);
       setView('detail');
     } else {
-      // Crear nuevo
       const newRecord: TheftRecord = {
         ...(formData as TheftRecord),
         id: Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
@@ -463,25 +531,23 @@ export const TheftControl: React.FC<TheftControlProps> = ({
                 onChange={e => setFilterType(e.target.value)}
                 className="w-full py-2 px-3 text-xs font-medium rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
               >
-                <option value="ALL">Todos los Tipos (Externo/Interno)</option>
-                <option value="Externo">Externo (Clientes / Mecheros)</option>
-                <option value="Interno">Interno (Personal / Contratista)</option>
-                <option value="Mixto">Mixto (Colusión)</option>
+                <option value="ALL">Todos los Tipos de Hurto / Robo</option>
+                {THEFT_TYPES.map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
               </select>
             </div>
 
             <div>
               <select
-                value={filterStatus}
-                onChange={e => setFilterStatus(e.target.value)}
+                value={filterReporter}
+                onChange={e => setFilterReporter(e.target.value)}
                 className="w-full py-2 px-3 text-xs font-medium rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
               >
-                <option value="ALL">Todos los Estados</option>
-                <option value="Reportado">Reportado</option>
-                <option value="En Investigación">En Investigación</option>
-                <option value="Ajustado">Ajustado</option>
-                <option value="Recuperado">Recuperado</option>
-                <option value="Cerrado">Cerrado</option>
+                <option value="ALL">Reportado por: (Todos)</option>
+                {REPORTERS_LIST.map(r => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -494,7 +560,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
               <PackageX className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <h3 className="text-base font-bold text-slate-700">No se encontraron reportes de hurtos</h3>
               <p className="text-xs text-slate-400 mt-1">
-                {searchTerm || filterPharmacy !== 'ALL' || filterStatus !== 'ALL' || filterType !== 'ALL'
+                {searchTerm || filterPharmacy !== 'ALL' || filterReporter !== 'ALL' || filterType !== 'ALL'
                   ? 'Intente cambiando los filtros de búsqueda'
                   : 'Presione "Nuevo Reporte de Hurto" para ingresar el primer incidente'}
               </p>
@@ -505,23 +571,17 @@ export const TheftControl: React.FC<TheftControlProps> = ({
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-black text-slate-500 uppercase tracking-wider">
                     <th className="py-3 px-4">Caso / Fecha</th>
-                    <th className="py-3 px-4">Farmacia / Ubicación</th>
-                    <th className="py-3 px-4">Tipo & Zona</th>
+                    <th className="py-3 px-4">Farmacia / Turno</th>
+                    <th className="py-3 px-4">Tipo & Reportado por</th>
+                    <th className="py-3 px-4">Sospechosos</th>
                     <th className="py-3 px-4">Pérdida (USD)</th>
-                    <th className="py-3 px-4">Evidencia Drive</th>
-                    <th className="py-3 px-4">Estado</th>
+                    <th className="py-3 px-4">Evidencias Drive</th>
                     <th className="py-3 px-4 text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
                   {filteredRecords.map(record => {
-                    const statusColors: Record<TheftStatus, string> = {
-                      'Reportado': 'bg-amber-50 text-amber-700 border-amber-200',
-                      'En Investigación': 'bg-blue-50 text-blue-700 border-blue-200',
-                      'Ajustado': 'bg-purple-50 text-purple-700 border-purple-200',
-                      'Recuperado': 'bg-emerald-50 text-emerald-700 border-emerald-200',
-                      'Cerrado': 'bg-slate-100 text-slate-600 border-slate-200'
-                    };
+                    const linksCount = (record.evidenceLinks || []).length || (record.evidenceDriveUrl ? 1 : 0);
 
                     return (
                       <tr key={record.id} className="hover:bg-slate-50/60 transition-colors">
@@ -540,24 +600,39 @@ export const TheftControl: React.FC<TheftControlProps> = ({
                             <Building2 className="w-3.5 h-3.5 text-slate-400" />
                             <span className="font-bold">{record.pharmacyName}</span>
                           </div>
-                          <div className="text-[11px] text-slate-400 mt-0.5">
-                            Reportado por: {record.createdByName} ({record.createdByRole})
+                          <div className="text-[11px] text-slate-500 mt-0.5">
+                            Turno: <strong>{record.shift || 'Mañana'}</strong> • Zona: {record.zoneInPharmacy}
                           </div>
                         </td>
 
                         <td className="py-3.5 px-4">
                           <span className={`inline-block px-2 py-0.5 rounded-md font-bold text-[10px] ${
-                            record.theftType === 'Externo'
-                              ? 'bg-orange-50 text-orange-700'
-                              : record.theftType === 'Interno'
-                              ? 'bg-rose-50 text-rose-700'
-                              : 'bg-indigo-50 text-indigo-700'
+                            record.theftType === 'Robo'
+                              ? 'bg-red-100 text-red-800'
+                              : record.theftType === 'Hurto Interno'
+                              ? 'bg-rose-100 text-rose-800'
+                              : record.theftType === 'Cómplice Interno y Externo'
+                              ? 'bg-purple-100 text-purple-800'
+                              : 'bg-orange-100 text-orange-800'
                           }`}>
-                            {record.theftType}
+                            {record.theftType || 'Hurto Externo'}
                           </span>
-                          <div className="text-[11px] text-slate-500 font-medium mt-1">
-                            {record.zoneInPharmacy}
+                          <div className="text-[11px] text-slate-500 font-medium mt-1 flex items-center gap-1">
+                            <UserCheck className="w-3 h-3 text-slate-400" />
+                            {record.reportedBySource || 'Personal de farmacia'}
                           </div>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                            <Users className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{record.suspectCount || 1} implicado(s)</span>
+                          </div>
+                          {record.suspectDetails && (
+                            <p className="text-[11px] text-slate-500 truncate max-w-[150px]" title={record.suspectDetails}>
+                              {record.suspectDetails}
+                            </p>
+                          )}
                         </td>
 
                         <td className="py-3.5 px-4">
@@ -576,19 +651,13 @@ export const TheftControl: React.FC<TheftControlProps> = ({
 
                         <td className="py-3.5 px-4">
                           <div className="flex flex-col gap-1">
-                            {record.evidenceDriveUrl ? (
-                              <a
-                                href={record.evidenceDriveUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 hover:underline"
-                              >
-                                <FolderOpen className="w-3.5 h-3.5 text-blue-500" />
-                                Evidencia Drive
-                                <ExternalLink className="w-2.5 h-2.5" />
-                              </a>
+                            {linksCount > 0 ? (
+                              <div className="flex items-center gap-1 text-[11px] font-bold text-blue-600">
+                                <Link className="w-3.5 h-3.5 text-blue-500" />
+                                <span>{linksCount} link(s) de evidencia</span>
+                              </div>
                             ) : (
-                              <span className="text-[11px] text-slate-400 italic">Sin enlace CCTV</span>
+                              <span className="text-[11px] text-slate-400 italic">Sin evidencias</span>
                             )}
 
                             {record.adjustmentDriveUrl && (
@@ -604,12 +673,6 @@ export const TheftControl: React.FC<TheftControlProps> = ({
                               </a>
                             )}
                           </div>
-                        </td>
-
-                        <td className="py-3.5 px-4">
-                          <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${statusColors[record.status] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                            {record.status}
-                          </span>
                         </td>
 
                         <td className="py-3.5 px-4 text-right">
@@ -713,7 +776,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
             <button
               type="button"
               onClick={() => setView('list')}
-              className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              className="px-4 py-2 text-xs font-bold text-slate-300 hover:bg-white/10 rounded-xl transition-colors"
             >
               Cancelar
             </button>
@@ -733,7 +796,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
           <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-4">
             <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
               <Building2 className="w-4 h-4 text-rose-500" />
-              1. Localización y Horario del Hurto
+              1. Localización, Turno y Notificación
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -774,20 +837,19 @@ export const TheftControl: React.FC<TheftControlProps> = ({
                 />
               </div>
 
+              {/* CAMBIO: Reportado por: */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Estado del Caso
+                  Reportado por: *
                 </label>
                 <select
-                  value={formData.status}
-                  onChange={e => setFormData(prev => ({ ...prev, status: e.target.value as TheftStatus }))}
+                  value={formData.reportedBySource}
+                  onChange={e => setFormData(prev => ({ ...prev, reportedBySource: e.target.value as TheftReporter }))}
                   className="w-full text-xs font-medium py-2.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
                 >
-                  <option value="Reportado">Reportado</option>
-                  <option value="En Investigación">En Investigación</option>
-                  <option value="Ajustado">Ajustado en ERP/Sistema</option>
-                  <option value="Recuperado">Recuperado en el Sitio</option>
-                  <option value="Cerrado">Cerrado</option>
+                  {REPORTERS_LIST.map(r => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
                 </select>
               </div>
 
@@ -816,49 +878,50 @@ export const TheftControl: React.FC<TheftControlProps> = ({
                 />
               </div>
 
+              {/* CAMBIO: Turno: Mañana, Mixto, Tarde */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Turno
                 </label>
                 <select
                   value={formData.shift}
-                  onChange={e => setFormData(prev => ({ ...prev, shift: e.target.value as any }))}
+                  onChange={e => setFormData(prev => ({ ...prev, shift: e.target.value as TheftShift }))}
                   className="w-full text-xs font-medium py-2.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
                 >
-                  <option value="Mañana">Mañana</option>
-                  <option value="Tarde">Tarde</option>
-                  <option value="Noche">Noche</option>
+                  {SHIFTS_LIST.map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
                 </select>
               </div>
             </div>
           </div>
 
-          {/* SECCIÓN 2: TIPIFICACIÓN Y MODUS OPERANDI */}
+          {/* SECCIÓN 2: TIPIFICACIÓN, SOSPECHOSOS Y MODUS OPERANDI */}
           <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-4">
             <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
               <ShieldAlert className="w-4 h-4 text-rose-500" />
-              2. Tipificación y Modus Operandi
+              2. Tipificación y Sospechosos
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Tipo de Hurto
+                  Tipo de Hurto / Suceso
                 </label>
                 <select
                   value={formData.theftType}
                   onChange={e => setFormData(prev => ({ ...prev, theftType: e.target.value as TheftType }))}
                   className="w-full text-xs font-medium py-2.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
                 >
-                  <option value="Externo">Externo (Clientes, Mecheros, Bandas)</option>
-                  <option value="Interno">Interno (Personal, Empleados, Contratistas)</option>
-                  <option value="Mixto">Mixto (Colusión Interna + Externa)</option>
+                  {THEFT_TYPES.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
                 </select>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Zona Específica en Farmacia
+                  Zona en Farmacia
                 </label>
                 <select
                   value={formData.zoneInPharmacy}
@@ -871,29 +934,43 @@ export const TheftControl: React.FC<TheftControlProps> = ({
                 </select>
               </div>
 
-              <div className="md:col-span-2">
+              {/* CAMBIO: Número de sospechosos implicados */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Número de Implicados / Sospechosos
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.suspectCount || 1}
+                  onChange={e => setFormData(prev => ({ ...prev, suspectCount: Math.max(1, parseInt(e.target.value) || 1) }))}
+                  className="w-full text-xs font-bold py-2.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                />
+              </div>
+
+              <div className="md:col-span-3">
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Descripción o Datos de los Sospechosos
+                </label>
+                <input
+                  type="text"
+                  placeholder="Vestimenta, características físicas, sexo, si fueron identificados, cómplices o reincidentes..."
+                  value={formData.suspectDetails || ''}
+                  onChange={e => setFormData(prev => ({ ...prev, suspectDetails: e.target.value }))}
+                  className="w-full text-xs font-medium py-2.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                />
+              </div>
+
+              <div className="md:col-span-3">
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Descripción del Modus Operandi
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Detalle cómo ocurrió: ocultamiento en morral, cambio de cajas, consumo dentro de tienda, distracción al farmacéutico, etc..."
+                  placeholder="Detalle cómo ocurrió el hecho: ocultamiento en morral/ropa, distracción, rotura de empaque, consumo dentro del local, etc..."
                   value={formData.modusOperandi}
                   onChange={e => setFormData(prev => ({ ...prev, modusOperandi: e.target.value }))}
                   className="w-full text-xs font-medium p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Descripción o Datos del Sospechoso / Implicados
-                </label>
-                <input
-                  type="text"
-                  placeholder="Vestimenta, características físicas, si fue identificado o si es reincidente..."
-                  value={formData.suspectDetails || ''}
-                  onChange={e => setFormData(prev => ({ ...prev, suspectDetails: e.target.value }))}
-                  className="w-full text-xs font-medium py-2.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
                 />
               </div>
             </div>
@@ -1053,104 +1130,126 @@ export const TheftControl: React.FC<TheftControlProps> = ({
             )}
           </div>
 
-          {/* SECCIÓN 4: ENLACES GOOGLE DRIVE (PESO CERO EN DB) Y CCTV */}
+          {/* SECCIÓN 4: ENLACES GOOGLE DRIVE (LINK POR LINK + SOPORTE DE AJUSTE) */}
           <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-4">
             <div className="flex items-center gap-2">
               <FolderOpen className="w-5 h-5 text-blue-600" />
               <div>
                 <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">
-                  4. Enlaces de Google Drive & Soportes Digitales
+                  4. Enlaces de Google Drive (Link por Link)
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Suba las fotos, videos y archivos pesados a Google Drive y pegue los enlaces compartidos aquí (0 costo en base de datos).
+                  Puede agregar varios links independientes (videos de cámaras, fotos de sospechosos, fotos de mercancía, etc.).
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700">
-                  Carpeta / Archivo de Evidencias (Videos / Fotos CCTV)
-                </label>
-                <div className="flex items-center gap-2">
+            {/* Creador de link individual */}
+            <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 space-y-3">
+              <span className="text-xs font-bold text-blue-900 block">Agregar nuevo enlace de evidencia:</span>
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                <div className="sm:col-span-4">
+                  <input
+                    type="text"
+                    placeholder="Título (Ej: Video Pasillo, Foto Sospechoso)"
+                    value={tempEvidenceLink.name}
+                    onChange={e => setTempEvidenceLink(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full text-xs py-2 px-3 rounded-lg border border-slate-200 bg-white"
+                  />
+                </div>
+                <div className="sm:col-span-6">
                   <input
                     type="url"
-                    placeholder="https://drive.google.com/drive/folders/..."
-                    value={formData.evidenceDriveUrl || ''}
-                    onChange={e => setFormData(prev => ({ ...prev, evidenceDriveUrl: e.target.value }))}
-                    className="w-full text-xs font-medium py-2.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    placeholder="Enlace de Google Drive (https://drive.google.com/...)"
+                    value={tempEvidenceLink.url}
+                    onChange={e => setTempEvidenceLink(prev => ({ ...prev, url: e.target.value }))}
+                    className="w-full text-xs py-2 px-3 rounded-lg border border-slate-200 bg-white"
                   />
-                  {formData.evidenceDriveUrl && (
-                    <a
-                      href={formData.evidenceDriveUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl transition-colors flex-shrink-0"
-                      title="Probar enlace"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
-                  )}
                 </div>
-                <span className="text-[10px] text-slate-400 block">
-                  Enlace de Drive con permisos de lectura/visualización para el equipo.
-                </span>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700">
-                  Enlace al Soporte de Ajuste (Excel / PDF / Google Sheets)
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="url"
-                    placeholder="https://docs.google.com/spreadsheets/d/..."
-                    value={formData.adjustmentDriveUrl || ''}
-                    onChange={e => setFormData(prev => ({ ...prev, adjustmentDriveUrl: e.target.value }))}
-                    className="w-full text-xs font-medium py-2.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                  />
-                  {formData.adjustmentDriveUrl && (
-                    <a
-                      href={formData.adjustmentDriveUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-xl transition-colors flex-shrink-0"
-                      title="Probar enlace"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
-                  )}
+                <div className="sm:col-span-2">
+                  <button
+                    type="button"
+                    onClick={handleAddEvidenceLink}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors shadow-sm"
+                  >
+                    + Añadir Link
+                  </button>
                 </div>
-                <span className="text-[10px] text-slate-400 block">
-                  Planilla de merma, ajuste contable del ERP o acta firmada.
+              </div>
+            </div>
+
+            {/* Lista de enlaces agregados */}
+            {(formData.evidenceLinks || []).length > 0 && (
+              <div className="space-y-2">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Enlaces agregados a este expediente ({formData.evidenceLinks.length}):
                 </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {formData.evidenceLinks.map(linkItem => (
+                    <div 
+                      key={linkItem.id} 
+                      className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs"
+                    >
+                      <div className="flex items-center gap-2 truncate mr-2">
+                        <Video className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                        <div className="truncate">
+                          <span className="font-bold text-slate-800 block truncate">{linkItem.name}</span>
+                          <span className="text-[10px] text-slate-400 block truncate">{linkItem.url}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <a
+                          href={linkItem.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Abrir enlace"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveEvidenceLink(linkItem.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
+                          title="Quitar"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
+            )}
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Referencia de Cámara CCTV
-                </label>
+            {/* Enlace al soporte de ajuste contable */}
+            <div className="pt-3 border-t border-slate-100">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Enlace al Soporte de Ajuste / Merma (Excel, PDF o Google Sheets)
+              </label>
+              <div className="flex items-center gap-2">
                 <input
-                  type="text"
-                  placeholder="Ej: CAM-04 Pasillo 2 (DVR Principal)"
-                  value={formData.cctvCameraReference || ''}
-                  onChange={e => setFormData(prev => ({ ...prev, cctvCameraReference: e.target.value }))}
-                  className="w-full text-xs font-medium py-2.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  type="url"
+                  placeholder="https://docs.google.com/spreadsheets/d/..."
+                  value={formData.adjustmentDriveUrl || ''}
+                  onChange={e => setFormData(prev => ({ ...prev, adjustmentDriveUrl: e.target.value }))}
+                  className="w-full text-xs font-medium py-2.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                 />
+                {formData.adjustmentDriveUrl && (
+                  <a
+                    href={formData.adjustmentDriveUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-xl transition-colors flex-shrink-0"
+                    title="Probar enlace"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                )}
               </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Rango de Tiempo / Timestamp de Grabación
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ej: 15:42:00 a 15:46:30"
-                  value={formData.cctvTimestamp || ''}
-                  onChange={e => setFormData(prev => ({ ...prev, cctvTimestamp: e.target.value }))}
-                  className="w-full text-xs font-medium py-2.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                />
-              </div>
+              <span className="text-[10px] text-slate-400 block mt-1">
+                Planilla de ajuste de inventario firmada o reporte del ERP.
+              </span>
             </div>
           </div>
 
@@ -1158,7 +1257,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
           <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-4">
             <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
               <FileText className="w-4 h-4 text-slate-600" />
-              5. Acciones Legales y Observaciones Finales
+              5. Acciones Legales y Observaciones
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1192,7 +1291,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
 
               <div className="md:col-span-2">
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Notas de Cierre u Observaciones del Auditor / CECOM
+                  Notas u Observaciones del Coordinador / CECOM
                 </label>
                 <textarea
                   rows={2}
@@ -1210,7 +1309,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
             <button
               type="button"
               onClick={() => setView('list')}
-              className="px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              className="px-5 py-2.5 text-xs font-bold text-slate-300 hover:bg-white/10 rounded-xl transition-colors"
             >
               Cancelar
             </button>
@@ -1231,6 +1330,12 @@ export const TheftControl: React.FC<TheftControlProps> = ({
   // RENDER: VISTA DETALLADA / EXPEDIENTE
   // ==========================================
   if (view === 'detail' && selectedRecord) {
+    const detailLinks: TheftEvidenceLink[] = Array.isArray(selectedRecord.evidenceLinks)
+      ? selectedRecord.evidenceLinks
+      : selectedRecord.evidenceDriveUrl
+      ? [{ id: 'leg-1', name: 'Carpeta de Evidencia', url: selectedRecord.evidenceDriveUrl }]
+      : [];
+
     return (
       <div className="space-y-6 max-w-4xl mx-auto pb-20 animate-in fade-in duration-300">
         <div className="flex items-center justify-between border-b border-white/10 pb-4">
@@ -1246,7 +1351,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
                 {selectedRecord.incidentNumber}
               </span>
               <h2 className="text-xl md:text-2xl font-black text-white mt-1 uppercase tracking-tight">
-                Expediente de Hurto: {selectedRecord.pharmacyName}
+                Expediente: {selectedRecord.pharmacyName}
               </h2>
             </div>
           </div>
@@ -1254,7 +1359,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => window.print()}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition-colors border border-white/10"
             >
               <Printer className="w-3.5 h-3.5" />
               Imprimir
@@ -1273,31 +1378,46 @@ export const TheftControl: React.FC<TheftControlProps> = ({
         <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pb-6 border-b border-slate-100">
             <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">FECHA & HORA</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">FECHA & TURNO</span>
               <span className="text-xs font-black text-slate-800">{selectedRecord.date} {selectedRecord.time}</span>
-              <span className="text-[10px] text-slate-400 block">Turno: {selectedRecord.shift || 'N/A'}</span>
+              <span className="text-[10px] text-slate-500 font-bold block">Turno: {selectedRecord.shift || 'Mañana'}</span>
             </div>
             <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">TIPIFICACIÓN</span>
-              <span className="text-xs font-black text-slate-800">{selectedRecord.theftType}</span>
-              <span className="text-[10px] text-slate-400 block">{selectedRecord.zoneInPharmacy}</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">TIPO & ZONA</span>
+              <span className="text-xs font-black text-slate-800">{selectedRecord.theftType || 'Hurto Externo'}</span>
+              <span className="text-[10px] text-slate-500 font-bold block">{selectedRecord.zoneInPharmacy}</span>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">REPORTADO POR:</span>
+              <span className="text-xs font-black text-blue-700 block mt-0.5">
+                {selectedRecord.reportedBySource || 'Personal de farmacia'}
+              </span>
             </div>
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">PÉRDIDA NETA</span>
               <span className="text-base font-black text-rose-600">
                 ${Number(selectedRecord.totalLossUSD || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-            </div>
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">ESTADO</span>
-              <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 mt-1">
-                {selectedRecord.status}
-              </span>
+              {Number(selectedRecord.totalRecoveredUSD || 0) > 0 && (
+                <span className="text-[10px] text-emerald-600 font-bold block">
+                  +${Number(selectedRecord.totalRecoveredUSD).toLocaleString('en-US', { minimumFractionDigits: 2 })} rec.
+                </span>
+              )}
             </div>
           </div>
 
-          {/* Modus Operandi & Sospechoso */}
+          {/* Sospechosos & Modus Operandi */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-100">
+              <span className="text-xs font-black text-slate-700 uppercase tracking-wider block mb-1 flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-slate-500" />
+                Sospechosos Implicados ({selectedRecord.suspectCount || 1}):
+              </span>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {selectedRecord.suspectDetails || 'No se registraron señas físicas detalladas de los sospechosos.'}
+              </p>
+            </div>
+
             <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-100">
               <span className="text-xs font-black text-slate-700 uppercase tracking-wider block mb-1">
                 Modus Operandi:
@@ -1306,48 +1426,42 @@ export const TheftControl: React.FC<TheftControlProps> = ({
                 {selectedRecord.modusOperandi || 'Sin descripción de la modalidad registrada.'}
               </p>
             </div>
-
-            <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-100">
-              <span className="text-xs font-black text-slate-700 uppercase tracking-wider block mb-1">
-                Datos del Sospechoso / Implicados:
-              </span>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                {selectedRecord.suspectDetails || 'No se registraron datos del sospechoso.'}
-              </p>
-            </div>
           </div>
 
-          {/* Enlaces Google Drive */}
+          {/* Enlaces Google Drive Link por Link */}
           <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 space-y-3">
             <span className="text-xs font-black text-blue-900 uppercase tracking-wider block flex items-center gap-1.5">
               <FolderOpen className="w-4 h-4 text-blue-600" />
-              Soportes y Evidencias en Google Drive
+              Enlaces de Evidencia en Google Drive ({detailLinks.length})
             </span>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {selectedRecord.evidenceDriveUrl ? (
-                <a
-                  href={selectedRecord.evidenceDriveUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between p-3 bg-white rounded-xl border border-blue-200/80 hover:border-blue-400 hover:shadow-sm transition-all"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Video className="w-5 h-5 text-blue-600" />
-                    <div>
-                      <span className="text-xs font-bold text-slate-800 block">Carpeta de Videos y Fotos</span>
-                      <span className="text-[10px] text-slate-400">Ver evidencias en Google Drive</span>
+            {detailLinks.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {detailLinks.map((item, idx) => (
+                  <a
+                    key={item.id || idx}
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3 bg-white rounded-xl border border-blue-200/80 hover:border-blue-400 hover:shadow-sm transition-all"
+                  >
+                    <div className="flex items-center gap-2.5 truncate mr-2">
+                      <Video className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                      <div className="truncate">
+                        <span className="text-xs font-bold text-slate-800 block truncate">{item.name}</span>
+                        <span className="text-[10px] text-slate-400 truncate block">{item.url}</span>
+                      </div>
                     </div>
-                  </div>
-                  <ExternalLink className="w-4 h-4 text-blue-500" />
-                </a>
-              ) : (
-                <div className="p-3 bg-white/60 rounded-xl border border-dashed border-slate-200 text-xs text-slate-400 italic">
-                  Sin enlace a evidencias de video/foto
-                </div>
-              )}
+                    <ExternalLink className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 italic">No se adjuntaron enlaces de videos o fotos a este reporte.</p>
+            )}
 
-              {selectedRecord.adjustmentDriveUrl ? (
+            {selectedRecord.adjustmentDriveUrl && (
+              <div className="pt-2 border-t border-blue-100">
                 <a
                   href={selectedRecord.adjustmentDriveUrl}
                   target="_blank"
@@ -1357,27 +1471,12 @@ export const TheftControl: React.FC<TheftControlProps> = ({
                   <div className="flex items-center gap-2.5">
                     <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
                     <div>
-                      <span className="text-xs font-bold text-slate-800 block">Soporte de Ajuste de Merma</span>
-                      <span className="text-[10px] text-slate-400">Ver Excel / PDF en Drive</span>
+                      <span className="text-xs font-bold text-slate-800 block">Soporte de Ajuste de Merma (ERP / Contable)</span>
+                      <span className="text-[10px] text-slate-400">Ver archivo en Google Drive</span>
                     </div>
                   </div>
                   <ExternalLink className="w-4 h-4 text-emerald-500" />
                 </a>
-              ) : (
-                <div className="p-3 bg-white/60 rounded-xl border border-dashed border-slate-200 text-xs text-slate-400 italic">
-                  Sin enlace a planilla o ajuste contable
-                </div>
-              )}
-            </div>
-
-            {(selectedRecord.cctvCameraReference || selectedRecord.cctvTimestamp) && (
-              <div className="text-[11px] text-slate-600 pt-1 flex items-center gap-4">
-                {selectedRecord.cctvCameraReference && (
-                  <span><strong>Cámara:</strong> {selectedRecord.cctvCameraReference}</span>
-                )}
-                {selectedRecord.cctvTimestamp && (
-                  <span><strong>Timestamp:</strong> {selectedRecord.cctvTimestamp}</span>
-                )}
               </div>
             )}
           </div>

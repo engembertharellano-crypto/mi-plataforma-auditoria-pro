@@ -388,9 +388,26 @@ export interface TheftProductItem {
   recovered: boolean;
 }
 
-export type TheftType = 'Externo' | 'Interno' | 'Mixto';
+export interface TheftEvidenceLink {
+  id: string;
+  name: string; // Ej: "Video Entrada", "Foto Sospechoso 1", "Carpeta Completa"
+  url: string;
+}
 
-export type TheftStatus = 'Reportado' | 'En Investigación' | 'Ajustado' | 'Recuperado' | 'Cerrado';
+export type TheftShift = 'Mañana' | 'Mixto' | 'Tarde';
+
+export type TheftReporter = 
+  | 'Personal de farmacia'
+  | 'Personal Administrativo'
+  | 'Coordinador de seguridad'
+  | 'Otro cliente'
+  | 'Otro';
+
+export type TheftType = 
+  | 'Hurto Externo'
+  | 'Hurto Interno'
+  | 'Robo'
+  | 'Cómplice Interno y Externo';
 
 export interface TheftRecord {
   id: string;
@@ -399,28 +416,28 @@ export interface TheftRecord {
   pharmacyName: string;
   date: string;
   time: string;
-  shift?: 'Mañana' | 'Tarde' | 'Noche';
+  shift?: TheftShift;
+  reportedBySource: TheftReporter; // Quien reportó el hecho inicialmente
   
   theftType: TheftType;
   zoneInPharmacy: string;
   modusOperandi: string;
+  
+  // Sospechosos
+  suspectCount?: number; // Número de sospechosos / implicados
+  suspectDetails?: string;
   
   // Productos y Totales en USD
   products: TheftProductItem[];
   totalLossUSD: number;
   totalRecoveredUSD: number;
   
-  // Enlaces de Google Drive / Nube (Cero peso en DB)
-  evidenceDriveUrl?: string; // Carpeta o archivo con videos/fotos
+  // Enlaces de Google Drive / Nube (Múltiples links individuales)
+  evidenceLinks: TheftEvidenceLink[]; // Lista dinámica de enlaces
+  evidenceDriveUrl?: string; // Retrocompatibilidad
   adjustmentDriveUrl?: string; // Link a Excel, PDF o Google Sheets del ajuste
   
-  // Referencias CCTV
-  cctvCameraReference?: string;
-  cctvTimestamp?: string;
-  suspectDetails?: string;
-  
   // Estado y Policial
-  status: TheftStatus;
   policeReportFiled: boolean;
   policeReportNumber?: string;
   
@@ -431,3 +448,4 @@ export interface TheftRecord {
   updatedAt?: string;
   notes?: string;
 }
+
