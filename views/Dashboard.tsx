@@ -219,7 +219,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] rounded-[2rem] p-6 shadow-2xl relative overflow-hidden group border border-slate-700/50">
+        <div className="lg:col-span-2 bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] rounded-[2rem] p-5 shadow-2xl relative overflow-hidden group border border-slate-700/50">
           <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-orange-600/20 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3 group-hover:bg-orange-600/30 transition-colors duration-1000"></div>
           <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-blue-600/20 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/3"></div>
           <div className="relative z-10 flex flex-col h-full justify-between">
@@ -249,11 +249,11 @@ const Dashboard: React.FC<DashboardProps> = ({
 
         <div className="space-y-3">
           <div
-            className="glass-card p-4 rounded-[2rem] hover:-translate-y-2 transition-all duration-300 cursor-pointer group border-l-4 border-l-blue-500"
+            className="glass-card p-3 rounded-[2rem] hover:-translate-y-2 transition-all duration-300 cursor-pointer group border-l-4 border-l-blue-500"
             onClick={() => onNavigate('visit-log')}
           >
             <div className="flex justify-between items-start mb-2">
-              <div className="p-3 bg-blue-50 rounded-2xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors shadow-sm">
+              <div className="p-2 bg-blue-50 rounded-2xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors shadow-sm">
                 <Activity className="w-6 h-6" />
               </div>
               <span className="text-[10px] font-black text-slate-400 bg-slate-100/50 px-3 py-1 rounded-full border border-slate-100 uppercase">Este Mes</span>
@@ -261,7 +261,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             <p className="text-3xl font-black text-slate-800 mb-1">{auditsCount + cctvCount + physicalCount + managementCount}</p>
             <p className="text-slate-500 font-bold text-sm mb-3">Actividades Totales</p>
 
-            <div className="space-y-1.5 border-t border-slate-50 pt-3">
+            <div className="space-y-1 border-t border-slate-50 pt-2">
               <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 <span className="flex items-center gap-2"><FileText className="w-3 h-3" /> Inspecciones</span>
                 <span className="text-slate-700">{auditsCount}</span>
@@ -281,9 +281,9 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
           </div>
 
-          <div className="glass-card p-4 rounded-[2rem] hover:-translate-y-2 transition-all duration-300 group border-l-4 border-l-emerald-500">
+          <div className="glass-card p-3 rounded-[2rem] hover:-translate-y-2 transition-all duration-300 group border-l-4 border-l-emerald-500">
             <div className="flex justify-between items-start mb-2">
-              <div className="p-3 bg-emerald-50 rounded-2xl text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors shadow-sm">
+              <div className="p-2 bg-emerald-50 rounded-2xl text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors shadow-sm">
                 <TrendingUp className="w-6 h-6" />
               </div>
               <span className="text-[10px] font-black text-slate-400 bg-slate-100/50 px-3 py-1 rounded-full border border-slate-100 uppercase">KPI</span>
