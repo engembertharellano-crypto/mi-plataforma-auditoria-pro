@@ -219,7 +219,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] rounded-[2rem] p-7 shadow-2xl relative overflow-hidden group border border-slate-700/50">
+        <div className="lg:col-span-2 bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] rounded-[2rem] p-6 shadow-2xl relative overflow-hidden group border border-slate-700/50">
           <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-orange-600/20 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3 group-hover:bg-orange-600/30 transition-colors duration-1000"></div>
           <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-blue-600/20 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/3"></div>
           <div className="relative z-10 flex flex-col h-full justify-between">
@@ -234,7 +234,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div className="mt-6">
               <div className="flex items-baseline gap-4">
-                <span className="text-6xl font-black text-white tracking-normal drop-shadow-lg">{totalUniqueVisits}</span>
+                <span className="text-5xl font-black text-white tracking-normal drop-shadow-lg">{totalUniqueVisits}</span>
                 <span className="text-xl text-slate-400 font-medium">sedes visitadas</span>
               </div>
               <div className="w-full bg-slate-700/30 h-3 rounded-full mt-6 overflow-hidden backdrop-blur-sm border border-white/5">
@@ -247,9 +247,9 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div
-            className="glass-card p-5 rounded-[2rem] hover:-translate-y-2 transition-all duration-300 cursor-pointer group border-l-4 border-l-blue-500"
+            className="glass-card p-4 rounded-[2rem] hover:-translate-y-2 transition-all duration-300 cursor-pointer group border-l-4 border-l-blue-500"
             onClick={() => onNavigate('visit-log')}
           >
             <div className="flex justify-between items-start mb-2">
@@ -258,7 +258,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               </div>
               <span className="text-[10px] font-black text-slate-400 bg-slate-100/50 px-3 py-1 rounded-full border border-slate-100 uppercase">Este Mes</span>
             </div>
-            <p className="text-4xl font-black text-slate-800 mb-1">{auditsCount + cctvCount + physicalCount + managementCount}</p>
+            <p className="text-3xl font-black text-slate-800 mb-1">{auditsCount + cctvCount + physicalCount + managementCount}</p>
             <p className="text-slate-500 font-bold text-sm mb-3">Actividades Totales</p>
 
             <div className="space-y-1.5 border-t border-slate-50 pt-3">
@@ -281,14 +281,14 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
           </div>
 
-          <div className="glass-card p-5 rounded-[2rem] hover:-translate-y-2 transition-all duration-300 group border-l-4 border-l-emerald-500">
+          <div className="glass-card p-4 rounded-[2rem] hover:-translate-y-2 transition-all duration-300 group border-l-4 border-l-emerald-500">
             <div className="flex justify-between items-start mb-2">
               <div className="p-3 bg-emerald-50 rounded-2xl text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors shadow-sm">
                 <TrendingUp className="w-6 h-6" />
               </div>
               <span className="text-[10px] font-black text-slate-400 bg-slate-100/50 px-3 py-1 rounded-full border border-slate-100 uppercase">KPI</span>
             </div>
-            <p className="text-4xl font-black text-slate-800 mb-1">{coveragePercentage}%</p>
+            <p className="text-3xl font-black text-slate-800 mb-1">{coveragePercentage}%</p>
             <p className="text-slate-500 font-bold text-sm">Índice de Cobertura</p>
             <p className="text-emerald-600 font-black text-xs mt-2 uppercase tracking-widest">
               {totalUniqueVisits} de {totalPharmacies} farmacias operativas
