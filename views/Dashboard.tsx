@@ -219,7 +219,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] rounded-[2rem] p-10 shadow-2xl relative overflow-hidden group border border-slate-700/50">
+        <div className="lg:col-span-2 bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] rounded-[2rem] p-7 shadow-2xl relative overflow-hidden group border border-slate-700/50">
           <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-orange-600/20 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3 group-hover:bg-orange-600/30 transition-colors duration-1000"></div>
           <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-blue-600/20 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/3"></div>
           <div className="relative z-10 flex flex-col h-full justify-between">
@@ -232,12 +232,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <MapPin className="w-8 h-8 text-orange-400" />
               </div>
             </div>
-            <div className="mt-12">
+            <div className="mt-6">
               <div className="flex items-baseline gap-4">
-                <span className="text-8xl font-black text-white tracking-normal drop-shadow-lg">{totalUniqueVisits}</span>
+                <span className="text-6xl font-black text-white tracking-normal drop-shadow-lg">{totalUniqueVisits}</span>
                 <span className="text-xl text-slate-400 font-medium">sedes visitadas</span>
               </div>
-              <div className="w-full bg-slate-700/30 h-3 rounded-full mt-8 overflow-hidden backdrop-blur-sm border border-white/5">
+              <div className="w-full bg-slate-700/30 h-3 rounded-full mt-6 overflow-hidden backdrop-blur-sm border border-white/5">
                 <div
                   className="bg-gradient-to-r from-orange-500 via-red-500 to-orange-500 h-full rounded-full shadow-[0_0_20px_rgba(249,115,22,0.5)] bg-[length:200%_100%]"
                   style={{ width: `${coveragePercentage}%` }}
