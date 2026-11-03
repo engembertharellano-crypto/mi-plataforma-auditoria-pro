@@ -247,21 +247,21 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-4">
           <div
-            className="glass-card p-8 rounded-[2rem] hover:-translate-y-2 transition-all duration-300 cursor-pointer group border-l-4 border-l-blue-500"
+            className="glass-card p-5 rounded-[2rem] hover:-translate-y-2 transition-all duration-300 cursor-pointer group border-l-4 border-l-blue-500"
             onClick={() => onNavigate('visit-log')}
           >
-            <div className="flex justify-between items-start mb-4">
+            <div className="flex justify-between items-start mb-2">
               <div className="p-3 bg-blue-50 rounded-2xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors shadow-sm">
                 <Activity className="w-6 h-6" />
               </div>
               <span className="text-[10px] font-black text-slate-400 bg-slate-100/50 px-3 py-1 rounded-full border border-slate-100 uppercase">Este Mes</span>
             </div>
-            <p className="text-5xl font-black text-slate-800 mb-1">{auditsCount + cctvCount + physicalCount + managementCount}</p>
-            <p className="text-slate-500 font-bold text-sm mb-4">Actividades Totales</p>
-            
-            <div className="space-y-2 border-t border-slate-50 pt-4">
+            <p className="text-4xl font-black text-slate-800 mb-1">{auditsCount + cctvCount + physicalCount + managementCount}</p>
+            <p className="text-slate-500 font-bold text-sm mb-3">Actividades Totales</p>
+
+            <div className="space-y-1.5 border-t border-slate-50 pt-3">
               <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 <span className="flex items-center gap-2"><FileText className="w-3 h-3" /> Inspecciones</span>
                 <span className="text-slate-700">{auditsCount}</span>
@@ -281,14 +281,14 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
           </div>
 
-          <div className="glass-card p-8 rounded-[2rem] hover:-translate-y-2 transition-all duration-300 group border-l-4 border-l-emerald-500">
-            <div className="flex justify-between items-start mb-4">
+          <div className="glass-card p-5 rounded-[2rem] hover:-translate-y-2 transition-all duration-300 group border-l-4 border-l-emerald-500">
+            <div className="flex justify-between items-start mb-2">
               <div className="p-3 bg-emerald-50 rounded-2xl text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors shadow-sm">
                 <TrendingUp className="w-6 h-6" />
               </div>
               <span className="text-[10px] font-black text-slate-400 bg-slate-100/50 px-3 py-1 rounded-full border border-slate-100 uppercase">KPI</span>
             </div>
-            <p className="text-5xl font-black text-slate-800 mb-1">{coveragePercentage}%</p>
+            <p className="text-4xl font-black text-slate-800 mb-1">{coveragePercentage}%</p>
             <p className="text-slate-500 font-bold text-sm">Índice de Cobertura</p>
             <p className="text-emerald-600 font-black text-xs mt-2 uppercase tracking-widest">
               {totalUniqueVisits} de {totalPharmacies} farmacias operativas
