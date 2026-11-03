@@ -203,8 +203,13 @@ const App: React.FC = () => {
     return userData.pharmacies.filter(p => p.zone === currentUser?.zone);
   }, [userData.pharmacies, currentUser, isBoss, isTravelMode]);
 
-  const checkPermission = () => {
-    if (isReadOnly) {
+  // Tablas en las que Operador CECOM sí puede escribir (registro de eventos de hurto)
+  const CECOM_WRITABLE_TABLES = ['theft_records', 'cctv_records'];
+
+  const checkPermission = (table?: string) => {
+    const role = (currentUser?.role || '').trim().toLowerCase();
+    const cecomCanWrite = role === 'operador cecom' && !!table && CECOM_WRITABLE_TABLES.includes(table);
+    if (isReadOnly && !cecomCanWrite) {
       addToast("Modo Lectura: Acceso Denegado", "error");
       return false;
     }
@@ -212,7 +217,7 @@ const App: React.FC = () => {
   };
 
   const saveToCloud = async (table: string, id: string, data: any) => {
-    if (!checkPermission()) return;
+    if (!checkPermission(table)) return;
     if (!sb || !currentUser) return;
 
     try {
@@ -237,7 +242,7 @@ const App: React.FC = () => {
   };
 
   const deleteFromCloud = async (table: string, id: string) => {
-    if (!checkPermission()) return;
+    if (!checkPermission(table)) return;
     if (!sb) return;
 
     try {
@@ -787,13 +792,13 @@ const App: React.FC = () => {
             records={userData.cctvRecords}
             onBack={() => setCurrentView('dashboard')}
             onSave={async (r) => {
-              if (!checkPermission()) return;
+              if (!checkPermission('cctv_records')) return;
               const rec = { ...r, createdBy: currentUser.fullName || currentUser.email };
               setUserData(prev => ({ ...prev, cctvRecords: [...prev.cctvRecords, rec] }));
               await saveToCloud('cctv_records', rec.id, rec);
             }}
             onAddPharmacy={() => {}}
-            readOnly={isReadOnly}
+            readOnly={isReadOnly && (currentUser?.role || '').trim().toLowerCase() !== 'operador cecom'}
           />
         )}
 
@@ -948,6 +953,7 @@ const App: React.FC = () => {
             }}
             onDeleteCCTV={id => {
               if (!checkPermission()) return;
+              if (!checkPermission('cctv_records')) return;
               setUserData(p => ({ ...p, cctvRecords: p.cctvRecords.filter(x => x.id !== id) }));
               deleteFromCloud('cctv_records', id);
             }}
@@ -1019,10 +1025,12 @@ const App: React.FC = () => {
             pharmacies={visiblePharmacies}
             theftRecords={userData.theftRecords}
             onAddRecord={async (record) => {
+              if (!checkPermission('theft_records')) return;
               setUserData(prev => ({ ...prev, theftRecords: [record, ...prev.theftRecords] }));
               await saveToCloud('theft_records', record.id, record);
             }}
             onUpdateRecord={async (record) => {
+              if (!checkPermission('theft_records')) return;
               setUserData(prev => ({
                 ...prev,
                 theftRecords: prev.theftRecords.map(x => (x.id === record.id ? record : x))
@@ -1030,6 +1038,7 @@ const App: React.FC = () => {
               await saveToCloud('theft_records', record.id, record);
             }}
             onDeleteRecord={async (id) => {
+              if (!checkPermission('theft_records')) return;
               setUserData(prev => ({
                 ...prev,
                 theftRecords: prev.theftRecords.filter(x => x.id !== id)
