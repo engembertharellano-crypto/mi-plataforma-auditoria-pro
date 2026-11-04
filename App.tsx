@@ -302,11 +302,19 @@ const App: React.FC = () => {
     setIsSyncing(true);
 
     try {
-      const getTableData = async (table: string) => {
-        let q: any = sb.from(table).select('*');
-        const { data, error } = await q;
-        if (error) throw error;
-        return data || [];
+      // Cada tabla se carga por separado: si una falla, el resto sí se aplica
+      // y la tabla caída conserva sus datos locales (null = no se pudo leer).
+      const failedTables: string[] = [];
+      const getTableData = async (table: string): Promise<any[] | null> => {
+        try {
+          const { data, error } = await sb.from(table).select('*');
+          if (error) throw error;
+          return data || [];
+        } catch (err) {
+          console.warn(`Sync: no se pudo leer la tabla ${table}`, err);
+          failedTables.push(table);
+          return null;
+        }
       };
 
       const pharmQuery = sb.from('pharmacies').select('*').order('name');
@@ -371,35 +379,42 @@ const App: React.FC = () => {
           operativa: p.operativa ?? true
         }));
 
-        if (cloudPharms.length === 0 && prev.pharmacies.length > 0 && !(pharms as any).data) return prev;
+        // Si la tabla no se pudo leer (null), se conservan los datos que ya hay en pantalla
+        const pick = (res: any[] | null, key: string) => (res === null ? (prev as any)[key] : process(res));
 
         return {
           ...prev,
-          pharmacies: cloudPharms,
-          audits: process(auds),
-          cctvRecords: process(cctvs),
-          physicalRecords: process(phys),
-          managementRecords: process(mgmts),
-          pendingRecords: process(pends),
-          staffRecords: process(stfs),
-          supportRecords: process(supps),
-          deliveryReceipts: process(recs),
-          assets: process(assts),
-          loans: process(lns),
-          cases: process(casesData),
-          schedule: process(schs),
-          technicalInventory: process(techInvData),
+          pharmacies: pharms.data ? cloudPharms : prev.pharmacies,
+          audits: pick(auds, 'audits'),
+          cctvRecords: pick(cctvs, 'cctvRecords'),
+          physicalRecords: pick(phys, 'physicalRecords'),
+          managementRecords: pick(mgmts, 'managementRecords'),
+          pendingRecords: pick(pends, 'pendingRecords'),
+          staffRecords: pick(stfs, 'staffRecords'),
+          supportRecords: pick(supps, 'supportRecords'),
+          deliveryReceipts: pick(recs, 'deliveryReceipts'),
+          assets: pick(assts, 'assets'),
+          loans: pick(lns, 'loans'),
+          cases: pick(casesData, 'cases'),
+          schedule: pick(schs, 'schedule'),
+          technicalInventory: pick(techInvData, 'technicalInventory'),
           theftRecords: (theftsData && theftsData.length > 0) ? process(theftsData) : prev.theftRecords,
-          users: ((dbUsers.data) || []).map((u: any) => ({
-            ...u,
-            fullName: u.full_name,
-            isApproved: u.is_approved,
-            isBlocked: u.is_blocked
-          }))
+          users: dbUsers.data
+            ? dbUsers.data.map((u: any) => ({
+                ...u,
+                fullName: u.full_name,
+                isApproved: u.is_approved,
+                isBlocked: u.is_blocked
+              }))
+            : prev.users
         };
       });
 
-      addToast("Datos Sincronizados", "sync");
+      if (failedTables.length > 0) {
+        addToast(`Sincronización parcial: ${failedTables.join(', ')}`, "error");
+      } else {
+        addToast("Datos Sincronizados", "sync");
+      }
     } catch (e) {
       console.error("Sync error:", e);
       addToast("Modo Offline Activo", "sync");
