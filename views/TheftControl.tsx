@@ -2168,19 +2168,14 @@ export const TheftControl: React.FC<TheftControlProps> = ({
               <span className="text-[10px] text-slate-500 font-bold block">{selectedRecord.zoneInPharmacy}</span>
             </div>
             <div className={`rounded-xl p-3 border ${selectedRecord.hasSecurityOfficerAtIncident ? 'bg-emerald-50/70 border-emerald-200' : 'bg-amber-50/70 border-amber-200'}`}>
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Seguridad al momento del hecho</span>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Seguridad en tienda</span>
               <span className={`inline-flex items-center gap-1.5 mt-1 text-xs font-black ${selectedRecord.hasSecurityOfficerAtIncident ? 'text-emerald-700' : 'text-amber-700'}`}>
                 {selectedRecord.hasSecurityOfficerAtIncident ? (
                   <Shield className="w-4 h-4 text-emerald-600" />
                 ) : (
                   <ShieldX className="w-4 h-4 text-amber-600" />
                 )}
-                {selectedRecord.hasSecurityOfficerAtIncident ? 'Farmacia con oficial presente' : 'Farmacia sin oficial presente'}
-              </span>
-              <span className="text-[10px] text-slate-500 font-bold block mt-0.5">
-                {selectedRecord.hasSecurityOfficerAtIncident
-                  ? 'Había un oficial de seguridad en tienda durante el hurto.'
-                  : 'No había oficial de seguridad en tienda durante el hurto.'}
+                {selectedRecord.hasSecurityOfficerAtIncident ? 'Con oficial presente' : 'Sin oficial presente'}
               </span>
             </div>
             <div>
@@ -2228,7 +2223,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
           <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 space-y-3">
             <span className="text-xs font-black text-blue-900 uppercase tracking-wider block flex items-center gap-1.5">
               <FolderOpen className="w-4 h-4 text-blue-600" />
-              Enlaces de Evidencia en Google Drive ({detailLinks.length})
+              Evidencia fotográfica y documental ({detailLinks.length})
             </span>
 
             {detailLinks.length > 0 ? (
