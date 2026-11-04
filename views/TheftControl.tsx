@@ -201,6 +201,8 @@ export const TheftControl: React.FC<TheftControlProps> = ({
     let recoveredCount = 0;
     let withOfficerLoss = 0;
     let withoutOfficerLoss = 0;
+    let withOfficerRecovered = 0;
+    let withoutOfficerRecovered = 0;
     let withOfficerCount = 0;
     let withoutOfficerCount = 0;
 
@@ -220,9 +222,11 @@ export const TheftControl: React.FC<TheftControlProps> = ({
       // Desglose oficial de seguridad
       if (r.hasSecurityOfficerAtIncident) {
         withOfficerLoss += loss;
+        withOfficerRecovered += rec;
         withOfficerCount += 1;
       } else {
         withoutOfficerLoss += loss;
+        withoutOfficerRecovered += rec;
         withoutOfficerCount += 1;
       }
 
@@ -276,6 +280,8 @@ export const TheftControl: React.FC<TheftControlProps> = ({
       topPharmCount: maxIncidents,
       withOfficerLoss,
       withoutOfficerLoss,
+      withOfficerRecovered,
+      withoutOfficerRecovered,
       withOfficerCount,
       withoutOfficerCount,
       topAreas,
@@ -846,8 +852,10 @@ export const TheftControl: React.FC<TheftControlProps> = ({
                         </span>
                       </div>
                       <span className="text-3xl font-black text-white block">
-                        ${stats.withOfficerLoss.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ${stats.withOfficerRecovered.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
+                      <span className="text-[11px] font-bold text-emerald-300/80 uppercase tracking-wide">Monto recuperado</span>
+                      <span className="block text-xs text-slate-400 mt-1">Pérdida: ${stats.withOfficerLoss.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                     <div className="mt-3 pt-3 border-t border-emerald-500/20 flex items-center justify-between text-xs">
                       <span className="text-slate-300 font-semibold">Total de eventos bajo custodia:</span>
@@ -871,8 +879,10 @@ export const TheftControl: React.FC<TheftControlProps> = ({
                         </span>
                       </div>
                       <span className="text-3xl font-black text-white block">
-                        ${stats.withoutOfficerLoss.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ${stats.withoutOfficerRecovered.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
+                      <span className="text-[11px] font-bold text-amber-300/80 uppercase tracking-wide">Monto recuperado</span>
+                      <span className="block text-xs text-slate-400 mt-1">Pérdida: ${stats.withoutOfficerLoss.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                     <div className="mt-3 pt-3 border-t border-amber-500/20 flex items-center justify-between text-xs">
                       <span className="text-slate-300 font-semibold">Total de eventos sin custodia:</span>
