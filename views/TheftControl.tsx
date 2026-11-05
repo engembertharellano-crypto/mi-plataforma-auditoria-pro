@@ -191,6 +191,8 @@ export const TheftControl: React.FC<TheftControlProps> = ({
 
   const [filterOfficer, setFilterOfficer] = useState<string>('ALL'); // ALL, WITH_OFFICER, WITHOUT_OFFICER
   const [activeTabMetric, setActiveTabMetric] = useState<'overview' | 'areas' | 'officers'>('overview');
+  const [showAllPharmacies, setShowAllPharmacies] = useState(false);
+  const PHARMACY_PREVIEW_COUNT = 6;
 
   // ==========================================
   // CÁLCULOS Y KPIs ENRIQUECIDOS
@@ -826,8 +828,9 @@ export const TheftControl: React.FC<TheftControlProps> = ({
                       </div>
                     );
                     return (
+                      <div className="space-y-3">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {stats.pharmacyBreakdown.map((p, idx) => (
+                        {(showAllPharmacies ? stats.pharmacyBreakdown : stats.pharmacyBreakdown.slice(0, PHARMACY_PREVIEW_COUNT)).map((p, idx) => (
                           <div
                             key={p.name}
                             className={`bg-slate-900/60 p-3.5 rounded-xl border ${idx < 3 && p.count > 0 ? 'border-rose-500/30' : 'border-white/5'} space-y-2`}
@@ -845,6 +848,17 @@ export const TheftControl: React.FC<TheftControlProps> = ({
                             {barLine('Recuperado', p.rec, 'rec')}
                           </div>
                         ))}
+                      </div>
+                      {stats.pharmacyBreakdown.length > PHARMACY_PREVIEW_COUNT && (
+                        <button
+                          onClick={() => setShowAllPharmacies(v => !v)}
+                          className="w-full py-2 text-xs font-bold text-rose-400 hover:text-rose-300 bg-slate-900/60 border border-white/5 rounded-xl transition-colors"
+                        >
+                          {showAllPharmacies
+                            ? 'Ver menos'
+                            : `Ver todas (${stats.pharmacyBreakdown.length})`}
+                        </button>
+                      )}
                       </div>
                     );
                   })() : (
