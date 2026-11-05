@@ -206,7 +206,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
     let withOfficerCount = 0;
     let withoutOfficerCount = 0;
 
-    const incidentsByPharm: Record<string, { count: number; loss: number }> = {};
+    const incidentsByPharm: Record<string, { count: number; loss: number; rec: number }> = {};
     const incidentsByArea: Record<string, { count: number; loss: number }> = {};
     const incidentsByType: Record<string, { count: number; loss: number }> = {};
 
@@ -233,10 +233,11 @@ export const TheftControl: React.FC<TheftControlProps> = ({
       // Por farmacia
       if (r.pharmacyName) {
         if (!incidentsByPharm[r.pharmacyName]) {
-          incidentsByPharm[r.pharmacyName] = { count: 0, loss: 0 };
+          incidentsByPharm[r.pharmacyName] = { count: 0, loss: 0, rec: 0 };
         }
         incidentsByPharm[r.pharmacyName].count += 1;
         incidentsByPharm[r.pharmacyName].loss += loss;
+        incidentsByPharm[r.pharmacyName].rec += rec;
       }
 
       // Por área
@@ -265,11 +266,10 @@ export const TheftControl: React.FC<TheftControlProps> = ({
       }
     });
 
-    // Top áreas críticas ordenadas por pérdida
-    const topAreas = Object.entries(incidentsByArea)
+    // Farmacias ordenadas por número de hechos (desempate: pérdida)
+    const pharmacyBreakdown = Object.entries(incidentsByPharm)
       .map(([name, d]) => ({ name, ...d }))
-      .sort((a, b) => b.loss - a.loss)
-      .slice(0, 5);
+      .sort((a, b) => b.count - a.count || b.loss - a.loss);
 
     return {
       totalLoss,
@@ -284,7 +284,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
       withoutOfficerRecovered,
       withOfficerCount,
       withoutOfficerCount,
-      topAreas,
+      pharmacyBreakdown,
       incidentsByType
     };
   }, [theftRecords]);
@@ -734,7 +734,7 @@ export const TheftControl: React.FC<TheftControlProps> = ({
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    Por Áreas
+                    Por Farmacias
                   </button>
                   <button
                     onClick={() => setActiveTabMetric('officers')}
@@ -805,33 +805,50 @@ export const TheftControl: React.FC<TheftControlProps> = ({
               {activeTabMetric === 'areas' && (
                 <div className="space-y-3 pt-2">
                   <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                    Top Áreas con Mayor Fuga de Mercancía:
+                    Farmacias con más hechos
                   </span>
-                  {stats.topAreas.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {stats.topAreas.map((area, idx) => {
-                        const percent = stats.totalLoss > 0 ? Math.round((area.loss / stats.totalLoss) * 100) : 0;
-                        return (
-                          <div key={idx} className="bg-slate-900/60 p-3.5 rounded-xl border border-white/5">
-                            <div className="flex justify-between items-center text-xs mb-1">
-                              <span className="font-bold text-white truncate mr-2">{area.name}</span>
-                              <span className="font-mono text-rose-400 font-bold">${area.loss.toFixed(2)}</span>
+                  {stats.pharmacyBreakdown.length > 0 ? (() => {
+                    const maxMoney = Math.max(1, ...stats.pharmacyBreakdown.map(p => Math.max(p.loss, p.rec)));
+                    const pct = (v: number) => (v > 0 ? Math.max(3, (v / maxMoney) * 100) : 0);
+                    const money = (v: number) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    const barLine = (label: string, value: number, tone: 'loss' | 'rec') => (
+                      <div className="grid grid-cols-[72px_1fr_88px] items-center gap-2">
+                        <span className={`text-[9px] font-black uppercase tracking-wider ${tone === 'loss' ? 'text-rose-400' : 'text-emerald-400'}`}>{label}</span>
+                        <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${tone === 'loss' ? 'bg-gradient-to-r from-rose-500 to-rose-400' : 'bg-gradient-to-r from-emerald-500 to-emerald-400'}`}
+                            style={{ width: `${pct(value)}%` }}
+                          />
+                        </div>
+                        <span className={`font-mono text-[11px] font-bold text-right ${value > 0 ? (tone === 'loss' ? 'text-rose-400' : 'text-emerald-400') : 'text-slate-600'}`}>
+                          {money(value)}
+                        </span>
+                      </div>
+                    );
+                    return (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {stats.pharmacyBreakdown.map((p, idx) => (
+                          <div
+                            key={p.name}
+                            className={`bg-slate-900/60 p-3.5 rounded-xl border ${idx < 3 && p.count > 0 ? 'border-rose-500/30' : 'border-white/5'} space-y-2`}
+                          >
+                            <div className="flex justify-between items-center text-xs">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="font-mono text-[10px] text-slate-500">{String(idx + 1).padStart(2, '0')}</span>
+                                <span className={`font-bold truncate ${p.count > 0 ? 'text-white' : 'text-slate-500'}`}>{p.name}</span>
+                              </div>
+                              <span className={`font-mono font-bold text-[11px] ${p.count > 0 ? 'text-slate-300' : 'text-slate-600'}`}>
+                                {p.count} {p.count === 1 ? 'hecho' : 'hechos'}
+                              </span>
                             </div>
-                            <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                              <div
-                                className="bg-gradient-to-r from-rose-500 to-amber-500 h-full rounded-full"
-                                style={{ width: `${Math.min(100, Math.max(5, percent))}%` }}
-                              />
-                            </div>
-                            <span className="text-[10px] text-slate-400 mt-1 block">
-                              {area.count} caso(s) • {percent}% de las pérdidas totales
-                            </span>
+                            {barLine('Perdido', p.loss, 'loss')}
+                            {barLine('Recuperado', p.rec, 'rec')}
                           </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-400 italic">No hay suficientes registros para desglosar áreas.</p>
+                        ))}
+                      </div>
+                    );
+                  })() : (
+                    <p className="text-xs text-slate-400 italic">No hay suficientes registros para desglosar farmacias.</p>
                   )}
                 </div>
               )}
